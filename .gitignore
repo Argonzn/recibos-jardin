@@ -5,3 +5,6 @@ pdfs/
 
 # Configuración local de clasp
 .clasp.json
+
+# Configuración local de herramientas
+.impeccable/

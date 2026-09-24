@@ -175,7 +175,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
     <div class="brand">
       <h1>Recibos de luz</h1>
       <p id="subtitulo">Luz del Sur</p>
-      <p class="muted small" style="margin:2px 0 0"><button class="iconbtn" id="btn-cambiar-conexion" style="padding:0">Cerrar sesión</button></p>
+      <p class="muted small" style="margin:2px 0 0"><button class="iconbtn" id="btn-cambiar-conexion" style="padding:0">Cerrar sesión</button><span id="estado-sync"></span></p>
     </div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
@@ -316,6 +316,16 @@ const CAMPOS=[
 const REQUERIDOS=['mes','kwh','consumoEnergia','totalMes','totalPagar','vencimiento','corte'];
 
 let recibos=[];let deptos=[],lecturas=[];let db=null,assets=null,sample=null,downloads=null;let tabActual='resumen';let charts=[];let deptoChart=null;
+// true cuando llegaron los datos frescos del servidor. Antes de eso se muestra la copia guardada en el
+// dispositivo (o "Cargando…") y no se permite guardar: los chequeos de "ya existe" y la lectura anterior
+// dependen de tener los datos completos.
+let datosListos=false;
+const panelCargando=()=>`<div class="panel empty muted"><p style="margin:0">Cargando datos…</p></div>`;
+function esperarDatos(){
+  if(datosListos||!db)return Promise.resolve();
+  toast('Cargando los datos más recientes…');
+  return new Promise(ok=>{const t=setInterval(()=>{if(datosListos){clearInterval(t);ok()}},150)});
+}
 
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3200)}
 
@@ -367,6 +377,7 @@ async function marcarPagado(r,v){
 /* ---------- Resumen ---------- */
 function renderResumen(){
   const el=$('#tab-resumen');
+  if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty"><h2>Todavía no hay recibos</h2><p class="muted">Sube el PDF de tu recibo de Luz del Sur y los datos se ordenan solos.</p><button class="btn primary" onclick="irA('recibos');document.getElementById('file').click()">Subir recibo PDF</button></div>`;return}
   const r=recibos[recibos.length-1];const st=estado(r);
   const dias=diasEntre(r.fechaLecturaAnterior,r.fechaLectura);
@@ -419,6 +430,7 @@ function renderResumen(){
 /* ---------- Lista ---------- */
 function renderRecibos(){
   const el=$('#lista');
+  if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
     <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfUrl?' (con PDF)':''}</div></div>
@@ -471,7 +483,8 @@ function chequeos(d){
   if(d.totalPagar!=null&&d.totalMes!=null){const s=d.totalMes+(d.ajusteAnterior||0)+(d.ajusteActual||0)+(d.deudaVencida||0);if(!near(s,d.totalPagar))out.push(`Total del mes + ajustes + deuda da ${fmtS(s)} y el total a pagar dice ${fmtS(d.totalPagar)}.`)}
   return out;
 }
-function abrirFormulario(data,{file=null,texto='',editando=false}={}){
+async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
+  await esperarDatos(); // el aviso de "ya existe un recibo de este mes" necesita la lista completa
   return new Promise(resolve=>{
     const dlg=$('#dlg');
     const falt=()=>REQUERIDOS.filter(k=>data[k]==null||data[k]==='');
@@ -537,6 +550,7 @@ function css(v){return getComputedStyle(document.documentElement).getPropertyVal
 function renderReportes(){
   charts.forEach(c=>c.destroy());charts=[];
   const el=$('#tab-reportes');
+  if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Los reportes aparecen cuando guardes tu primer recibo.</div>`;return}
   const anios=[...new Set(recibos.map(r=>r.id.slice(0,4)))].sort().reverse();
   const sel=renderReportes.anio&&(renderReportes.anio==='todos'||anios.includes(renderReportes.anio))?renderReportes.anio:'todos';
@@ -658,6 +672,7 @@ function renderPagosPendientes(){
 }
 function renderDeptos(){
   const el=$('#tab-deptos');
+  if(!deptos.length&&!datosListos){el.innerHTML=panelCargando();return}
   const mesRef=ultimoMesConDatos();
   const su=sinUbicar();
   el.innerHTML=renderPagosPendientes()+`<div class="panel">
@@ -818,7 +833,8 @@ function registrarCambioCobro(l,nuevoMonto,nuevaFecha){
   h.push({cuando:new Date().toISOString(),anterior:{monto:l.montoCobrado??null,fecha:l.fechaCobro??null},nuevo:{monto:nuevoMonto,fecha:nuevaFecha}});
   return h;
 }
-function abrirCobro(l,deptoId){
+async function abrirCobro(l,deptoId){
+  await esperarDatos();
   const d=deptos.find(x=>x.id===deptoId);
   const v=calcVerif(deptoId,l.mes);
   const data={monto:l.montoCobrado??null,fecha:l.fechaCobro||new Date().toISOString().slice(0,10)};
@@ -884,7 +900,8 @@ function abrirHistorialCobro(l,d){
   dlg.showModal();
 }
 
-function abrirLecturaForm(deptoId,existente=null){
+async function abrirLecturaForm(deptoId,existente=null){
+  await esperarDatos(); // la lectura anterior se toma del historial del departamento
   const d=deptos.find(x=>x.id===deptoId);
   const ls=lecturasDe(deptoId);
   const ultimoMesRecibos=ultimoMesConDatos();
@@ -1069,9 +1086,14 @@ class SheetsDB{
     const names=Object.keys(this.subs);if(!names.length)return;
     try{
       const all=await this._post({action:'listAll',collections:names});
-      names.forEach(n=>{const docs=all[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))});
+      if(!datosListos){datosListos=true;marcarEstadoSync()}
+      this._entregar(all);
+      try{localStorage.setItem('recibos_cache',JSON.stringify(all))}catch(e){}
     }catch(e){names.forEach(n=>this.subs[n].forEach(s=>s.errCb&&s.errCb({code:e.code||'network'})))}
   }
+  _entregar(all){Object.keys(this.subs).forEach(n=>{const docs=all[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))})}
+  // Al abrir: muestra al instante la última copia guardada en este dispositivo mientras llegan los datos frescos.
+  mostrarCopiaLocal(){try{const c=JSON.parse(lsGet('recibos_cache')||'null');if(c)this._entregar(c)}catch(e){}}
   _schedule(){
     clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),0);
     if(!this.timer){this.timer=setInterval(()=>this._poll(),7000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)this._poll()})}
@@ -1083,7 +1105,9 @@ class SheetsDB{
     }};
   }
   // Tras escribir se refresca enseguida (como hacía onSnapshot en claude.ai); varias escrituras seguidas se agrupan en un solo refresco.
-  async _write(payload){const r=await this._post(payload);clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),150);return r}
+  async _write(payload){
+    if(!datosListos)throw new Error('Todavía se están cargando los datos. Intenta de nuevo en unos segundos.');
+    const r=await this._post(payload);clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),150);return r}
   doc(path){const [collection,id]=path.split('/');return{
     set:(data,clave)=>this._write({action:'set',collection,id,data,clave}),
     update:(data,clave)=>this._write({action:'update',collection,id,data,clave}),
@@ -1159,13 +1183,15 @@ async function conectar(){
   db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
   db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
   db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos()});
+  renderTodo();db.mostrarCopiaLocal();marcarEstadoSync();
   if(tabActual==='reportes')renderReportes();
 }
 conectar();
 document.getElementById('btn-cambiar-conexion').onclick=async()=>{
   if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
-  lsSet('recibos_token',null);location.reload();
+  lsSet('recibos_token',null);lsSet('recibos_cache',null);location.reload();
 };
+function marcarEstadoSync(){const e=$('#estado-sync');if(e)e.textContent=datosListos?'':' · Actualizando…'}
 // App instalable (GitHub Pages): registra el service worker que guarda la interfaz para abrir más rápido.
 if(!EN_APPS_SCRIPT&&'serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
