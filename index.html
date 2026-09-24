@@ -165,6 +165,14 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .pago-row.atrasado{background:var(--red-soft);margin:0 -14px;padding:11px 14px;border-radius:8px}
 .btn.sm{padding:6px 12px;font-size:.85rem;white-space:nowrap}
 @media (max-width:640px){.pago-row{grid-template-columns:1fr 1fr;row-gap:6px}.pago-row .btn.sm{grid-column:1/-1}}
+.pdf-mini{display:flex;gap:14px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:10px;cursor:pointer;margin:0 0 16px;color:var(--ink)}
+.pdf-mini:hover{border-color:var(--muted)}
+.pdf-mini img{width:84px;height:108px;object-fit:cover;object-position:top;border-radius:6px;background:var(--surface);border:1px solid var(--line);flex:none}
+.pdf-mini strong{display:block;font-size:1rem}
+#dlgPdf{width:min(920px,calc(100vw - 24px));height:calc(100dvh - 32px);max-height:none}
+#dlgPdf[open]{display:flex;flex-direction:column}
+#dlgPdf iframe{flex:1;width:100%;border:0;background:var(--surface-2)}
+@media (max-width:640px){#dlgPdf{width:100vw;height:100dvh;max-width:100vw;border-radius:0}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -194,6 +202,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
         <div class="row">
           <button class="btn primary" id="btn-subir">Subir recibo PDF</button>
           <button class="btn" id="btn-manual">Agregar a mano</button>
+          <button class="btn" id="btn-vincular" title="Vincula los PDF que dejes en Drive, en RECIBOS_JARDIN / Recibos PDF">Buscar PDF en Drive</button>
         </div>
       </div>
       <div class="drop" id="drop" style="margin-top:14px">Arrastra aquí los PDF de tus recibos, o usa el botón de arriba. Los datos se leen solos y los revisas antes de guardar.</div>
@@ -208,6 +217,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 <dialog id="dlg"></dialog>
 <dialog id="dlgConfirm"></dialog>
 <dialog id="dlgPrompt"></dialog>
+<dialog id="dlgPdf" aria-label="Recibo original"></dialog>
 <dialog id="dlgLogin" style="width:min(380px,calc(100vw - 24px))"></dialog>
 <div class="toast" id="toast" hidden></div>
 <!-- OJO: Apps Script borra comentarios JS de forma ingenua. En el JavaScript no escribir barra-barra ni barra-asterisco dentro de textos: usar \/\/ y \/* (el navegador los lee igual). -->
@@ -415,6 +425,7 @@ function renderResumen(){
       <div class="row" style="margin-top:16px">
         <button class="btn ${r.pagado?'':'primary'}" data-pagar="${r.id}">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button>
         <button class="btn" data-ver="${r.id}">Ver detalle</button>
+        ${r.pdfId?`<button class="btn" data-verpdf="${r.id}">Ver recibo</button>`:''}
       </div>
     </div>
   </div>
@@ -433,7 +444,7 @@ function renderRecibos(){
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
-    <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfUrl?' (con PDF)':''}</div></div>
+    <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
     <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh</div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
     <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
     <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
@@ -448,6 +459,7 @@ function abrirDetalle(id){
   dlg.innerHTML=`<div class="dlg-h"><h2>${mesLargo(r.id)} <span class="chip ${st.cls}" style="vertical-align:middle">${st.txt}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')}${r.suministro?`, suministro ${esc(r.suministro)}`:''}. Emitido el ${fechaCorta(r.emision)}.</p>
+    ${r.pdfId?`<button class="pdf-mini" data-verpdf="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
     <h3>Lectura</h3>
     <p style="margin-top:0">${fmtN(r.lecturaActual,2)} − ${fmtN(r.lecturaAnterior,2)} = <strong>${fmtN(r.kwh)} kWh</strong> × ${r.precioKwh??'—'} = ${fmtS(r.consumoEnergia)}<br><span class="muted small">Del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}</span></p>
     <h3>Detalle</h3>
@@ -462,7 +474,7 @@ function abrirDetalle(id){
   </div>
   <div class="dlg-f">
     <button class="btn danger" data-borrar style="margin-right:auto">Eliminar</button>
-    ${r.pdfUrl?`<a class="btn" href="${esc(r.pdfUrl)}" target="_blank" rel="noopener">Abrir PDF</a>`:''}
+    ${r.pdfId?`<button class="btn" data-verpdf="${r.id}">Ver recibo</button>`:''}
     <button class="btn" data-editar>Editar</button>
     <button class="btn primary" data-pagar="${r.id}">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button>
   </div>`;
@@ -1024,6 +1036,46 @@ const drop=$('#drop');
 drop.addEventListener('drop',e=>procesar([...e.dataTransfer.files]));
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(tabActual==='reportes')renderReportes()});
 renderTodo();
+
+
+/* ---------- Recibo original (PDF en Drive) ---------- */
+// Las URL llevan \/\/ porque Apps Script corta los // dentro de textos al servir la página.
+const DRIVE='https:\/\/drive.google.com';
+const pdfPreviewUrl=id=>DRIVE+'/file/d/'+encodeURIComponent(id)+'/preview';
+const pdfMiniUrl=id=>DRIVE+'/thumbnail?id='+encodeURIComponent(id)+'&sz=w400';
+function abrirVisorPdf(r){
+  const c=$('#dlgPdf');
+  c.innerHTML=`<div class="dlg-h"><h2>Recibo de ${mesLargo(r.id)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <iframe src="${esc(pdfPreviewUrl(r.pdfId))}" title="Recibo de ${mesLargo(r.id)}" allow="fullscreen"></iframe>
+    <div class="dlg-f"><a class="btn" href="${esc(r.pdfUrl||(DRIVE+'/file/d/'+r.pdfId+'/view'))}" target="_blank" rel="noopener">Abrir en Drive</a><button class="btn primary" data-close>Cerrar</button></div>`;
+  c.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>c.close());
+  c.addEventListener('close',()=>{c.innerHTML=''},{once:true}); // descarga el visor al cerrar
+  c.showModal();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-verpdf]');if(!b)return;const r=recibos.find(x=>x.id===b.dataset.verpdf);if(r&&r.pdfId)abrirVisorPdf(r)});
+function mostrarResultado(titulo,lineas){
+  const c=$('#dlgConfirm');
+  c.innerHTML=`<div class="dlg-b" style="padding-top:22px"><h2 style="margin:0 0 10px">${esc(titulo)}</h2>${lineas.map(l=>`<p class="small" style="margin:0 0 8px">${l}</p>`).join('')}</div><div class="dlg-f"><button class="btn primary" id="res-ok">Entendido</button></div>`;
+  c.querySelector('#res-ok').onclick=()=>c.close();
+  c.showModal();
+}
+$('#btn-vincular').onclick=async()=>{
+  if(!db)return;
+  await esperarDatos();
+  const btn=$('#btn-vincular');btn.disabled=true;btn.textContent='Buscando…';
+  try{
+    const r=await db._post({action:'vincularPdfs'});db._poll(true);
+    const meses=a=>a.map(m=>esc(/^\d{4}-\d{2}$/.test(m)?mesLargo(m):m)).join(', ');
+    const l=[];
+    if(r.vinculados.length)l.push('✅ <strong>Vinculados:</strong> '+meses(r.vinculados)+'.');
+    if(r.yaEstaban.length)l.push('Ya tenían PDF: '+meses(r.yaEstaban)+'.');
+    if(r.sinRecibo.length)l.push('⚠️ Sin recibo en la app para: '+r.sinRecibo.map(esc).join(', ')+'. Agrega primero el recibo de ese mes.');
+    if(r.noReconocidos.length)l.push('⚠️ No se reconoció el mes de: '+r.noReconocidos.map(esc).join(', ')+'. Renómbralos como «Recibo 2026-03.pdf».');
+    if(!l.length)l.push('No hay PDF en la carpeta <strong>RECIBOS_JARDIN / Recibos PDF</strong> de tu Drive.');
+    mostrarResultado('PDF en Drive',l);
+  }catch(e){toast('No se pudo revisar Drive: '+(e.message||e.code))}
+  btn.disabled=false;btn.textContent='Buscar PDF en Drive';
+};
 
 /* ---------- Backend: Google Apps Script + Sheets + Drive ---------- */
 // En GitHub Pages → fetch a la API /exec. Servida por Apps Script (respaldo) → google.script.run.

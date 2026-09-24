@@ -186,6 +186,48 @@ function uploadFile_(base64Data, mimeType, filename, carpeta) {
   return { id: file.getId(), url: url, viewUrl: file.getUrl() };
 }
 
+/* ---------- Vincular PDF dejados en Drive ----------
+ * Revisa RECIBOS_JARDIN/Recibos PDF y enlaza cada PDF con el recibo de su mes, deducido del nombre:
+ * "Recibo 2026-03.pdf", "MAR26.pdf", "JUN26 (2).pdf", "SET-2026.pdf"… Así basta con arrastrar los PDF a la carpeta. */
+const MESES_PDF_ = { ENE: 1, FEB: 2, MAR: 3, ABR: 4, MAY: 5, JUN: 6, JUL: 7, AGO: 8, SEP: 9, SET: 9, OCT: 10, NOV: 11, DIC: 12 };
+
+function mesDesdeNombre_(nombre) {
+  const n = String(nombre).toUpperCase();
+  let m = n.match(/(20\d{2})[-_ .]?(0[1-9]|1[0-2])(?!\d)/);
+  if (m) return m[1] + '-' + m[2];
+  m = n.match(/(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|SET|OCT|NOV|DIC)[A-Z]*[-_ .]*((?:20)?\d{2})(?!\d)/);
+  if (m) {
+    const anio = m[2].length === 2 ? '20' + m[2] : m[2];
+    return anio + '-' + ('0' + MESES_PDF_[m[1]]).slice(-2);
+  }
+  return null;
+}
+
+function vincularPdfs_() {
+  const carpeta = getFolder_(['Recibos PDF']);
+  const recibos = listCollection_('recibos');
+  const porMes = {};
+  recibos.forEach(r => { porMes[r.id] = r; });
+  const res = { vinculados: [], yaEstaban: [], sinRecibo: [], noReconocidos: [] };
+  const it = carpeta.getFilesByType(MimeType.PDF);
+  while (it.hasNext()) {
+    const f = it.next();
+    const mes = mesDesdeNombre_(f.getName());
+    if (!mes) { res.noReconocidos.push(f.getName()); continue; }
+    const r = porMes[mes];
+    if (!r) { res.sinRecibo.push(f.getName() + ' → ' + mes); continue; }
+    if (r.pdfId === f.getId()) { res.yaEstaban.push(mes); continue; }
+    if (r.pdfId) { res.yaEstaban.push(mes + ' (ya tenía otro PDF; no se cambió)'); continue; }
+    f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    const original = f.getName();
+    f.setName('Recibo ' + mes + '.pdf');
+    updateDoc_('recibos', mes, { pdfId: f.getId(), pdfUrl: f.getUrl(), pdfNombre: original, actualizado: new Date().toISOString() });
+    r.pdfId = f.getId();
+    res.vinculados.push(mes);
+  }
+  return res;
+}
+
 function deleteFile_(fileId) {
   try { DriveApp.getFileById(fileId).setTrashed(true); } catch (e) {}
   return { deleted: true };
@@ -281,6 +323,7 @@ function api(body) {
       case 'delete':     return deleteDoc_(body.collection, body.id);
       case 'upload':     return uploadFile_(body.base64, body.mimeType, body.filename, body.carpeta);
       case 'deleteFile': return deleteFile_(body.fileId);
+      case 'vincularPdfs': return vincularPdfs_();
       default: throw new Error('unknown_action: ' + body.action);
     }
   } finally {
