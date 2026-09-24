@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recibos de luz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#12171D">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Recibos">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#EEF1F4;--surface:#FFFFFF;--surface-2:#F6F8FA;--ink:#1D2733;--muted:#5B6775;--line:#D5DBE2;
+  --amber:#D99A06;--amber-soft:#FCEFC7;--blue:#2B5FB4;--blue-soft:#DCE7F8;--red:#C2412D;--red-soft:#F8DDD7;--green:#2E7D4F;--green-soft:#D8EFE1;
+  --grey-bar:#B8C1CC;
+  --font:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171D;--surface:#1B222B;--surface-2:#222A34;--ink:#E6EBF0;--muted:#9AA6B2;--line:#2E3844;
+  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171D;--surface:#1B222B;--surface-2:#222A34;--ink:#E6EBF0;--muted:#9AA6B2;--line:#2E3844;
+  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;color-scheme:dark}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+img{max-width:100%}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1040px;margin:0 auto;padding:16px 16px 96px}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 0 16px}
+.brand h1{margin:0;font-size:1.6rem;line-height:1.1;font-weight:760;font-stretch:78%;letter-spacing:-.01em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
+nav.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+nav.tabs button{border:0;background:none;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:600;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+@media (max-width:640px){
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;border-radius:0;border-width:1px 0 0;justify-content:space-around;z-index:20;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+  nav.tabs button{flex:1;padding:8px 4px;font-size:.86rem;white-space:nowrap}
+}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.stack>*+*{margin-top:16px}
+h2{font-size:1.15rem;font-weight:720;font-stretch:85%;margin:0 0 10px}
+h3{font-size:1rem;font-weight:700;margin:0 0 8px}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--red);border-color:var(--red)}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.banner{padding:12px 14px;border-radius:12px;font-size:.93rem}
+.banner.warn{background:var(--amber-soft)}
+.banner.alert{background:var(--red-soft)}
+.banner.info{background:var(--blue-soft)}
+
+/* Hero: lectura del medidor */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:0;padding:0;overflow:hidden}
+.hero .meter{padding:22px;border-right:1px solid var(--line)}
+.hero .money{padding:22px;background:var(--surface-2)}
+.meter-label{font-size:.9rem;color:var(--muted)}
+.odo{display:flex;gap:4px;margin:10px 0 12px;flex-wrap:wrap}
+.odo span{display:inline-grid;place-items:center;min-width:2.1rem;height:3rem;background:var(--ink);color:var(--bg);border-radius:6px;font-size:1.9rem;font-weight:700;font-stretch:70%}
+.odo span.dec{background:var(--amber);color:#1D2733}
+.odo span.sep{min-width:.6rem;background:none;color:var(--ink)}
+.kwh-big{font-size:2.6rem;font-weight:800;font-stretch:72%;line-height:1}
+.kwh-big small{font-size:1rem;font-weight:600;color:var(--muted);margin-left:4px}
+.money .amount{font-size:2.3rem;font-weight:800;font-stretch:72%;line-height:1.05;margin:6px 0 2px}
+.dates{margin-top:14px;display:grid;gap:6px}
+.dates div{display:flex;justify-content:space-between;gap:10px;font-size:.93rem}
+@media (max-width:760px){.hero{grid-template-columns:1fr}.hero .meter{border-right:0;border-bottom:1px solid var(--line)}}
+.chip{display:inline-block;font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:99px}
+.chip.ok{background:var(--green-soft);color:var(--green)}
+.chip.pend{background:var(--amber-soft);color:var(--ink)}
+.chip.late{background:var(--red-soft);color:var(--red)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media (max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .v{font-size:1.5rem;font-weight:760;font-stretch:78%;line-height:1.1;margin-top:4px}
+.kpi .l{font-size:.86rem;color:var(--muted)}
+.kpi .d{font-size:.8rem;color:var(--muted);margin-top:4px}
+
+/* Lista de recibos */
+.list{display:grid;gap:8px}
+.rec{display:grid;grid-template-columns:1.2fr .8fr 1fr auto;gap:10px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;cursor:pointer;text-align:left;width:100%}
+.rec:hover{border-color:var(--muted)}
+.rec .m{font-weight:720;font-stretch:85%;font-size:1.05rem}
+.rec .n{font-weight:650}
+@media (max-width:560px){.rec{grid-template-columns:1fr auto}.rec .hide-s{display:none}}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted);transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--blue);background:var(--blue-soft)}
+.empty{padding:28px;text-align:center}
+
+/* Reportes */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:820px){.charts{grid-template-columns:1fr}}
+.chart-box{position:relative;height:260px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem;white-space:nowrap}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+thead th{font-weight:700;color:var(--muted);font-size:.82rem}
+tfoot td{font-weight:750}
+select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+
+/* Diálogo */
+dialog{border:0;border-radius:16px;padding:0;width:min(680px,calc(100vw - 24px));max-height:calc(100dvh - 32px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(10,14,20,.55)}
+.dlg-h{position:sticky;top:0;background:var(--surface);padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:1}
+.dlg-h h2{margin:0}
+.dlg-b{padding:16px 18px}
+.dlg-f{position:sticky;bottom:0;background:var(--surface);padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+fieldset{border:0;padding:0;margin:0 0 18px}
+legend{font-weight:720;font-stretch:85%;margin-bottom:8px;padding:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+label.f{display:grid;gap:3px;font-size:.84rem;color:var(--muted)}
+label.f input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
+label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
+.detail td{white-space:normal}
+.detail tr.sum td{font-weight:750}
+.x{border:0;background:none;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--muted);padding:4px 8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.93rem;z-index:50;max-width:calc(100vw - 32px)}
+.dep-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.dep-card{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px}
+.dep-card:hover{border-color:var(--muted)}
+.dep-card.suspendido{opacity:.62}
+.dep-card .nombre{font-weight:720;font-stretch:85%;font-size:1.05rem}
+.chip.off{background:var(--surface-2);color:var(--muted)}
+.chip.miss{background:var(--amber-soft);color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:8px 14px;cursor:pointer;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.lect-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:.92rem}
+.lect-row:last-child{border-bottom:0}
+.iconbtn{border:0;background:none;color:var(--muted);cursor:pointer;padding:4px 6px;font-size:.85rem;text-decoration:underline}
+.diff-pos{color:var(--green)}.diff-neg{color:var(--red)}
+.edificio{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;max-width:480px;margin:0 auto}
+.piso-row{display:grid;grid-template-columns:2.4rem 1fr 1fr;gap:8px;padding:7px 0;border-top:1px dashed var(--line)}
+.piso-row:first-of-type{border-top:0}
+.piso-num{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem;font-weight:700}
+.unidad{border:1px solid var(--line);border-radius:10px;padding:8px 10px;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:3px;cursor:pointer;background:var(--surface-2);text-align:left}
+.unidad:hover{border-color:var(--muted)}
+.unidad.vacio{border-style:dashed;color:var(--muted);align-items:center;justify-content:center;font-size:.86rem}
+.unidad.suspendido{opacity:.6}
+.unidad .n{font-weight:700;font-size:.9rem}
+.unidad .enc{font-size:.8rem;color:var(--muted)}
+.unidad .chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.chip.sm{font-size:.7rem;padding:1px 7px}
+.sinubicar{display:flex;flex-wrap:wrap;gap:8px}
+.sinubicar button{border:1px dashed var(--amber);background:var(--amber-soft);border-radius:10px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:.86rem;color:var(--ink)}
+.slotlist{display:grid;gap:8px}
+.slotlist button{text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:600}
+.slotlist button:hover{border-color:var(--muted)}
+.pago-row{display:grid;grid-template-columns:1.4fr auto auto auto;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.pago-row:last-child{border-bottom:0}
+.pago-row.atrasado{background:var(--red-soft);margin:0 -14px;padding:11px 14px;border-radius:8px}
+.btn.sm{padding:6px 12px;font-size:.85rem;white-space:nowrap}
+@media (max-width:640px){.pago-row{grid-template-columns:1fr 1fr;row-gap:6px}.pago-row .btn.sm{grid-column:1/-1}}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Recibos de luz</h1>
+      <p id="subtitulo">Luz del Sur</p>
+      <p class="muted small" style="margin:2px 0 0"><button class="iconbtn" id="btn-cambiar-conexion" style="padding:0">Cerrar sesión</button></p>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="resumen" aria-selected="true">Resumen</button>
+      <button role="tab" data-tab="recibos" aria-selected="false">Recibos</button>
+      <button role="tab" data-tab="deptos" aria-selected="false">Deptos</button>
+      <button role="tab" data-tab="reportes" aria-selected="false">Reportes</button>
+    </nav>
+  </header>
+  <div id="aviso-db" class="banner warn" hidden style="margin-bottom:16px">Esta vista no puede guardar datos. Los cambios que hagas se perderán al cerrar la página.</div>
+
+  <section id="tab-resumen" class="stack"></section>
+  <section id="tab-recibos" class="stack" hidden>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Todos los recibos</h2>
+        <div class="row">
+          <button class="btn primary" id="btn-subir">Subir recibo PDF</button>
+          <button class="btn" id="btn-manual">Agregar a mano</button>
+        </div>
+      </div>
+      <div class="drop" id="drop" style="margin-top:14px">Arrastra aquí los PDF de tus recibos, o usa el botón de arriba. Los datos se leen solos y los revisas antes de guardar.</div>
+      <input type="file" id="file" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+    <div class="list" id="lista"></div>
+  </section>
+  <section id="tab-deptos" class="stack" hidden></section>
+  <section id="tab-reportes" class="stack" hidden></section>
+</div>
+
+<dialog id="dlg"></dialog>
+<dialog id="dlgConfirm"></dialog>
+<dialog id="dlgPrompt"></dialog>
+<dialog id="dlgLogin" style="width:min(380px,calc(100vw - 24px))"></dialog>
+<div class="toast" id="toast" hidden></div>
+<!-- OJO: Apps Script borra comentarios JS de forma ingenua. En el JavaScript no escribir barra-barra ni barra-asterisco dentro de textos: usar \/\/ y \/* (el navegador los lee igual). -->
+<script>
+// Muestra en pantalla cualquier error de carga (sin esto, un fallo deja la página en blanco sin explicación).
+function mostrarErrorCarga(msg){try{const a=document.getElementById('aviso-db');a.hidden=false;a.className='banner alert';a.textContent='Error al cargar la app: '+msg}catch(e){}}
+window.addEventListener('error',e=>mostrarErrorCarga((e.message||'error')+(e.lineno?' (línea '+e.lineno+')':'')));
+window.addEventListener('unhandledrejection',e=>mostrarErrorCarga(String(e.reason&&(e.reason.message||e.reason)||'promesa rechazada')));
+</script>
+<script>
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
+function num(s){if(s==null||s==='')return null;const v=parseFloat(String(s).replace(/\s/g,'').replace(/,/g,''));return isNaN(v)?null:v}
+function fechaISO(s){if(!s)return null;const m=String(s).match(/(\d{1,2})[-\/]([A-Za-zé]{3})[a-z]*[-\/](\d{2,4})/);if(!m)return null;const mi=MESES.indexOf(m[2].toLowerCase().slice(0,3).replace('set','sep'));if(mi<0)return null;let y=+m[3];if(y<100)y+=2000;return `${y}-${String(mi+1).padStart(2,'0')}-${m[1].padStart(2,'0')}`}
+const CONCEPTOS=[
+ ['Corte \\(\\d+\\)','otros:Corte'],
+ ['Reconexi[oó]n \\(\\d+\\)','otros:Reconexión'],
+ ['Cargo Fijo','cargoFijo'],
+ ['Mant\\. y Reposici[oó]n de Conexi[oó]n','mantenimiento'],
+ ['Alumbrado P[uú]blico','alumbrado'],
+ ['Inter[eé]s Compensatorio','interesCompensatorio'],
+ ['SUBTOTAL','subtotal'],
+ ['IGV Nota D[eé]b\\.[^\\d]*[\\d\\/]+-\\d+','otros:IGV Nota de Débito'],
+ ['IGV','igv'],
+ ['Electrificaci[oó]n Rural \\(Ley N° ?\\d+\\)','electrificacion'],
+ ['Inter[eé]s Moratorio','interesMoratorio'],
+ ['TOTAL DEL MES','totalMes'],
+ ['Nota D[eé]b\\.[^\\d]*[\\d\\/]+-\\d+','otros:Nota de Débito'],
+ ['Ajuste redondeo mes anterior','ajusteAnterior'],
+ ['Ajuste redondeo mes actual','ajusteActual'],
+ ['Deuda vencida \\(\\d+ mes(?:es)?\\)','deudaVencida'],
+];
+function parseRecibo(t){
+  t=t.replace(/\s+/g,' ');const r={otros:[],historial:[]};let m;
+  if(m=t.match(/MES FACTURADO\s+([A-ZÁÉÍÓÚa-z]+)\s+(\d{4})/)){let n=m[1].toLowerCase();if(n==='septiembre')n='setiembre';const i=MES_LARGO.indexOf(n);if(i>=0)r.mes=`${m[2]}-${String(i+1).padStart(2,'0')}`}
+  if(m=t.match(/Recibo Nro\.\s*(\S+(?:\s+N-\S+)?)/))r.recibo=m[1];
+  if(m=t.match(/D\.N\.I\.\s*\d+\s+(\d{5,})\s+/)){r.suministro=m[1];const n=t.slice(m.index+m[0].length).match(/^([A-ZÁÉÍÓÚÑ ]+?)\s+(?:PLG|AV|JR|CALLE|CAL|MZ|URB|PSJ|ASOC|AAHH|AA\.HH|COOP|PJ)\b/);if(n)r.titular=n[1].trim()}
+  if(m=t.match(/Tarifa\s+(BT\S+[^C]*?)\s+Conexi/))r.tarifa=m[1].trim();
+  if(m=t.match(/(-?[\d.]+)\s*-\s*(-?[\d.]+)\s*=\s*([\d.]+)\s*X\s*([\d.]+)\s*=\s*([\d.]+)\s*X\s*([\d.]+)\s*Consumo de energ[ií]a\s*([\d.,]+)/)){r.lecturaActual=num(m[1]);r.lecturaAnterior=num(m[2]);r.kwh=num(m[5]);r.precioKwh=num(m[6]);r.consumoEnergia=num(m[7])}
+  if(m=t.match(/[ÚU]ltima lectura\s+(\S+)/))r.fechaLectura=fechaISO(m[1]);
+  if(m=t.match(/Lectura anterior\s+(\S+)/))r.fechaLecturaAnterior=fechaISO(m[1]);
+  if(m=t.match(/Fecha de Emisi[oó]n:\s*(\S+)/))r.emision=fechaISO(m[1]);
+  if(m=t.match(/Fecha de Corte:\s*(\S+)/))r.corte=fechaISO(m[1]);
+  if(m=t.match(/Fecha de Vencimiento:\s*(\S+)/))r.vencimiento=fechaISO(m[1]);
+  if(m=t.match(/(?<!\d)(\d{1,3}(?: \d{3})*\.\d{2})\s+Fecha de Emisi/))r.totalPagar=num(m[1]);
+  if(m=t.match(/FOSE \(Ley \d+\) S\/\s*([\d.]+)/))r.fose=num(m[1]);
+  const re=/Importe 2 [uú]ltimos meses facturados\s+(\w{3})-(\d{2}) S\/ ([\d.]+) - (\w{3})-(\d{2}) S\/ ([\d.]+)/;
+  if(m=t.match(re)){for(const [a,b,c] of [[m[1],m[2],m[3]],[m[4],m[5],m[6]]]){const i=MESES.indexOf(a.toLowerCase().replace('set','sep'));if(i>=0)r.historial.push({mes:`20${b}-${String(i+1).padStart(2,'0')}`,total:num(c)})}}
+  if(m=t.match(/(Cargo Fijo[\s\S]*?)\s+((?:-?\d+\.\d{2}\s+)+)/)){
+    const labelsTxt=m[1],nums=m[2].trim().split(/\s+/).map(num);
+    const alt=new RegExp(CONCEPTOS.map(c=>'('+c[0]+')').join('|'),'g');
+    const labels=[];let last=0,x;
+    while((x=alt.exec(labelsTxt))){const gap=labelsTxt.slice(last,x.index).trim();if(gap)labels.push({label:gap});const gi=x.slice(1).findIndex(v=>v!==undefined);labels.push({label:x[0],key:CONCEPTOS[gi][1]});last=alt.lastIndex}
+    const tail=labelsTxt.slice(last).trim();if(tail)labels.push({label:tail});
+    if(labels.length===nums.length){labels.forEach((l,i)=>{if(l.key&&l.key.startsWith('otros:'))r.otros.push({label:l.key.slice(6),monto:nums[i]});else if(l.key)r[l.key]=nums[i];else r.otros.push({label:l.label,monto:nums[i]})})}
+  }
+  return r;
+}
+
+const MES_NOMBRE=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Setiembre','Octubre','Noviembre','Diciembre'];
+const MES_C=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtS=v=>v==null||isNaN(v)?'—':'S/ '+Number(v).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtN=(v,d=0)=>v==null||isNaN(v)?'—':Number(v).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const mesLargo=id=>{const [y,m]=id.split('-');return MES_NOMBRE[+m-1]+' '+y};
+const mesCorto=id=>{const [y,m]=id.split('-');return MES_C[+m-1]+' '+y.slice(2)};
+const fechaCorta=iso=>{if(!iso)return '—';const [y,m,d]=iso.split('-');return (+d)+' '+MES_C[+m-1]+' '+y};
+const hoy=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const diasHasta=iso=>{if(!iso)return null;const [y,m,d]=iso.split('-').map(Number);return Math.round((new Date(y,m-1,d)-hoy())/864e5)};
+const diasEntre=(a,b)=>{if(!a||!b)return null;const p=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};return Math.round((p(b)-p(a))/864e5)};
+const enDias=n=>n==null?'':n===0?'hoy':n===1?'mañana':n>1?`en ${n} días`:n===-1?'ayer':`hace ${-n} días`;
+const sum=(a,f)=>a.reduce((s,x)=>s+(Number(f(x))||0),0);
+const intereses=r=>(r.interesCompensatorio||0)+(r.interesMoratorio||0);
+const impuestos=r=>(r.igv||0)+(r.electrificacion||0);
+const cargosFijos=r=>(r.cargoFijo||0)+(r.mantenimiento||0);
+
+const CAMPOS=[
+ {g:'Periodo y lectura',k:'mes',l:'Mes facturado',t:'month'},
+ {g:'Periodo y lectura',k:'recibo',l:'N° de recibo',t:'text'},
+ {g:'Periodo y lectura',k:'fechaLecturaAnterior',l:'Fecha lectura anterior',t:'date'},
+ {g:'Periodo y lectura',k:'fechaLectura',l:'Fecha última lectura',t:'date'},
+ {g:'Periodo y lectura',k:'lecturaAnterior',l:'Lectura anterior',t:'num'},
+ {g:'Periodo y lectura',k:'lecturaActual',l:'Última lectura',t:'num'},
+ {g:'Periodo y lectura',k:'kwh',l:'Energía facturada (kWh)',t:'num'},
+ {g:'Periodo y lectura',k:'precioKwh',l:'Precio kWh (S/)',t:'num'},
+ {g:'Detalle del mes',k:'consumoEnergia',l:'Consumo de energía',t:'num'},
+ {g:'Detalle del mes',k:'cargoFijo',l:'Cargo fijo',t:'num'},
+ {g:'Detalle del mes',k:'mantenimiento',l:'Mant. y reposición de conexión',t:'num'},
+ {g:'Detalle del mes',k:'alumbrado',l:'Alumbrado público',t:'num'},
+ {g:'Detalle del mes',k:'interesCompensatorio',l:'Interés compensatorio',t:'num'},
+ {g:'Detalle del mes',k:'subtotal',l:'Subtotal',t:'num'},
+ {g:'Detalle del mes',k:'igv',l:'IGV',t:'num'},
+ {g:'Detalle del mes',k:'electrificacion',l:'Electrificación rural',t:'num'},
+ {g:'Detalle del mes',k:'interesMoratorio',l:'Interés moratorio',t:'num'},
+ {g:'Detalle del mes',k:'totalMes',l:'Total del mes',t:'num'},
+ {g:'Total a pagar y fechas',k:'ajusteAnterior',l:'Ajuste redondeo mes anterior',t:'num'},
+ {g:'Total a pagar y fechas',k:'ajusteActual',l:'Ajuste redondeo mes actual',t:'num'},
+ {g:'Total a pagar y fechas',k:'deudaVencida',l:'Deuda vencida',t:'num'},
+ {g:'Total a pagar y fechas',k:'totalPagar',l:'Total a pagar',t:'num'},
+ {g:'Total a pagar y fechas',k:'fose',l:'Recargo FOSE (ya incluido)',t:'num'},
+ {g:'Total a pagar y fechas',k:'emision',l:'Fecha de emisión',t:'date'},
+ {g:'Total a pagar y fechas',k:'vencimiento',l:'Fecha de vencimiento',t:'date'},
+ {g:'Total a pagar y fechas',k:'corte',l:'Fecha de corte',t:'date'},
+];
+const REQUERIDOS=['mes','kwh','consumoEnergia','totalMes','totalPagar','vencimiento','corte'];
+
+let recibos=[];let deptos=[],lecturas=[];let db=null,assets=null,sample=null,downloads=null;let tabActual='resumen';let charts=[];let deptoChart=null;
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3200)}
+
+/* Confirmación y prompt propios: window.confirm/prompt quedan bloqueados dentro del iframe del artefacto publicado. */
+function confirmar(mensaje,textoOk='Confirmar',danger=false){
+  return new Promise(resolve=>{
+    const c=$('#dlgConfirm');let resuelto=false;
+    const cerrar=v=>{if(resuelto)return;resuelto=true;resolve(v)};
+    c.innerHTML=`<div class="dlg-b" style="padding-top:22px"><p style="margin:0">${esc(mensaje)}</p></div>
+      <div class="dlg-f"><button class="btn" id="cf-no">Cancelar</button><button class="btn ${danger?'danger':'primary'}" id="cf-yes">${esc(textoOk)}</button></div>`;
+    c.querySelector('#cf-no').onclick=()=>{cerrar(false);c.close()};
+    c.querySelector('#cf-yes').onclick=()=>{cerrar(true);c.close()};
+    c.addEventListener('close',()=>cerrar(false),{once:true});
+    c.showModal();
+  });
+}
+function pedirTexto(mensaje,valorInicial='',tipo='text'){
+  return new Promise(resolve=>{
+    const c=$('#dlgPrompt');let resuelto=false;
+    const cerrar=v=>{if(resuelto)return;resuelto=true;resolve(v)};
+    c.innerHTML=`<div class="dlg-b" style="padding-top:22px"><label class="f">${esc(mensaje)}<input id="pt-input" type="${tipo}" value="${esc(valorInicial)}" autocomplete="off"></label></div>
+      <div class="dlg-f"><button class="btn" id="pt-no">Cancelar</button><button class="btn primary" id="pt-yes">Aceptar</button></div>`;
+    const inp=c.querySelector('#pt-input');
+    c.querySelector('#pt-no').onclick=()=>{cerrar(null);c.close()};
+    c.querySelector('#pt-yes').onclick=()=>{cerrar(inp.value);c.close()};
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();cerrar(inp.value);c.close()}});
+    c.addEventListener('close',()=>cerrar(null),{once:true});
+    c.showModal();
+    setTimeout(()=>inp.focus(),0);
+  });
+}
+function estado(r){if(r.pagado)return{cls:'ok',txt:'Pagado'};const d=diasHasta(r.vencimiento);if(d!=null&&d<0)return{cls:'late',txt:'Vencido'};return{cls:'pend',txt:'Pendiente'}}
+
+/* ---------- Guardado ---------- */
+async function guardar(id,body){
+  body.actualizado=new Date().toISOString();
+  if(db){await db.doc('recibos/'+id).set(body)}
+  else{recibos=recibos.filter(r=>r.id!==id).concat([{id,...body}]).sort((a,b)=>a.id.localeCompare(b.id));renderTodo()}
+}
+async function borrar(r){
+  if(db)await db.doc('recibos/'+r.id).delete();else{recibos=recibos.filter(x=>x.id!==r.id);renderTodo()}
+  if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}
+}
+async function marcarPagado(r,v){
+  const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?new Date().toISOString().slice(0,10):null;
+  try{await guardar(r.id,body);toast(v?'Marcado como pagado':'Marcado como pendiente')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+}
+
+/* ---------- Resumen ---------- */
+function renderResumen(){
+  const el=$('#tab-resumen');
+  if(!recibos.length){el.innerHTML=`<div class="panel empty"><h2>Todavía no hay recibos</h2><p class="muted">Sube el PDF de tu recibo de Luz del Sur y los datos se ordenan solos.</p><button class="btn primary" onclick="irA('recibos');document.getElementById('file').click()">Subir recibo PDF</button></div>`;return}
+  const r=recibos[recibos.length-1];const st=estado(r);
+  const dias=diasEntre(r.fechaLecturaAnterior,r.fechaLectura);
+  const lect=r.lecturaActual!=null?Number(r.lecturaActual).toFixed(1):null;
+  let odo='';if(lect){const [ent,dec]=lect.split('.');odo=[...ent].map(c=>`<span>${c}</span>`).join('')+`<span class="sep">.</span><span class="dec">${dec}</span>`}
+  const dV=diasHasta(r.vencimiento),dC=diasHasta(r.corte);
+  const pend=recibos.filter(x=>!x.pagado);
+  let banners='';
+  if(!r.pagado&&dC!=null){
+    if(dC<0)banners+=`<div class="banner alert">La fecha de corte del recibo de ${mesLargo(r.id)} fue el ${fechaCorta(r.corte)}. Si ya lo pagaste, márcalo como pagado.</div>`;
+    else if(dV!=null&&dV<0)banners+=`<div class="banner alert">El recibo de ${mesLargo(r.id)} venció el ${fechaCorta(r.vencimiento)}. Corte programado para el ${fechaCorta(r.corte)} (${enDias(dC)}).</div>`;
+  }
+  if(r.deudaVencida>0)banners+=`<div class="banner info">El total a pagar de ${mesLargo(r.id)} (${fmtS(r.totalPagar)}) incluye ${fmtS(r.deudaVencida)} de deuda del mes anterior. Lo que realmente se gastó ese mes es ${fmtS(r.totalMes)}, y es el monto que conviene usar para dividir.</div>`;
+  const totK=sum(recibos,x=>x.kwh),totM=sum(recibos,x=>x.totalMes),n=recibos.length;
+  const prev=recibos.length>1?recibos[recibos.length-2]:null;
+  const delta=(a,b,suf)=>{if(a==null||b==null||!b)return'';const p=(a-b)/b*100;return `${p>0?'+':''}${fmtN(p,1)}% ${suf}`};
+  const intTot=sum(recibos,intereses);
+  el.innerHTML=`${banners}
+  <div class="panel hero">
+    <div class="meter">
+      <div class="meter-label">Lectura del medidor al ${fechaCorta(r.fechaLectura)}</div>
+      ${odo?`<div class="odo" aria-label="Lectura ${lect}">${odo}</div>`:''}
+      <div class="kwh-big">${fmtN(r.kwh)}<small>kWh</small></div>
+      <div class="muted small" style="margin-top:6px">Consumidos ${dias?`en ${dias} días, `:''}del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}${dias?`. Unos ${fmtN(r.kwh/dias,1)} kWh por día.`:''}</div>
+    </div>
+    <div class="money">
+      <div class="row" style="justify-content:space-between"><span class="muted">Gasto de ${mesLargo(r.id)}</span><span class="chip ${st.cls}">${st.txt}</span></div>
+      <div class="amount">${fmtS(r.totalMes)}</div>
+      <div class="muted small">Total a pagar en el recibo: ${fmtS(r.totalPagar)}</div>
+      <div class="dates">
+        <div><span>Vencimiento</span><strong>${fechaCorta(r.vencimiento)}${!r.pagado&&dV!=null?` <span class="muted small">(${enDias(dV)})</span>`:''}</strong></div>
+        <div><span>Corte</span><strong>${fechaCorta(r.corte)}${!r.pagado&&dC!=null?` <span class="muted small">(${enDias(dC)})</span>`:''}</strong></div>
+        ${r.pagado&&r.fechaPago?`<div><span>Pagado el</span><strong>${fechaCorta(r.fechaPago)}</strong></div>`:''}
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn ${r.pagado?'':'primary'}" data-pagar="${r.id}">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button>
+        <button class="btn" data-ver="${r.id}">Ver detalle</button>
+      </div>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Consumo promedio</div><div class="v">${fmtN(totK/n)} kWh</div><div class="d">${prev?delta(r.kwh,prev.kwh,'vs recibo anterior'):`${n} recibo`}</div></div>
+    <div class="kpi"><div class="l">Gasto promedio al mes</div><div class="v">${fmtS(totM/n)}</div><div class="d">${prev?delta(r.totalMes,prev.totalMes,'vs recibo anterior'):''}</div></div>
+    <div class="kpi"><div class="l">Costo real por kWh</div><div class="v">S/ ${fmtN(totM/totK,3)}</div><div class="d">La tarifa sola es S/ ${r.precioKwh??'—'}; el resto son cargos e impuestos</div></div>
+    <div class="kpi"><div class="l">Intereses por pagar tarde</div><div class="v">${fmtS(intTot)}</div><div class="d">Suma de ${n} recibo${n>1?'s':''}</div></div>
+  </div>
+  ${pend.length>1?`<div class="banner warn">Hay ${pend.length} recibos sin marcar como pagados: ${pend.map(x=>mesLargo(x.id)).join(', ')}.</div>`:''}`;
+}
+
+/* ---------- Lista ---------- */
+function renderRecibos(){
+  const el=$('#lista');
+  if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
+  el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
+    <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfUrl?' (con PDF)':''}</div></div>
+    <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh</div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
+    <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
+    <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
+  </button>`}).join('');
+}
+
+/* ---------- Detalle ---------- */
+function abrirDetalle(id){
+  const r=recibos.find(x=>x.id===id);if(!r)return;const st=estado(r);
+  const fila=(l,v,cls='')=>v==null?'':`<tr class="${cls}"><td>${esc(l)}</td><td>${fmtS(v)}</td></tr>`;
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dlg-h"><h2>${mesLargo(r.id)} <span class="chip ${st.cls}" style="vertical-align:middle">${st.txt}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  <div class="dlg-b">
+    <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')}${r.suministro?`, suministro ${esc(r.suministro)}`:''}. Emitido el ${fechaCorta(r.emision)}.</p>
+    <h3>Lectura</h3>
+    <p style="margin-top:0">${fmtN(r.lecturaActual,2)} − ${fmtN(r.lecturaAnterior,2)} = <strong>${fmtN(r.kwh)} kWh</strong> × ${r.precioKwh??'—'} = ${fmtS(r.consumoEnergia)}<br><span class="muted small">Del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}</span></p>
+    <h3>Detalle</h3>
+    <div class="scroll"><table class="detail"><tbody>
+      ${fila('Consumo de energía',r.consumoEnergia)}${fila('Cargo fijo',r.cargoFijo)}${fila('Mant. y reposición de conexión',r.mantenimiento)}${fila('Alumbrado público',r.alumbrado)}${fila('Interés compensatorio',r.interesCompensatorio)}
+      ${fila('Subtotal',r.subtotal,'sum')}${fila('IGV',r.igv)}${fila('Electrificación rural',r.electrificacion)}${fila('Interés moratorio',r.interesMoratorio)}
+      ${(r.otros||[]).map(o=>fila(o.label,o.monto)).join('')}
+      ${fila('Total del mes',r.totalMes,'sum')}${fila('Ajustes de redondeo',(r.ajusteAnterior||0)+(r.ajusteActual||0))}${fila('Deuda vencida',r.deudaVencida)}
+      ${fila('Total a pagar',r.totalPagar,'sum')}
+    </tbody></table></div>
+    <p class="muted small">Vence el ${fechaCorta(r.vencimiento)}. Corte el ${fechaCorta(r.corte)}.${r.fose?` Incluye recargo FOSE de ${fmtS(r.fose)}.`:''}${r.pagado&&r.fechaPago?` Pagado el ${fechaCorta(r.fechaPago)}.`:''}</p>
+  </div>
+  <div class="dlg-f">
+    <button class="btn danger" data-borrar style="margin-right:auto">Eliminar</button>
+    ${r.pdfUrl?`<a class="btn" href="${esc(r.pdfUrl)}" target="_blank" rel="noopener">Abrir PDF</a>`:''}
+    <button class="btn" data-editar>Editar</button>
+    <button class="btn primary" data-pagar="${r.id}">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button>
+  </div>`;
+  dlg.querySelector('[data-close]').onclick=()=>dlg.close();
+  dlg.querySelector('[data-editar]').onclick=()=>{dlg.close();abrirFormulario({...r},{editando:true})};
+  dlg.querySelector('[data-pagar]').onclick=async()=>{dlg.close();await marcarPagado(r,!r.pagado)};
+  dlg.querySelector('[data-borrar]').onclick=async()=>{if(!(await confirmar(`¿Eliminar el recibo de ${mesLargo(r.id)}? Esto también borra su PDF.`,'Eliminar',true)))return;dlg.close();try{await borrar(r);toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+(e.message||e.code))}};
+  dlg.showModal();
+}
+
+/* ---------- Formulario ---------- */
+function chequeos(d){
+  const out=[];const near=(a,b)=>Math.abs(a-b)<=0.05;
+  if(d.lecturaActual!=null&&d.lecturaAnterior!=null&&d.kwh!=null&&!near(d.lecturaActual-d.lecturaAnterior,d.kwh))out.push('La diferencia de lecturas no coincide con los kWh.');
+  if(d.kwh!=null&&d.precioKwh!=null&&d.consumoEnergia!=null&&Math.abs(d.kwh*d.precioKwh-d.consumoEnergia)>0.1)out.push('kWh × precio no da el consumo de energía.');
+  if(d.subtotal!=null){const s=(d.consumoEnergia||0)+(d.cargoFijo||0)+(d.mantenimiento||0)+(d.alumbrado||0)+(d.interesCompensatorio||0);if(!near(s,d.subtotal))out.push(`Los conceptos suman ${fmtS(s)} y el subtotal dice ${fmtS(d.subtotal)}.`)}
+  if(d.totalMes!=null&&d.subtotal!=null){const s=d.subtotal+(d.igv||0)+(d.electrificacion||0)+(d.interesMoratorio||0)+sum(d.otros||[],o=>o.monto);if(!near(s,d.totalMes))out.push(`Subtotal + impuestos da ${fmtS(s)} y el total del mes dice ${fmtS(d.totalMes)}.`)}
+  if(d.totalPagar!=null&&d.totalMes!=null){const s=d.totalMes+(d.ajusteAnterior||0)+(d.ajusteActual||0)+(d.deudaVencida||0);if(!near(s,d.totalPagar))out.push(`Total del mes + ajustes + deuda da ${fmtS(s)} y el total a pagar dice ${fmtS(d.totalPagar)}.`)}
+  return out;
+}
+function abrirFormulario(data,{file=null,texto='',editando=false}={}){
+  return new Promise(resolve=>{
+    const dlg=$('#dlg');
+    const falt=()=>REQUERIDOS.filter(k=>data[k]==null||data[k]==='');
+    const grupos=[...new Set(CAMPOS.map(c=>c.g))];
+    const pintar=()=>{
+      const f=falt();const ch=chequeos(data);
+      dlg.innerHTML=`<div class="dlg-h"><h2>${editando?'Editar recibo':'Revisa los datos'}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+      <div class="dlg-b">
+        ${file?`<p class="muted small" style="margin-top:0">Leído de ${esc(file.name)}. Corrige lo que haga falta y guarda.</p>`:''}
+        ${f.length?`<div class="banner warn" style="margin-bottom:14px">Faltan: ${f.map(k=>CAMPOS.find(c=>c.k===k).l).join(', ')}.${sample&&texto&&!sample.soloOCR?' <button class="btn" data-ia style="margin-top:8px">Completar con IA</button>':''}</div>`:''}
+        ${ch.length?`<div class="banner info" style="margin-bottom:14px">${ch.map(esc).join('<br>')}</div>`:(!f.length?`<div class="banner info" style="margin-bottom:14px">Las sumas del recibo cuadran.</div>`:'')}
+        ${grupos.map(g=>`<fieldset><legend>${g}</legend><div class="grid2">${CAMPOS.filter(c=>c.g===g).map(c=>{const v=data[c.k];const val=v==null?'':v;return `<label class="f">${c.l}<input data-k="${c.k}" ${c.t==='num'?'type="text" inputmode="decimal"':`type="${c.t}"`} value="${esc(val)}" class="${REQUERIDOS.includes(c.k)&&(v==null||v==='')?'miss':''}" ${editando&&c.k==='mes'?'readonly':''}></label>`}).join('')}</div></fieldset>`).join('')}
+        ${(data.otros||[]).length?`<p class="small muted">Otros conceptos: ${data.otros.map(o=>esc(o.label)+' '+fmtS(o.monto)).join(', ')}</p>`:''}
+      </div>
+      <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Guardar recibo</button></div>`;
+      dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{dlg.close()});
+      dlg.querySelectorAll('input[data-k]').forEach(inp=>inp.onchange=()=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v;pintar()});
+      const ia=dlg.querySelector('[data-ia]');
+      if(ia)ia.onclick=async()=>{ia.disabled=true;ia.textContent='Leyendo con IA…';try{
+        const prompt=`Extrae datos de un recibo de luz de Luz del Sur (Perú) a partir del texto de abajo. Responde SOLO con un objeto JSON, sin texto adicional. Números sin separador de miles y con punto decimal. Fechas en formato AAAA-MM-DD. "mes" es el mes facturado en formato AAAA-MM. Si un campo no aparece, usa null.\nCampos: ${CAMPOS.map(c=>`${c.k} (${c.l})`).join('; ')}\n\nTexto del recibo:\n${texto.slice(0,12000)}`;
+        const res=await sample.json(prompt);let n=0;
+        for(const c of CAMPOS){if((data[c.k]==null||data[c.k]==='')&&res&&res[c.k]!=null){data[c.k]=c.t==='num'?num(res[c.k]):String(res[c.k]);n++}}
+        toast(n?`La IA completó ${n} campo${n>1?'s':''}. Revísalos.`:'La IA no encontró más datos.');pintar();
+      }catch(e){toast(e.code==='not_granted'?'Sin permiso para usar IA.':'No se pudo usar la IA.');ia.disabled=false;ia.textContent='Completar con IA'}};
+      dlg.querySelector('[data-save]').onclick=async()=>{
+        dlg.querySelectorAll('input[data-k]').forEach(inp=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v});
+        if(!data.mes||!/^\d{4}-\d{2}$/.test(data.mes)){toast('Indica el mes facturado.');return}
+        const existe=recibos.find(x=>x.id===data.mes);
+        if(existe&&!editando&&!(await confirmar(`Ya hay un recibo de ${mesLargo(data.mes)}. ¿Reemplazarlo?`,'Reemplazar')))return;
+        const btn=dlg.querySelector('[data-save]');btn.disabled=true;btn.textContent='Guardando…';
+        try{
+          const body={...data};delete body.id;
+          if(existe){for(const k of ['pagado','fechaPago','pdfUrl','pdfId','pdfNombre'])if(body[k]===undefined)body[k]=existe[k]??null}
+          if(file&&assets){const up=await assets.upload(file,{type:'application/pdf',nombre:`Recibo ${data.mes}.pdf`,carpeta:['Recibos PDF']});if(existe&&existe.pdfId&&existe.pdfId!==up.id){try{await assets.delete(existe.pdfId)}catch(e){}}body.pdfUrl=up.url;body.pdfId=up.id;body.pdfNombre=file.name}
+          body.pagado=!!body.pagado;body.otros=body.otros||[];body.historial=body.historial||[];
+          for(const k of Object.keys(body))if(body[k]===undefined)body[k]=null;
+          await guardar(data.mes,body);dlg.close();toast(`Recibo de ${mesLargo(data.mes)} guardado`);
+        }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+(e.message||e.code))}
+      };
+    };
+    pintar();
+    dlg.addEventListener('close',()=>resolve(),{once:true});
+    if(!dlg.open)dlg.showModal();
+  });
+}
+
+/* ---------- Subida de PDF ---------- */
+let pdfjsPromise=null;
+function cargarScript(src){return new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('No se pudo cargar '+src));document.head.appendChild(s)})}
+function cargarPdfJs(){if(!pdfjsPromise){const b='https:\/\/cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';pdfjsPromise=cargarScript(b+'pdf.min.js').then(()=>cargarScript(b+'pdf.worker.min.js')).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=b+'pdf.worker.min.js';return window.pdfjsLib})}return pdfjsPromise}
+async function extraerTexto(file){const lib=await cargarPdfJs();const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let t='';for(let i=1;i<=Math.min(pdf.numPages,3);i++){const p=await pdf.getPage(i);const c=await p.getTextContent();t+=c.items.map(x=>x.str).join(' ')+' '}return t}
+async function procesar(files){
+  for(const file of files){
+    if(!/pdf$/i.test(file.type)&&!/\.pdf$/i.test(file.name)){toast(file.name+' no es un PDF.');continue}
+    toast('Leyendo '+file.name+'…');let texto='',data={};
+    try{texto=await extraerTexto(file);data=parseRecibo(texto)}catch(e){toast('No se pudo leer el PDF. Completa los datos a mano.')}
+    await abrirFormulario(data,{file,texto});
+  }
+}
+
+/* ---------- Reportes ---------- */
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function renderReportes(){
+  charts.forEach(c=>c.destroy());charts=[];
+  const el=$('#tab-reportes');
+  if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Los reportes aparecen cuando guardes tu primer recibo.</div>`;return}
+  const anios=[...new Set(recibos.map(r=>r.id.slice(0,4)))].sort().reverse();
+  const sel=renderReportes.anio&&(renderReportes.anio==='todos'||anios.includes(renderReportes.anio))?renderReportes.anio:'todos';
+  const rs=recibos.filter(r=>sel==='todos'||r.id.startsWith(sel));
+  // Historial de importes que traen los recibos, para meses sin recibo subido
+  const hist={};recibos.forEach(r=>(r.historial||[]).forEach(h=>{if(!recibos.find(x=>x.id===h.mes))hist[h.mes]=h.total}));
+  const mesesTot=[...new Set([...rs.map(r=>r.id),...Object.keys(hist).filter(m=>sel==='todos'||m.startsWith(sel))])].sort();
+  const n=rs.length,tk=sum(rs,r=>r.kwh),tm=sum(rs,r=>r.totalMes);
+  el.innerHTML=`<div class="panel"><div class="row" style="justify-content:space-between">
+      <div class="row"><label for="anio" class="muted">Periodo</label><select id="anio"><option value="todos">Todos</option>${anios.map(a=>`<option ${a===sel?'selected':''}>${a}</option>`).join('')}</select></div>
+      <button class="btn" id="csv" ${downloads?'':'hidden'}>Descargar CSV</button></div>
+      <p class="muted small" style="margin:10px 0 0">${n} recibo${n!==1?'s':''}: ${fmtN(tk)} kWh y ${fmtS(tm)} en total. Costo real promedio ${fmtS(tk?tm/tk:null)} por kWh, con impuestos y cargos.</p></div>
+    <div class="charts">
+      <div class="panel"><h3>Consumo por mes (kWh)</h3><div class="chart-box"><canvas id="c1"></canvas></div></div>
+      <div class="panel"><h3>Gasto del mes (S/)</h3><div class="chart-box"><canvas id="c2"></canvas></div>${Object.keys(hist).length?'<p class="muted small" style="margin:8px 0 0">En gris, importes de meses sin recibo subido, tomados de lo que informan los recibos siguientes.</p>':''}</div>
+      <div class="panel"><h3>Precio por kWh</h3><div class="chart-box"><canvas id="c3"></canvas></div></div>
+      <div class="panel"><h3>En qué se va el dinero</h3><div class="chart-box"><canvas id="c4"></canvas></div></div>
+    </div>
+    <div class="panel"><h3>Tabla de recibos</h3><div class="scroll"><table>
+      <thead><tr><th>Mes</th><th>kWh</th><th>Precio kWh</th><th>Energía</th><th>Cargos fijos</th><th>Alumbrado</th><th>Impuestos</th><th>Intereses</th><th>Total del mes</th><th>Deuda previa</th><th>Total a pagar</th><th>Estado</th></tr></thead>
+      <tbody>${rs.map(r=>`<tr><td>${mesLargo(r.id)}</td><td>${fmtN(r.kwh)}</td><td>${r.precioKwh??'—'}</td><td>${fmtS(r.consumoEnergia)}</td><td>${fmtS(cargosFijos(r))}</td><td>${fmtS(r.alumbrado)}</td><td>${fmtS(impuestos(r))}</td><td>${fmtS(intereses(r))}</td><td><strong>${fmtS(r.totalMes)}</strong></td><td>${fmtS(r.deudaVencida)}</td><td>${fmtS(r.totalPagar)}</td><td>${estado(r).txt}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td>${fmtN(tk)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia))}</td><td>${fmtS(sum(rs,cargosFijos))}</td><td>${fmtS(sum(rs,r=>r.alumbrado))}</td><td>${fmtS(sum(rs,impuestos))}</td><td>${fmtS(sum(rs,intereses))}</td><td>${fmtS(tm)}</td><td></td><td></td><td></td></tr>
+      <tr><td>Promedio</td><td>${fmtN(tk/n)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia)/n)}</td><td>${fmtS(sum(rs,cargosFijos)/n)}</td><td>${fmtS(sum(rs,r=>r.alumbrado)/n)}</td><td>${fmtS(sum(rs,impuestos)/n)}</td><td>${fmtS(sum(rs,intereses)/n)}</td><td>${fmtS(tm/n)}</td><td></td><td></td><td></td></tr></tfoot>
+    </table></div></div>`;
+  $('#anio').onchange=e=>{renderReportes.anio=e.target.value;renderReportes()};
+  const csvBtn=$('#csv');if(csvBtn)csvBtn.onclick=()=>exportarCSV(rs,sel);
+  if(!window.Chart){return}
+  const ink=css('--ink'),muted=css('--muted'),line=css('--line');
+  Chart.defaults.font.family=css('--font');Chart.defaults.color=muted;Chart.defaults.borderColor=line;
+  const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}};
+  const L=rs.map(r=>mesCorto(r.id));
+  charts.push(new Chart($('#c1'),{type:'bar',data:{labels:L,datasets:[{data:rs.map(r=>r.kwh),backgroundColor:css('--amber'),borderRadius:4}]},options:{...base,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtN(c.raw)+' kWh'}}}}}));
+  const byM=Object.fromEntries(rs.map(r=>[r.id,r.totalMes]));
+  charts.push(new Chart($('#c2'),{type:'bar',data:{labels:mesesTot.map(mesCorto),datasets:[{data:mesesTot.map(m=>byM[m]??hist[m]),backgroundColor:mesesTot.map(m=>byM[m]!=null?css('--blue'):css('--grey-bar')),borderRadius:4}]},options:{...base,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtS(c.raw)}}}}}));
+  charts.push(new Chart($('#c3'),{type:'line',data:{labels:L,datasets:[
+    {label:'Tarifa (sin impuestos)',data:rs.map(r=>r.precioKwh),borderColor:css('--amber'),backgroundColor:css('--amber'),tension:.25},
+    {label:'Costo real (todo incluido)',data:rs.map(r=>r.kwh?r.totalMes/r.kwh:null),borderColor:css('--blue'),backgroundColor:css('--blue'),tension:.25}]},
+    options:{...base,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': S/ '+Number(c.raw).toFixed(4)}}},scales:{x:{grid:{display:false}},y:{beginAtZero:false}}}}));
+  const partes=[['Energía',r=>r.consumoEnergia,'--amber'],['Cargos fijos',cargosFijos,'--muted'],['Alumbrado público',r=>r.alumbrado,'--green'],['Impuestos',impuestos,'--blue'],['Intereses',intereses,'--red']];
+  charts.push(new Chart($('#c4'),{type:'bar',data:{labels:L,datasets:partes.map(([l,f,c])=>({label:l,data:rs.map(f),backgroundColor:css(c)}))},
+    options:{...base,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtS(c.raw)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true}}}}));
+}
+async function exportarCSV(rs,sel){
+  const cols=['mes',...CAMPOS.map(c=>c.k).filter(k=>k!=='mes'),'pagado','fechaPago'];
+  const q=v=>v==null?'':/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:String(v);
+  const csv='\ufeff'+[cols.join(','),...rs.map(r=>cols.map(k=>q(k==='mes'?r.id:k==='pagado'?(r.pagado?'si':'no'):r[k])).join(','))].join('\n');
+  try{await downloads.save({filename:`recibos-luz-${sel}.csv`,data:csv})}catch(e){if(e.code!=='declined')toast('No se pudo descargar el archivo.')}
+}
+
+/* ---------- Departamentos ---------- */
+let config={diaCorte:12,mantenimiento:5};
+const lecturaDe=(deptoId,mes)=>lecturas.find(l=>l.deptoId===deptoId&&l.mes===mes);
+const lecturasDe=(deptoId)=>lecturas.filter(l=>l.deptoId===deptoId).sort((a,b)=>a.mes.localeCompare(b.mes));
+function ultimoMesConDatos(){const ms=[...recibos.map(r=>r.id),...lecturas.map(l=>l.mes)];return ms.sort().pop()||null}
+function sumaSubmedidores(mes){return sum(lecturas.filter(l=>l.mes===mes&&l.kwh!=null),l=>l.kwh)}
+function calcVerif(deptoId,mes){
+  const l=lecturaDe(deptoId,mes),r=recibos.find(x=>x.id===mes);
+  if(!l||l.kwh==null||!r||!r.totalMes)return null;
+  const sumaSub=sumaSubmedidores(mes);
+  if(!sumaSub)return null;
+  const pct=l.kwh/sumaSub;
+  const mant=config.mantenimiento??5;
+  const cargoElectricidad=pct*r.totalMes;
+  const cargoCorrecto=cargoElectricidad+mant;
+  const cobrado=l.montoCobrado;
+  return{pct,sumaSub,mant,cargoElectricidad,cargoCorrecto,cobrado,diferencia:cobrado!=null?cobrado-cargoCorrecto:null};
+}
+function fechaLimitePago(mes){const [y,m]=mes.split('-').map(Number);let ny=y,nm=m+1;if(nm>12){nm=1;ny++}return `${ny}-${String(nm).padStart(2,'0')}-${String(config.diaCorte||12).padStart(2,'0')}`}
+function estadoPago(l){if(!l)return null;if(l.montoCobrado!=null)return{cls:'ok',txt:'Cobrado'};const d=diasHasta(fechaLimitePago(l.mes));if(d!=null&&d<0)return{cls:'late',txt:'Atrasado'};return{cls:'pend',txt:'Pendiente de cobro'}}
+async function guardarDepto(id,body){body.actualizado=new Date().toISOString();if(db){await db.doc('departamentos/'+id).set(body)}else{deptos=deptos.filter(d=>d.id!==id).concat([{id,...body}]);renderDeptos()}}
+async function guardarLectura(id,body,clave){body.actualizado=new Date().toISOString();if(db){await db.doc('lecturas/'+id).set(body,clave)}else{lecturas=lecturas.filter(l=>l.id!==id).concat([{id,...body}]);renderDeptos()}}
+async function borrarLectura(l,clave){if(db)await db.doc('lecturas/'+l.id).delete(clave);else{lecturas=lecturas.filter(x=>x.id!==l.id);renderDeptos()}}
+async function guardarConfig(body){if(db){await db.doc('config/general').set(body)}else{config={...config,...body};renderDeptos()}}
+
+const PISOS=[4,3,2,1],LADOS=[1,2];
+const deptoEnSlot=(piso,lado)=>deptos.find(d=>d.piso===piso&&d.lado===lado);
+const sinUbicar=()=>deptos.filter(d=>!d.piso||!d.lado);
+
+function tituloDepto(d){return 'Depto '+(d.numero??'?')}
+function miniUnidad(d,mesRef){
+  const ls=lecturasDe(d.id);const last=ls[ls.length-1];
+  const falta=d.estado!=='desocupado'&&mesRef&&!lecturaDe(d.id,mesRef);
+  const pago=last?estadoPago(last):null;
+  return `<button class="unidad ${d.estado==='desocupado'?'suspendido':''}" data-depto="${d.id}">
+    <div class="n">${tituloDepto(d)}</div>
+    <div class="enc">${esc(d.encargado||'Sin encargado')}</div>
+    <div class="chips">
+      <span class="chip sm ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Desocupado':'Activo'}</span>
+      ${pago&&d.estado!=='desocupado'?`<span class="chip sm ${pago.cls}">${pago.txt}</span>`:''}
+      ${falta?`<span class="chip sm miss">Falta lectura</span>`:''}
+    </div>
+  </button>`;
+}
+function renderPagosPendientes(){
+  const pend=lecturas.filter(l=>l.montoCobrado==null).map(l=>{
+    const d=deptos.find(x=>x.id===l.deptoId);if(!d)return null;
+    const v=calcVerif(l.deptoId,l.mes),pago=estadoPago(l),lim=fechaLimitePago(l.mes);
+    const dh=diasHasta(lim);
+    return{l,d,v,pago,lim,diasAtraso:pago.cls==='late'&&dh!=null?-dh:null};
+  }).filter(Boolean).sort((a,b)=>(b.pago.cls==='late')-(a.pago.cls==='late')||(a.d.numero||0)-(b.d.numero||0)||a.l.mes.localeCompare(b.l.mes));
+  const atrasados=pend.filter(x=>x.pago.cls==='late').length;
+  const conMonto=pend.filter(x=>x.v);
+  const totalEsperado=sum(conMonto,x=>x.v.cargoCorrecto);
+  return `<div class="panel" id="pagos-pend">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Pagos pendientes</h2>
+      ${pend.length?`<span class="chip ${atrasados?'late':'pend'}">${pend.length} pendiente${pend.length!==1?'s':''}${atrasados?`, ${atrasados} atrasado${atrasados!==1?'s':''}`:''}</span>`:''}
+    </div>
+    ${!pend.length?'<p class="muted small" style="margin:8px 0 0">No hay pagos pendientes por registrar.</p>':`
+    <p class="muted small" style="margin:8px 0 12px">Suma esperada aún sin cobrar${conMonto.length<pend.length?' (de los meses con recibo cargado)':''}: <strong>${fmtS(totalEsperado)}</strong></p>
+    <div class="stack" style="gap:0">${pend.map(({l,d,v,pago,lim,diasAtraso})=>`
+      <div class="pago-row ${pago.cls==='late'?'atrasado':''}">
+        <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${mesLargo(l.mes)} · ${fmtN(l.kwh)} kWh${d.piso?` · Piso ${d.piso}-${d.lado}`:''}</div></div>
+        <div class="small">${v?fmtS(v.cargoCorrecto)+' esperado':'Sin recibo del edificio aún'}</div>
+        <div class="small"><span class="chip sm ${pago.cls}">${pago.txt}</span>${diasAtraso?` <span class="muted">(${diasAtraso} día${diasAtraso!==1?'s':''})</span>`:''}<div class="muted small">Límite: ${fechaCorta(lim)}</div></div>
+        <button class="btn primary sm" data-cobrar="${l.id}" data-dep="${d.id}">Registrar cobro</button>
+      </div>`).join('')}</div>`}
+  </div>`;
+}
+function renderDeptos(){
+  const el=$('#tab-deptos');
+  const mesRef=ultimoMesConDatos();
+  const su=sinUbicar();
+  el.innerHTML=renderPagosPendientes()+`<div class="panel">
+    <div class="row" style="justify-content:space-between">
+      <h2 style="margin:0">Departamentos</h2>
+      <button class="btn primary" id="btn-add-depto">Agregar departamento</button>
+    </div>
+    <p class="muted small" style="margin:8px 0 4px">Cada uno tiene su propio medidor interno. Toca una unidad para ver su historial y registrar lecturas.</p>
+    <p class="small" style="margin:0">Corte interno: paga antes del día <strong id="dia-corte-txt">${config.diaCorte||12}</strong> de cada mes. <button class="iconbtn" id="btn-corte">Cambiar</button></p>
+    <p class="small" style="margin:4px 0 0">Mantenimiento del servicio de luz: <strong>${fmtS(config.mantenimiento??5)}</strong> por depto al mes. <button class="iconbtn" id="btn-mant">Cambiar</button></p>
+  </div>
+  <div class="edificio" id="edificio">${PISOS.map(p=>`<div class="piso-row"><div class="piso-num">P${p}</div>${LADOS.map(l=>{const d=deptoEnSlot(p,l);return d?miniUnidad(d,mesRef):`<button class="unidad vacio" data-slot="${p}-${l}">+ Vacío</button>`}).join('')}</div>`).join('')}</div>
+  ${su.length?`<div class="panel"><h3>Sin ubicar en el plano</h3><div class="sinubicar">${su.map(d=>`<button data-ubicar="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div></div>`:''}
+  <div class="panel" id="comparativa"></div>`;
+  renderComparativa(mesRef);
+  document.querySelectorAll('[data-cobrar]').forEach(b=>b.onclick=()=>{const l=lecturas.find(x=>x.id===b.dataset.cobrar);if(l)abrirCobro(l,b.dataset.dep)});
+  $('#btn-add-depto').onclick=async()=>{
+    const n=(Math.max(0,...deptos.map(d=>d.numero||0)))+1;
+    const id='dep_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    try{await guardarDepto(id,{numero:n,encargado:'',estado:'activo',piso:null,lado:null});toast('Departamento agregado. Ubícalo en el plano.')}catch(e){toast('No se pudo agregar: '+(e.message||e.code))}
+  };
+  $('#btn-corte').onclick=async()=>{
+    const v=await pedirTexto('¿Qué día del mes es el corte interno de pago? (1-28)',config.diaCorte||12);
+    if(v==null||v==='')return;const n=parseInt(v,10);if(!n||n<1||n>28){toast('Ingresa un día entre 1 y 28.');return}
+    guardarConfig({diaCorte:n}).then(()=>toast('Corte actualizado')).catch(()=>toast('No se pudo guardar'));
+  };
+  $('#btn-mant').onclick=async()=>{
+    const v=await pedirTexto('¿Cuánto es el cargo de mantenimiento por depto al mes? (S/)',config.mantenimiento??5);
+    if(v==null||v==='')return;const n=num(v);if(n==null||n<0){toast('Ingresa un monto válido.');return}
+    guardarConfig({mantenimiento:n}).then(()=>toast('Mantenimiento actualizado')).catch(()=>toast('No se pudo guardar'));
+  };
+  document.querySelectorAll('[data-depto]').forEach(b=>b.onclick=()=>abrirDepto(b.dataset.depto));
+  document.querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>abrirAsignarSlot(b.dataset.slot));
+  document.querySelectorAll('[data-ubicar]').forEach(b=>b.onclick=()=>abrirUbicar(b.dataset.ubicar));
+}
+
+function abrirAsignarSlot(slot){
+  const [piso,lado]=slot.split('-').map(Number);
+  const su=sinUbicar();
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dlg-h"><h2>Piso ${piso}, unidad ${lado}</h2><button class="x" data-close>×</button></div>
+  <div class="dlg-b">
+    ${su.length?`<p class="muted small" style="margin-top:0">Elige un departamento sin ubicar:</p><div class="slotlist">${su.map(d=>`<button data-pick="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div>`:'<p class="muted small" style="margin-top:0">No hay departamentos sin ubicar.</p>'}
+    <p class="muted small" style="margin-top:16px">o</p>
+    <button class="btn primary" id="crear-aqui">Crear departamento nuevo aquí</button>
+  </div><div class="dlg-f"><button class="btn" data-close>Cancelar</button></div>`;
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelectorAll('[data-pick]').forEach(b=>b.onclick=async()=>{const d=deptos.find(x=>x.id===b.dataset.pick);try{await guardarDepto(d.id,{...d,piso,lado});dlg.close();toast('Ubicado')}catch(e){toast('No se pudo ubicar')}});
+  dlg.querySelector('#crear-aqui').onclick=async()=>{
+    const n=(Math.max(0,...deptos.map(d=>d.numero||0)))+1;
+    const id='dep_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    try{await guardarDepto(id,{numero:n,encargado:'',estado:'activo',piso,lado});dlg.close();toast('Departamento creado')}catch(e){toast('No se pudo crear')}
+  };
+  dlg.showModal();
+}
+function abrirUbicar(deptoId){
+  const d=deptos.find(x=>x.id===deptoId);
+  const libres=[];PISOS.forEach(p=>LADOS.forEach(l=>{if(!deptoEnSlot(p,l))libres.push([p,l])}));
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dlg-h"><h2>Ubicar ${tituloDepto(d)}</h2><button class="x" data-close>×</button></div>
+  <div class="dlg-b">${libres.length?`<div class="slotlist">${libres.map(([p,l])=>`<button data-pos="${p}-${l}">Piso ${p}, unidad ${l}</button>`).join('')}</div>`:'<p class="muted small">No hay unidades libres en el plano.</p>'}</div>
+  <div class="dlg-f"><button class="btn" data-close>Cancelar</button></div>`;
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelectorAll('[data-pos]').forEach(b=>b.onclick=async()=>{const [p,l]=b.dataset.pos.split('-').map(Number);try{await guardarDepto(d.id,{...d,piso:p,lado:l});dlg.close();toast('Ubicado')}catch(e){toast('No se pudo ubicar')}});
+  dlg.showModal();
+}
+
+function renderComparativa(mesDefault){
+  const el=$('#comparativa');if(!el)return;
+  const meses=[...new Set([...recibos.map(r=>r.id),...lecturas.map(l=>l.mes)])].sort().reverse();
+  const mes=renderComparativa.mes&&meses.includes(renderComparativa.mes)?renderComparativa.mes:(mesDefault||meses[0]);
+  if(!meses.length){el.innerHTML=`<h3>Comparativa del mes</h3><p class="muted small">Aparece cuando haya recibos o lecturas cargadas.</p>`;return}
+  const r=recibos.find(x=>x.id===mes);
+  const sumaSub=sumaSubmedidores(mes);
+  const filas=deptos.filter(d=>d.estado!=='desocupado'||lecturaDe(d.id,mes)).sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>{const l=lecturaDe(d.id,mes);const v=calcVerif(d.id,mes);return{d,l,v}});
+  const conLectura=filas.filter(f=>f.l&&f.l.kwh!=null);
+  const parcial=deptos.filter(x=>x.estado!=='desocupado').length>conLectura.length;
+  const residual=r?r.kwh-sumaSub:null;
+  el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Comparativa del mes</h3>
+    <select id="sel-mes-comp">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
+    ${!r?`<p class="muted small" style="margin-top:10px">No hay recibo del edificio guardado para ${mesLargo(mes)}, así que no se puede calcular el % ni el cargo correcto todavía.</p>`
+      :`<p class="muted small" style="margin-top:10px">Edificio: ${fmtN(r.kwh)} kWh, ${fmtS(r.totalMes)} del mes. Sub-medidores registrados: ${fmtN(sumaSub)} kWh${parcial?' (faltan deptos por leer)':''}. El costo eléctrico se reparte según el % de cada depto sobre los sub-medidores, no sobre el total del edificio, para que no lo afecten las fechas de lectura de Luz del Sur.</p>`}
+    <p class="small" style="margin:6px 0 12px"><strong>Cargo correcto</strong> = lo que debe pagar (electricidad + mantenimiento). <strong>Cargo cobrado</strong> = lo que se pagó. <strong>Diferencia</strong>: <span class="diff-pos">verde = excedente</span>, <span class="diff-neg">rojo = falta</span>.</p>
+    <div class="scroll"><table>
+    <thead><tr><th>Depto</th><th>kWh depto</th><th>% correcto</th><th>Electricidad</th><th>Mantenimiento</th><th>Cargo correcto</th><th>Cargo cobrado</th><th>Diferencia</th></tr></thead>
+    <tbody>${filas.map(({d,l,v})=>`<tr><td>${tituloDepto(d)}${d.encargado?' · '+esc(d.encargado):''}${d.estado==='desocupado'?' <span class="muted small">(desocupado)</span>':''}</td>
+      <td>${l&&l.kwh!=null?fmtN(l.kwh):'—'}</td>
+      <td>${v?fmtN(v.pct*100,2)+'%':'—'}</td><td>${v?fmtS(v.cargoElectricidad):'—'}</td><td>${v?fmtS(v.mant):'—'}</td><td>${v?fmtS(v.cargoCorrecto):'—'}</td><td>${v&&v.cobrado!=null?fmtS(v.cobrado):'—'}</td>
+      <td>${v&&v.diferencia!=null?`<span class="${v.diferencia>0?'diff-pos':v.diferencia<0?'diff-neg':''}">${v.diferencia>0?'+':''}${fmtS(v.diferencia)}</span>`:'—'}</td></tr>`).join('')}
+    </tbody></table></div>
+    ${r&&residual!=null?`<p class="muted small" style="margin-top:10px">Áreas comunes / sin medir: ${fmtN(residual)} kWh${parcial?' (dato parcial, faltan deptos por leer este mes)':''}. No se cobra a ningún depto.</p>`:''}`;
+  $('#sel-mes-comp').onchange=e=>{renderComparativa.mes=e.target.value;renderComparativa()};
+}
+
+function abrirDepto(id){
+  const d=deptos.find(x=>x.id===id);if(!d)return;
+  const dlg=$('#dlg');
+  const pintar=()=>{
+    const ls=lecturasDe(id);
+    dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b">
+      <label class="f" style="margin-bottom:14px">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
+      <div class="row" style="margin-bottom:14px">
+        <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Desocupado':'Activo'}</span>
+        <button class="btn" id="toggle-estado">${d.estado==='desocupado'?'Marcar como activo':'Marcar como desocupado'}</button>
+        ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
+      </div>
+      <div class="row" style="margin-bottom:14px"><button class="btn primary" id="add-lectura">Agregar lectura</button></div>
+      ${ls.length?'<div class="chart-box" style="height:200px;margin-bottom:16px"><canvas id="dep-chart"></canvas></div>':''}
+      <h3>Historial</h3>
+      ${ls.length?ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);const pago=estadoPago(l);const nCambios=Array.isArray(l.historialCobro)?l.historialCobro.length:0;return `<div class="lect-row">
+          <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">📷 ver foto</a>`:l.origen==='foto'?'📷':''}</div></div>
+          <div class="small">${v?fmtS(v.cargoCorrecto)+' correcto':'—'}</div>
+          <div class="small"><span class="chip sm ${pago.cls}">${pago.txt}</span>${l.montoCobrado!=null?' '+fmtS(l.montoCobrado):''}${nCambios?` <button class="iconbtn" data-hist="${l.id}">historial (${nCambios})</button>`:''}</div>
+          <div><button class="iconbtn" data-cobro="${l.id}">${l.montoCobrado!=null?'Editar cobro':'Registrar cobro'}</button> <button class="iconbtn" data-editl="${l.id}">Editar</button> <button class="iconbtn" data-dell="${l.id}" style="color:var(--red)">Eliminar</button></div>
+        </div>`}).join(''):'<p class="muted small">Sin lecturas todavía.</p>'}
+    </div>`;
+    dlg.querySelector('[data-close]').onclick=()=>dlg.close();
+    dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
+    dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar()}catch(e){toast('No se pudo actualizar')}};
+    const bu=dlg.querySelector('#btn-ubicar-aqui');if(bu)bu.onclick=()=>{dlg.close();abrirUbicar(id)};
+    const br=dlg.querySelector('#btn-reubicar');if(br)br.onclick=()=>{dlg.close();abrirUbicar(id)};
+    dlg.querySelector('#add-lectura').onclick=()=>{dlg.close();abrirLecturaForm(id)};
+    dlg.querySelectorAll('[data-editl]').forEach(b=>b.onclick=()=>{dlg.close();abrirLecturaForm(id,lecturas.find(x=>x.id===b.dataset.editl))});
+    dlg.querySelectorAll('[data-cobro]').forEach(b=>b.onclick=()=>{dlg.close();abrirCobro(lecturas.find(x=>x.id===b.dataset.cobro),id)});
+    dlg.querySelectorAll('[data-hist]').forEach(b=>b.onclick=()=>abrirHistorialCobro(lecturas.find(x=>x.id===b.dataset.hist),d));
+    dlg.querySelectorAll('[data-dell]').forEach(b=>b.onclick=async()=>{
+      const l=lecturas.find(x=>x.id===b.dataset.dell);
+      let clave=null;
+      if(l.montoCobrado!=null||Array.isArray(l.historialCobro)&&l.historialCobro.length){clave=await pedirPassword('eliminar una lectura con cobros registrados');if(!clave)return}
+      if(!(await confirmar('¿Eliminar esta lectura?','Eliminar',true)))return;
+      try{await borrarLectura(l,clave);pintar()}catch(e){toast(mensajeClave(e)||'No se pudo eliminar')}
+    });
+    if(ls.length&&window.Chart){
+      if(deptoChart){deptoChart.destroy();deptoChart=null}
+      const ink=css('--ink'),muted=css('--muted'),line=css('--line');Chart.defaults.font.family=css('--font');Chart.defaults.color=muted;Chart.defaults.borderColor=line;
+      deptoChart=new Chart(dlg.querySelector('#dep-chart'),{type:'bar',data:{labels:ls.map(l=>mesCorto(l.mes)),datasets:[{data:ls.map(l=>l.kwh),backgroundColor:css('--amber'),borderRadius:4}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtN(c.raw)+' kWh'}}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}}});
+    }
+  };
+  pintar();
+  dlg.addEventListener('close',()=>{if(deptoChart){deptoChart.destroy();deptoChart=null}renderDeptos()},{once:true});
+  dlg.showModal();
+}
+
+// La contraseña la valida el servidor (ADMIN_PASSWORD en Apps Script); aquí no se guarda. Devuelve la clave o null.
+function mensajeClave(e){const m=String(e&&(e.message||e.code)||'');
+  return m.includes('clave_incorrecta')?'Contraseña incorrecta.':m.includes('demasiados_intentos')?'Demasiados intentos fallidos. Espera 10 minutos.':m.includes('sin_clave_admin')?'Falta definir la contraseña de administrador en Apps Script (ver instrucciones).':null}
+async function pedirPassword(accion){
+  const v=await pedirTexto('Contraseña de administrador para '+accion+':','','password');
+  if(v==null||v==='')return null;
+  if(!db)return v;
+  try{await db._post({action:'verificarClave',clave:v});return v}
+  catch(e){toast(mensajeClave(e)||'No se pudo verificar la contraseña.');return null}
+}
+function registrarCambioCobro(l,nuevoMonto,nuevaFecha){
+  const h=Array.isArray(l.historialCobro)?[...l.historialCobro]:[];
+  h.push({cuando:new Date().toISOString(),anterior:{monto:l.montoCobrado??null,fecha:l.fechaCobro??null},nuevo:{monto:nuevoMonto,fecha:nuevaFecha}});
+  return h;
+}
+function abrirCobro(l,deptoId){
+  const d=deptos.find(x=>x.id===deptoId);
+  const v=calcVerif(deptoId,l.mes);
+  const data={monto:l.montoCobrado??null,fecha:l.fechaCobro||new Date().toISOString().slice(0,10)};
+  const dlg=$('#dlg');
+  const pintar=()=>{
+    const diff=(v&&data.monto!=null)?data.monto-v.cargoCorrecto:null;
+    const nCambios=Array.isArray(l.historialCobro)?l.historialCobro.length:0;
+    dlg.innerHTML=`<div class="dlg-h"><h2>${l.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" data-close>×</button></div>
+    <div class="dlg-b">
+      ${v?`<div class="banner info" style="margin-bottom:14px">Cargo correcto (lo que debe pagar): <strong>${fmtS(v.cargoCorrecto)}</strong><br><span class="small">Electricidad ${fmtS(v.cargoElectricidad)} (${fmtN(v.pct*100,2)}% de ${fmtN(v.sumaSub)} kWh medidos, sobre ${fmtS(recibos.find(x=>x.id===l.mes).totalMes)} del mes) + mantenimiento ${fmtS(v.mant)}.</span></div>`
+        :`<div class="banner warn" style="margin-bottom:14px">Todavía no se puede calcular el cargo correcto porque falta el recibo del edificio de ${mesLargo(l.mes)}.</div>`}
+      <label class="f" style="margin-bottom:6px">Monto que entregó el encargado — cargo cobrado (S/)<input type="text" inputmode="decimal" id="c-monto" value="${data.monto??''}"></label>
+      ${diff!=null?`<p class="small" style="margin:0 0 12px">Diferencia (cobrado − correcto): <span class="${diff>0?'diff-pos':diff<0?'diff-neg':''}">${diff>0?'+':''}${fmtS(diff)}</span> ${diff>0?'(excedente)':diff<0?'(falta)':''}</p>`:'<div style="margin-bottom:12px"></div>'}
+      <label class="f">Fecha de cobro<input type="date" id="c-fecha" value="${data.fecha}"></label>
+      <p class="muted small" style="margin-top:14px">Cada cambio de monto queda guardado en un historial. ${nCambios?`<button class="iconbtn" id="ver-historial">Ver historial (${nCambios})</button>`:'Sin cambios registrados todavía.'}</p>
+    </div>
+    <div class="dlg-f">${l.montoCobrado!=null?'<button class="btn danger" id="c-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-close>Cancelar</button><button class="btn primary" id="c-save">Guardar</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    dlg.querySelector('#c-monto').oninput=e=>{data.monto=num(e.target.value);pintar()};
+    dlg.querySelector('#c-fecha').onchange=e=>{data.fecha=e.target.value};
+    const vh=dlg.querySelector('#ver-historial');if(vh)vh.onclick=()=>abrirHistorialCobro(l,d);
+    const q=dlg.querySelector('#c-quitar');if(q)q.onclick=async()=>{
+      try{const h=registrarCambioCobro(l,null,null);await guardarLectura(l.id,{...l,montoCobrado:null,fechaCobro:null,historialCobro:h});dlg.close();toast('Cobro quitado');renderDeptos()}catch(e){toast('No se pudo guardar')}
+    };
+    dlg.querySelector('#c-save').onclick=async()=>{
+      const monto=data.monto;
+      if(monto==null){toast('Ingresa el monto.');return}
+      const fecha=data.fecha||null;
+      const btn=dlg.querySelector('#c-save');btn.disabled=true;btn.textContent='Guardando…';
+      try{
+        const h=registrarCambioCobro(l,monto,fecha);
+        await guardarLectura(l.id,{...l,montoCobrado:monto,fechaCobro:fecha,historialCobro:h});
+        dlg.close();toast('Cobro registrado');renderDeptos();
+      }catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
+    };
+  };
+  pintar();
+  dlg.showModal();
+}
+function abrirHistorialCobro(l,d){
+  const dlg=$('#dlg');
+  const pintar=()=>{
+    const h=Array.isArray(l.historialCobro)?l.historialCobro:[];
+    dlg.innerHTML=`<div class="dlg-h"><h2>Historial de cobro — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" data-close>×</button></div>
+    <div class="dlg-b">
+      ${h.length?h.slice().reverse().map(c=>`<div class="lect-row" style="grid-template-columns:1fr">
+        <div>
+          <div class="muted small">${new Date(c.cuando).toLocaleString('es-PE',{dateStyle:'medium',timeStyle:'short'})}</div>
+          <div class="small">${c.anterior.monto!=null?fmtS(c.anterior.monto):'sin monto'} → <strong>${c.nuevo.monto!=null?fmtS(c.nuevo.monto):'sin monto'}</strong>${c.nuevo.fecha?' · cobrado el '+fechaCorta(c.nuevo.fecha):''}</div>
+        </div>
+      </div>`).join(''):'<p class="muted small">Sin cambios registrados.</p>'}
+      <p class="muted small" style="margin-top:16px">Reiniciar el historial borra este registro de cambios de forma permanente. Requiere contraseña de administrador.</p>
+    </div>
+    <div class="dlg-f">${h.length?'<button class="btn danger" id="reiniciar-hist" style="margin-right:auto">Reiniciar historial</button>':''}<button class="btn" data-close>Cerrar</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    const rh=dlg.querySelector('#reiniciar-hist');if(rh)rh.onclick=async()=>{
+      const clave=await pedirPassword('reiniciar el historial de cobro');if(!clave)return;
+      if(!(await confirmar('¿Reiniciar el historial de cambios de este mes? No se puede deshacer.','Reiniciar',true)))return;
+      try{await guardarLectura(l.id,{...l,historialCobro:[]},clave);l.historialCobro=[];toast('Historial reiniciado');pintar()}catch(e){toast(mensajeClave(e)||'No se pudo guardar')}
+    };
+  };
+  pintar();
+  dlg.showModal();
+}
+
+function abrirLecturaForm(deptoId,existente=null){
+  const d=deptos.find(x=>x.id===deptoId);
+  const ls=lecturasDe(deptoId);
+  const ultimoMesRecibos=ultimoMesConDatos();
+  const sinLecturaCruda=existente&&existente.lecturaAnterior==null&&existente.lecturaActual==null&&existente.kwh!=null;
+  const data={mes:existente?.mes||(ls.length?siguienteMes(ls[ls.length-1].mes):ultimoMesRecibos)||'',
+    lecturaAnterior:existente?.lecturaAnterior??(ls.length?ls[ls.length-1].lecturaActual:null),
+    lecturaActual:existente?.lecturaActual??null,
+    kwhDirecto:sinLecturaCruda?existente.kwh:null,
+    origen:existente?.origen==='foto'?'foto':sinLecturaCruda?'directo':(existente?.origen==='directo'?'directo':'manual'),
+    fotoId:existente?.fotoId||null,fotoUrl:existente?.fotoUrl||null};
+  const dlg=$('#dlg');
+  const pintar=()=>{
+    const directo=data.origen==='directo';
+    const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
+    const sospechosa=!directo&&kwh!=null&&kwh<0;
+    dlg.innerHTML=`<div class="dlg-h"><h2>${existente?'Editar lectura':'Agregar lectura'} — ${tituloDepto(d)}</h2><button class="x" data-close>×</button></div>
+    <div class="dlg-b">
+      <label class="f" style="margin-bottom:12px">Mes<input type="month" id="f-mes" value="${data.mes||''}"></label>
+      <div class="seg" style="margin-bottom:14px">
+        <button type="button" class="${data.origen==='manual'?'on':''}" data-origen="manual">Escribir a mano</button>
+        <button type="button" class="${data.origen==='foto'?'on':''}" data-origen="foto">Tomar/subir foto</button>
+        <button type="button" class="${directo?'on':''}" data-origen="directo">Solo kWh del mes</button>
+      </div>
+      ${directo?`
+        <p class="muted small" style="margin:0 0 10px">Para medidores que no muestran un acumulado, solo el consumo del mes.</p>
+        <label class="f">Consumo del mes (kWh)<input type="text" inputmode="decimal" id="f-kwh" value="${data.kwhDirecto??''}"></label>
+      `:`
+      <div id="foto-zona" ${data.origen==='foto'?'':'hidden'} style="margin-bottom:14px">
+        <div class="row">
+          <button type="button" class="btn primary" id="f-camara">📷 Tomar foto</button>
+          <button type="button" class="btn" id="f-galeria">Elegir de la galería</button>
+        </div>
+        <input type="file" id="f-foto-cam" accept="image\/*" capture="environment" hidden>
+        <input type="file" id="f-foto-gal" accept="image\/*" hidden>
+        ${data.fotoPreview||data.fotoUrl?`<a href="${esc(data.fotoPreview||data.fotoUrl)}" target="_blank" rel="noopener"><img src="${esc(data.fotoPreview||data.fotoUrl)}" alt="Foto del medidor" style="display:block;width:100%;max-height:260px;object-fit:contain;margin-top:10px;border-radius:8px;background:var(--line)"></a>`:''}
+        <p class="muted small" id="foto-estado" style="margin:6px 0 0">${esc(data.fotoEstado||'Encuadra de cerca los números del medidor, con buena luz. La foto se guarda en Drive, en la carpeta del departamento.')}</p>
+      </div>
+      <div class="grid2">
+        <label class="f">Lectura anterior<input type="text" inputmode="decimal" id="f-ant" value="${data.lecturaAnterior??''}"></label>
+        <label class="f">Lectura actual<input type="text" inputmode="decimal" id="f-act" value="${data.lecturaActual??''}"></label>
+      </div>
+      <p class="small muted" style="margin:8px 0 0">kWh del periodo: <strong>${kwh!=null?fmtN(kwh):'—'}</strong></p>
+      ${sospechosa?'<div class="banner warn" style="margin-top:10px">La lectura actual es menor que la anterior. Revísala antes de guardar.</div>':''}
+      `}
+      <p class="muted small" style="margin-top:14px">El monto cobrado se registra aparte, cuando el encargado entregue el pago.</p>
+    </div>
+    <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="f-save">Guardar lectura</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value};
+    dlg.querySelectorAll('[data-origen]').forEach(b=>b.onclick=()=>{data.origen=b.dataset.origen;pintar()});
+    const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value);pintar()};
+    const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);pintar()};
+    const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value);pintar()};
+    const bCam=dlg.querySelector('#f-camara'),bGal=dlg.querySelector('#f-galeria');
+    if(bCam)bCam.onclick=()=>dlg.querySelector('#f-foto-cam').click();
+    if(bGal)bGal.onclick=()=>dlg.querySelector('#f-foto-gal').click();
+    // La foto se lee aquí, pero se sube a Drive al guardar (así el nombre lleva el mes y la lectura definitivos).
+    const alElegirFoto=async e=>{
+      const file=e.target.files[0];e.target.value='';if(!file)return;
+      const estado=dlg.querySelector('#foto-estado');
+      estado.textContent='Preparando la foto…';
+      try{
+        const blob=await reducirImagen(file);
+        if(data.fotoPreview)URL.revokeObjectURL(data.fotoPreview);
+        data.fotoBlob=blob;data.fotoPreview=URL.createObjectURL(blob);
+        data.fotoEstado='Leyendo los números del medidor (la primera vez tarda unos segundos)…';pintar();
+        const res=await sample.json('leer medidor',{images:blob,anterior:data.lecturaAnterior});
+        if(res&&res.lectura!=null){data.lecturaActual=Number(res.lectura);data.fotoEstado='Leído: '+res.lectura+'. Compáralo con la foto y corrígelo si hace falta.'}
+        else data.fotoEstado='No se pudo leer el número con confianza. Míralo en la foto y escríbelo en "Lectura actual".';
+      }catch(err){data.fotoEstado='No se pudo leer la foto. Escribe el número a mano; la foto igual se guardará.'}
+      pintar();
+    };
+    const fCam=dlg.querySelector('#f-foto-cam'),fGal=dlg.querySelector('#f-foto-gal');
+    if(fCam)fCam.onchange=alElegirFoto;
+    if(fGal)fGal.onchange=alElegirFoto;
+    dlg.querySelector('#f-save').onclick=async()=>{
+      if(!data.mes){toast('Indica el mes.');return}
+      if(directo){if(data.kwhDirecto==null){toast('Ingresa el consumo del mes.');return}}
+      else if(data.lecturaActual==null){toast('Falta la lectura actual.');return}
+      const id=deptoId+'_'+data.mes;
+      const btn=dlg.querySelector('#f-save');btn.disabled=true;btn.textContent='Guardando…';
+      try{
+        if(!directo&&data.fotoBlob&&assets){
+          btn.textContent='Subiendo foto…';
+          const nombre=`${data.mes} - ${tituloDepto(d)} - lectura ${data.lecturaActual}.jpg`;
+          try{const up=await assets.upload(data.fotoBlob,{type:'image/jpeg',nombre,carpeta:['Fotos medidores',tituloDepto(d)]});data.fotoId=up.id;data.fotoUrl=up.url;data.fotoBlob=null}
+          catch(err){if(!(await confirmar('No se pudo subir la foto a Drive. ¿Guardar la lectura sin foto?','Guardar sin foto'))){btn.disabled=false;btn.textContent='Guardar lectura';return}}
+          btn.textContent='Guardando…';
+        }
+        const kwhF=directo?data.kwhDirecto:((data.lecturaAnterior!=null)?Math.round((data.lecturaActual-data.lecturaAnterior)*100)/100:null);
+        await guardarLectura(id,{deptoId,mes:data.mes,
+          lecturaAnterior:directo?null:data.lecturaAnterior,lecturaActual:directo?null:data.lecturaActual,kwh:kwhF,
+          montoCobrado:existente?.montoCobrado??null,fechaCobro:existente?.fechaCobro??null,historialCobro:existente?.historialCobro||[],origen:data.origen,
+          fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl});
+        dlg.close();toast('Lectura guardada');renderDeptos();
+      }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+(e.message||e.code))}
+    };
+  };
+  pintar();
+  dlg.showModal();
+}
+function siguienteMes(m){const [y,mm]=m.split('-').map(Number);const d=new Date(y,mm-1+1,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+
+/* ---------- Navegación ---------- */
+function irA(tab){tabActual=tab;document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));['resumen','recibos','deptos','reportes'].forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();window.scrollTo(0,0)}
+window.irA=irA;
+function renderTodo(){
+  const r=recibos[recibos.length-1];
+  $('#subtitulo').textContent=r&&r.suministro?`Luz del Sur, suministro ${r.suministro}${r.titular?' a nombre de '+r.titular.toLowerCase().replace(/(^|\s)\S/g,s=>s.toUpperCase()):''}`:'Luz del Sur';
+  renderResumen();renderRecibos();if(tabActual==='reportes')renderReportes();if(tabActual==='deptos')renderDeptos();
+}
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>irA(b.dataset.tab));
+document.addEventListener('click',e=>{const v=e.target.closest('[data-ver]');if(v&&!v.closest('dialog')){abrirDetalle(v.dataset.ver);return}const p=e.target.closest('[data-pagar]');if(p&&!p.closest('dialog')){const r=recibos.find(x=>x.id===p.dataset.pagar);if(r)marcarPagado(r,!r.pagado)}});
+$('#btn-subir').onclick=()=>$('#file').click();
+$('#btn-manual').onclick=()=>abrirFormulario({otros:[],historial:[]});
+$('#file').onchange=e=>{const f=[...e.target.files];e.target.value='';procesar(f)};
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>procesar([...e.dataTransfer.files]));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(tabActual==='reportes')renderReportes()});
+renderTodo();
+
+/* ---------- Backend: Google Apps Script + Sheets + Drive ---------- */
+// En GitHub Pages → fetch a la API /exec. Servida por Apps Script (respaldo) → google.script.run.
+// Ojo: las URL van con \/\/ porque Apps Script corta los // dentro de textos al servir la página.
+const API_URL='https:\/\/script.google.com/macros/s/AKfycbxEY9ZVcTbfzaIAUq2RZ9rxCzOClJ5bFNlilWnQVq-SLQydVvBnqoFzTkwgi0yiTq_J/exec';
+const EN_APPS_SCRIPT = typeof google!=='undefined' && !!(google.script&&google.script.run);
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}
+const APPS_SCRIPT_URL = EN_APPS_SCRIPT ? 'apps-script' : (lsGet('recibosluz_url') || API_URL);
+// Token de sesión que devuelve el servidor al validar el código de acceso; se recuerda en este dispositivo.
+let tokenAcceso=lsGet('recibos_token');
+function fileToBase64(file){return new Promise((ok,err)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(',')[1]);r.onerror=err;r.readAsDataURL(file)})}
+
+function llamarApi(base,payload){
+  if(EN_APPS_SCRIPT)return new Promise((ok,err)=>google.script.run
+    .withSuccessHandler(ok)
+    .withFailureHandler(e=>err(Object.assign(new Error(e&&e.message||'error'),{code:e&&e.message||'error'})))
+    .api(payload));
+  // text/plain evita la petición previa CORS, que Apps Script no responde.
+  return fetch(base,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)})
+    .then(r=>r.json()).then(j=>{if(!j.ok)throw Object.assign(new Error(j.error||'error'),{code:j.error});return j.result});
+}
+
+/* ---------- Código de acceso ---------- */
+function mensajeLogin(e){const m=String(e&&(e.message||e.code)||'');
+  return m.includes('codigo_incorrecto')?'Código incorrecto.':m.includes('demasiados_intentos')?'Demasiados intentos. Espera 10 minutos.':m.includes('sin_codigo_acceso')?'Falta definir ACCESS_CODE en Apps Script.':'No se pudo conectar. Revisa tu internet e inténtalo de nuevo.'}
+function mostrarLogin(aviso=''){
+  const c=$('#dlgLogin');if(c.open)return;
+  c.innerHTML=`<form class="dlg-b" style="padding:26px 22px" id="login-form">
+    <h2 style="margin:0 0 4px">Recibos de luz</h2>
+    <p class="muted small" style="margin:0 0 16px">${esc(aviso||'Escribe el código de acceso. Se recordará en este dispositivo.')}</p>
+    <label class="f">Código de acceso<input id="login-codigo" type="password" autocomplete="current-password" required></label>
+    <p class="small" id="login-error" style="color:var(--red);min-height:1.5em;margin:8px 0 0"></p>
+    <button class="btn primary" type="submit" style="width:100%;justify-content:center;margin-top:6px">Entrar</button>
+  </form>`;
+  c.addEventListener('cancel',e=>e.preventDefault()); // no se puede cerrar sin entrar
+  c.querySelector('#login-form').onsubmit=async e=>{
+    e.preventDefault();
+    const btn=c.querySelector('button[type=submit]'),err=c.querySelector('#login-error');
+    btn.disabled=true;btn.textContent='Entrando…';err.textContent='';
+    try{
+      const r=await llamarApi(APPS_SCRIPT_URL,{action:'login',codigo:c.querySelector('#login-codigo').value});
+      tokenAcceso=r.token;lsSet('recibos_token',tokenAcceso);c.close();
+      if(db)db._poll(true);else conectar();
+    }catch(ex){err.textContent=mensajeLogin(ex);btn.disabled=false;btn.textContent='Entrar'}
+  };
+  c.showModal();setTimeout(()=>c.querySelector('#login-codigo').focus(),0);
+}
+function sesionCaducada(){tokenAcceso=null;lsSet('recibos_token',null);mostrarLogin('El código de acceso cambió o la sesión se cerró. Escríbelo de nuevo.')}
+
+class SheetsDB{
+  constructor(base){this.base=base;this.subs={};this.timer=null}
+  async _post(payload){
+    try{return await llamarApi(this.base,{...payload,token:tokenAcceso})}
+    catch(e){if(String(e.message).includes('no_autorizado'))sesionCaducada();throw e}
+  }
+  // Un solo sondeo para todas las colecciones suscritas (1 llamada cada 7 s en vez de 4); se pausa con la pestaña oculta.
+  async _poll(forzar){
+    if(document.hidden&&!forzar)return;
+    const names=Object.keys(this.subs);if(!names.length)return;
+    try{
+      const all=await this._post({action:'listAll',collections:names});
+      names.forEach(n=>{const docs=all[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))});
+    }catch(e){names.forEach(n=>this.subs[n].forEach(s=>s.errCb&&s.errCb({code:e.code||'network'})))}
+  }
+  _schedule(){
+    clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),0);
+    if(!this.timer){this.timer=setInterval(()=>this._poll(),7000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)this._poll()})}
+  }
+  collection(name){
+    return{onSnapshot:(cb,errCb)=>{
+      const s={cb,errCb};(this.subs[name]=this.subs[name]||[]).push(s);this._schedule();
+      return()=>{this.subs[name]=this.subs[name].filter(x=>x!==s);if(!this.subs[name].length)delete this.subs[name]};
+    }};
+  }
+  // Tras escribir se refresca enseguida (como hacía onSnapshot en claude.ai); varias escrituras seguidas se agrupan en un solo refresco.
+  async _write(payload){const r=await this._post(payload);clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),150);return r}
+  doc(path){const [collection,id]=path.split('/');return{
+    set:(data,clave)=>this._write({action:'set',collection,id,data,clave}),
+    update:(data,clave)=>this._write({action:'update',collection,id,data,clave}),
+    delete:(clave)=>this._write({action:'delete',collection,id,clave}),
+  }}
+}
+function crearAssets(db){return{
+  // opts.carpeta: subcarpetas dentro de RECIBOS_JARDIN, p. ej. ['Fotos medidores','Depto 3']; opts.nombre: nombre del archivo en Drive.
+  upload:async(file,opts)=>{const base64=await fileToBase64(file);const r=await db._post({action:'upload',base64,mimeType:opts?.type||file.type,filename:opts?.nombre||file.name,carpeta:opts?.carpeta||[]});return{id:r.id,url:r.url}},
+  delete:async(id)=>db._post({action:'deleteFile',fileId:id}),
+}}
+function crearDownloads(){return{
+  save:async({filename,data})=>{const blob=new Blob([data],{type:'text/csv'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
+}}
+let tesseractCargado=null;
+function cargarTesseract(){if(!tesseractCargado)tesseractCargado=cargarScript('https:\/\/cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.0.4/tesseract.min.js');return tesseractCargado}
+// Las fotos del celular pesan 3–12 MB: se reducen a ~1600 px en JPEG antes de leerlas y subirlas.
+function cargarImagen(blob){return new Promise((ok,err)=>{const url=URL.createObjectURL(blob);const img=new Image();img.onload=()=>{URL.revokeObjectURL(url);ok(img)};img.onerror=()=>{URL.revokeObjectURL(url);err(new Error('imagen_invalida'))};img.src=url})}
+async function reducirImagen(file,maxLado=1600,calidad=0.85){
+  const img=await cargarImagen(file);
+  const k=Math.min(1,maxLado/Math.max(img.naturalWidth,img.naturalHeight));
+  const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*k);c.height=Math.round(img.naturalHeight*k);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  return new Promise(ok=>c.toBlob(b=>ok(b||file),'image/jpeg',calidad));
+}
+// Copia en escala de grises con contraste alto: el OCR distingue mejor los dígitos del tambor del medidor.
+async function prepararParaOCR(blob){
+  const img=await cargarImagen(blob);
+  const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;
+  const ctx=c.getContext('2d');ctx.filter='grayscale(1) contrast(1.6)';ctx.drawImage(img,0,0);
+  return c;
+}
+// Elige el número más probable. Con lectura anterior: el menor valor ≥ anterior y ≤ anterior+3000 kWh,
+// probando también con el último dígito como decimal (muchos medidores lo muestran en una casilla roja).
+function elegirLectura(texto,anterior){
+  const tokens=(texto.match(/\d[\d.,]*\d|\d/g)||[]).map(t=>t.replace(/,/g,'.').replace(/\.(?=.*\.)/g,''));
+  const cands=[];
+  tokens.forEach((t,i)=>{const n=parseFloat(t);if(isNaN(n))return;cands.push({n,dig:t.replace('.','').length});if(!t.includes('.')&&t.length>=2)cands.push({n:n/10,dig:t.length});
+    // "12583 5" → 12583.5: 1–2 dígitos sueltos justo después de un entero suelen ser la casilla decimal (roja).
+    const sig=tokens[i+1];
+    if(sig&&sig.length<=2&&!t.includes('.')&&t.length>=3&&new RegExp('(^|\\D)'+t+'\\s+'+sig+'(?!\\d)').test(texto))cands.push({n:parseFloat(t+'.'+sig),dig:t.length+sig.length,unido:true})});
+  if(!cands.length)return null;
+  if(anterior!=null){
+    const peso=c=>(c.n-anterior)-(c.unido?1:0);
+    const ok=cands.filter(c=>c.n>=anterior&&c.n-anterior<=3000).sort((a,b)=>peso(a)-peso(b));
+    return ok.length?ok[0].n:null; // nada coherente con la lectura anterior: mejor que la persona lo escriba
+  }
+  const largos=cands.slice().sort((a,b)=>b.dig-a.dig);
+  return largos[0].dig>=3?largos[0].n:null;
+}
+let ocrWorker=null;
+async function obtenerWorkerOCR(){
+  if(!ocrWorker)ocrWorker=(async()=>{await cargarTesseract();const w=await window.Tesseract.createWorker('eng');// PSM 11 = texto disperso: detecta los dígitos grandes de los tambores, que el modo por defecto ignora.
+    await w.setParameters({tessedit_char_whitelist:'0123456789.,',tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});return w})();
+  try{return await ocrWorker}catch(e){ocrWorker=null;throw e}
+}
+function crearSampleOCR(){return{
+  soloOCR:true,
+  limits:async()=>({images:true}),
+  json:async(prompt,{images:file,anterior=null}={})=>{
+    const worker=await obtenerWorkerOCR();
+    const {data}=await worker.recognize(await prepararParaOCR(file));
+    return{lectura:elegirLectura((data&&data.text)||'',anterior)};
+  }
+}}
+
+/* ---------- Conexión ---------- */
+async function conectar(){
+  if(!tokenAcceso){mostrarLogin();return}
+  db=new SheetsDB(APPS_SCRIPT_URL);assets=crearAssets(db);downloads=crearDownloads();sample=crearSampleOCR();
+  $('#aviso-db').hidden=true;
+  db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').textContent='No se pudo conectar con la Hoja de cálculo ('+(err.code||'error')+'). Revisa tu conexión a internet; la app reintenta sola cada pocos segundos.'});
+  db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
+  db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
+  db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos()});
+  if(tabActual==='reportes')renderReportes();
+}
+conectar();
+document.getElementById('btn-cambiar-conexion').onclick=async()=>{
+  if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
+  lsSet('recibos_token',null);location.reload();
+};
+// App instalable (GitHub Pages): registra el service worker que guarda la interfaz para abrir más rápido.
+if(!EN_APPS_SCRIPT&&'serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>

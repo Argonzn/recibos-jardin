@@ -1,0 +1,7 @@
+# Datos personales: NO se publican (el repositorio es público para usar GitHub Pages gratis)
+Datos.gs
+datos/
+pdfs/
+
+# Configuración local de clasp
+.clasp.json
