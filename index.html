@@ -1254,6 +1254,10 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       if((directo?data.kwhDirecto:data.lecturaActual)<0){toast('La lectura no puede ser negativa.');return}
       const id=deptoId+'_'+data.mes;
       const consumoNuevo=directo?data.kwhDirecto:(data.lecturaAnterior!=null?data.lecturaActual-data.lecturaAnterior:null);
+      if(consumoNuevo!=null&&deptoId==='general'&&AG){
+        const con=deptosConMedidor(),ms=con.map(d=>m3De(lecturaAguaDe(d.id,data.mes)));
+        if(ms.every(v=>v!=null)){const suma=ms.reduce((a,b)=>a+b,0);if(consumoNuevo<suma-0.5&&!(await confirmar('El medidor general da '+fmtN(consumoNuevo,2)+' m³, pero los medidores internos suman '+fmtN(suma,2)+' m³ este mes. El general no puede marcar menos: revisa el número. ¿Guardar igual?','Guardar igual')))return}
+      }
       if(consumoNuevo!=null&&deptoId!=='general'){
         const normal=consumoNormal(deptoId,data.mes,AG?'agua':'luz');
         if(consumoNuevo<0&&!(await confirmar('La lectura actual es menor que la anterior (consumo '+fmtN(consumoNuevo,AG?3:0)+' '+unidad+'). ¿Guardar igual?','Guardar igual')))return;
@@ -1368,7 +1372,8 @@ function calcAguaCalc(mes){
   let atrasoSinResponsable=0;
   if(atraso>0){const ids=resp.ids.filter(id=>porDepto[id]);if(ids.length){const ra=repartirCentimos(atraso,Object.fromEntries(ids.map(id=>[id,1])));ids.forEach(id=>{porDepto[id].atraso=ra[id]})}else atrasoSinResponsable=atraso}
   return{r,general:s.general,fuente:s.fuente,medidos:s.medidos,R:s.R,pct:s.R/s.general,nHist:hist.length,normal,tol,exceso,base,
-    m3SinMed,factor,consumo,atraso,atrasoSinResponsable,precio:consumo/s.general,porDepto,resp,fueraDeLoNormal:exceso>0};
+    m3SinMed,factor,consumo,atraso,atrasoSinResponsable,precio:consumo/s.general,porDepto,resp,fueraDeLoNormal:exceso>0,
+    inconsistente:s.R< -0.5}; // el medidor general marca menos que la suma de los internos: alguna lectura está mal
 }
 // Los cargos por atraso del recibo de un mes se deben a pagar tarde el recibo anterior.
 // Automático: deptos que no pagaron, o pagaron después del corte interno, el cobro del mes anterior.
@@ -1505,6 +1510,7 @@ function renderCobros(){
     <div class="row" style="margin:12px 0"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ CSV</button><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
+    ${(()=>{const aa=calcAgua(mes);return aa&&!aa.incompleto&&aa.inconsistente&&!mesCerrado(mes)?`<div class="banner alert" style="margin-bottom:12px">El medidor general de agua marca ${fmtN(aa.general,2)} m³ y la suma de los medidores internos da ${fmtN(aa.medidos,2)} m³: no puede ser menor. Revisa las lecturas de agua de ${mesLargo(mes)} antes de cobrar; el reparto de este mes no es confiable.</div>`:''})()}
     <details class="info-mes"><summary class="small">Cargos y moras del mes</summary>
     <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
 ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
@@ -1737,6 +1743,7 @@ function abrirDetalleAgua(mes){
       </tbody></table></div>
       <h3 style="margin-top:16px">Reparto</h3>
       ${!aa||aa.incompleto?`<div class="banner warn">Faltan lecturas de agua de ${mesLargo(mes)}${aa&&aa.faltan&&aa.faltan.length?': '+aa.faltan.map(d=>esc(nombreDepto(d))).join(', '):''}. El reparto se calcula cuando estén todas.</div>`:`
+      ${aa.inconsistente?`<div class="banner alert" style="margin-bottom:12px">El medidor general de agua marca ${fmtN(aa.general,2)} m³ y la suma de los medidores internos da ${fmtN(aa.medidos,2)} m³: no puede ser menor. Revisa las lecturas de agua de ${mesLargo(mes)} antes de cobrar; el reparto de este mes no es confiable.</div>`:''}
       <p class="small" style="margin-top:0">Medidor general ${fmtN(aa.general,2)} m³ (${aa.fuente==='propia'?'tu lectura del día 12':'del recibo de Sedapal'}) − medidores internos ${fmtN(aa.medidos,2)} m³ = <strong>${fmtN(aa.R,2)} m³ sin medir</strong> (${fmtN(aa.pct*100,0)} %).</p>
       <p class="small">${aa.nHist>=3?`Lo normal en los meses anteriores: ${fmtN(aa.normal,1)} m³ ± ${fmtN(aa.tol,1)}. `:'Todavía hay pocos meses para calcular lo normal (hacen falta 3). '}${aa.fueraDeLoNormal?`<strong>Este mes se pasó en ${fmtN(aa.exceso,1)} m³</strong>: se suman a los deptos sin medidor.`:'Este mes está dentro de lo normal.'} Base sin medidor de este mes: ${fmtN(aa.base,1)} m³ <button class="iconbtn" id="ag-base" style="padding:0">cambiar</button>; asignado: ${fmtN(aa.m3SinMed,2)} m³ cada uno. El resto se reparte en proporción a lo medido (× ${fmtN(aa.factor,3)}). Precio: ${fmtS(aa.precio)} por m³.</p>
       <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>Agua</th><th>Atraso</th></tr></thead><tbody>
@@ -2050,6 +2057,7 @@ function tareasDelMes(){
   if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
   if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
     btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+mensajeError(e)))}]})}
+  const aq=calcAgua(mes);if(aq&&!aq.incompleto&&aq.inconsistente)T.push({ok:false,urgente:true,t:'Revisar las lecturas de agua',d:'El medidor general ('+fmtN(aq.general,2)+' m³) marca menos que la suma de los internos ('+fmtN(aq.medidos,2)+' m³). Corrige la lectura que esté mal antes de cobrar.',btn:['Ver deptos',()=>irA('deptos')]});
   const altos=consumosAltos(mes);
   if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:['Ver deptos',()=>irA('deptos')]});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
