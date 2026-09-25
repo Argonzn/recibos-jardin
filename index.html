@@ -237,6 +237,11 @@ body.modo-inquilino .wrap{padding-bottom:24px}
   .iconbtn{padding:9px 6px}
   .qh li{grid-template-columns:auto 1fr}.qh li .btn{grid-column:1/-1;justify-content:center}
 }
+.inq-card{text-align:center}.inq-card .row{text-align:left}
+.inq-monto{font-size:3rem;font-weight:800;font-stretch:72%;line-height:1.1;margin:4px 0 6px}
+.inq-btn{width:100%;justify-content:center;margin-top:18px}
+table.detail td:last-child{white-space:nowrap}
+tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1887,40 +1892,77 @@ function renderInquilino(){
   const meses=mesesCobro().filter(m=>detalleCobro(dep,m).participa).reverse();
   if(!meses.length){el.innerHTML='<div class="panel empty muted">Todavía no hay cobros.</div>';return}
   const mes=renderInquilino.mes&&meses.includes(renderInquilino.mes)?renderInquilino.mes:meses[0];
-  const x=detalleCobro(dep,mes),a=calcAgua(mes),p=a&&!a.incompleto?a.porDepto[dep]:null,l=lecturaDe(dep,mes),la=lecturaAguaDe(dep,mes),v=calcVerif(dep,mes);
-  const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
+  const x=detalleCobro(dep,mes),ok=x.estado.cls==='ok';
+  const otros=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant+x.partes.atraso-x.aFavor);
+  const resumen=[x.partes.luz!=null?'💡 Luz '+fmtS(x.partes.luz):'',x.partes.agua!=null?'💧 Agua '+fmtS(x.partes.agua):'',otros?'Otros '+fmtS(otros):''].filter(Boolean).map(t=>'<span style="white-space:nowrap">'+t+'</span>').join(' · ');
+  const deudas=meses.filter(m=>m!==mes).map(m=>detalleCobro(dep,m)).filter(y=>y.estado.cls!=='ok'&&y.falta>0);
+  el.innerHTML=`<div class="panel inq-card">
+    <div class="row" style="justify-content:space-between">
+      <select id="sel-mes-inq" aria-label="Mes">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select>
+      <span class="chip ${x.estado.cls}">${x.estado.txt}</span></div>
+    <div class="muted" style="margin-top:18px">${ok?'Pagaste':'Tienes que pagar'}</div>
+    <div class="inq-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)}</div>
+    <div class="muted small">${ok?(x.cobro&&x.cobro.fechaCobro?'El '+fechaCorta(x.cobro.fechaCobro):''):'Hasta el <strong>'+fechaCorta(fechaLimitePago(mes))+'</strong>'}${x.faltan.length?' · monto provisional':''}</div>
+    ${resumen?`<p class="small" style="margin:14px 0 0">${resumen}</p>`:''}
+    <button class="btn primary inq-btn" id="inq-detalle">Ver detalle del cobro</button>
+  </div>
+  ${deudas.length?`<div class="banner alert">Además debes <strong>${fmtS(sum(deudas,y=>y.falta))}</strong> de ${deudas.length>2?deudas.length+' meses anteriores':deudas.map(y=>mesLargo(y.mes)).join(' y ')}. <button class="iconbtn" id="inq-ver-deudas" style="color:inherit">Ver</button></div>`:''}
+  <div class="row" style="justify-content:space-between">
+    <button class="btn" id="inq-historial">Historial de pagos</button>
+    <button class="iconbtn" id="inq-salir">Cerrar sesión</button></div>`;
+  $('#sel-mes-inq').onchange=e=>{renderInquilino.mes=e.target.value;renderInquilino()};
+  $('#inq-detalle').onclick=()=>abrirDetalleInquilino(dep,mes);
+  $('#inq-historial').onclick=()=>abrirHistorialInquilino(dep,meses);
+  const vd=$('#inq-ver-deudas');if(vd)vd.onclick=()=>abrirHistorialInquilino(dep,meses);
+  $('#inq-salir').onclick=()=>cerrarSesion();
+}
+// Ventana con todo el detalle de un mes: desglose, lecturas, fotos, recibos del edificio y cómo se calcula.
+function abrirDetalleInquilino(dep,mes){
+  const d=deptos.find(x=>x.id===dep),x=detalleCobro(dep,mes),a=calcAgua(mes),p=a&&!a.incompleto?a.porDepto[dep]:null;
+  const l=lecturaDe(dep,mes),la=lecturaAguaDe(dep,mes),v=calcVerif(dep,mes);
+  const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes),prev=mesLargo(mesAnterior(mes));
   const fila=(t,det,val)=>val==null?'':`<tr><td>${t}${det?`<div class="small muted">${det}</div>`:''}</td><td>${fmtS(val)}</td></tr>`;
-  el.innerHTML=`<div class="panel">
-    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Mi cuenta</h2>
-      <select id="sel-mes-inq" aria-label="Mes">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
-    <div class="row" style="justify-content:space-between;margin-top:14px"><span class="muted">${x.estado.cls==='ok'?'Total de '+mesLargo(mes):'Por pagar'}</span><span class="chip ${x.estado.cls}">${x.estado.txt}</span></div>
-    <div class="amount" style="font-size:2.4rem;font-weight:800;font-stretch:72%;margin:4px 0">${fmtS(x.estado.cls==='ok'?x.neto:x.falta)}</div>
-    <div class="muted small">${x.estado.cls==='ok'?(x.cobro&&x.cobro.fechaCobro?'Pagado el '+fechaCorta(x.cobro.fechaCobro):'Pagado'):'Fecha límite: '+fechaCorta(fechaLimitePago(mes))}${x.faltan.length?' · monto provisional (falta '+x.faltan.join(' y ')+')':''}</div>
-    <div class="scroll" style="margin-top:14px"><table class="detail"><tbody>
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dlg-h"><h2>Detalle de ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  <div class="dlg-b">
+    <div class="scroll"><table class="detail"><tbody>
       ${fila('💡 Luz',l?`${l.lecturaAnterior!=null?fmtN(l.lecturaAnterior,1)+' → '+fmtN(l.lecturaActual,1)+' = ':''}${fmtN(l.kwh,2)} kWh${v?' · '+fmtN(v.pct*100,2)+'% del consumo medido del edificio':''}`:'',x.partes.luz)}
       ${fila('💧 Agua',p?(tipoAgua(d)==='sin_medidor'?'Consumo estimado: '+fmtN(p.m3,2)+' m³':`${la?fmtN(la.lecturaAnterior,3)+' → '+fmtN(la.lecturaActual,3)+' = '+fmtN(p.m3Leido,2)+' m³ medidos; ':''}${fmtN(p.m3,2)} m³ con tu parte del agua común`):'',x.partes.agua)}
       ${fila('Administración de luz','',x.partes.admLuz||null)}${fila('Administración de agua','',x.partes.admAgua||null)}${fila('Mantenimiento','',x.partes.mant||null)}
-      ${fila('Mora del agua','Se reparte entre quienes aún no pagan '+mesLargo(mesAnterior(mes)),x.partes.atrasoAgua||null)}${fila('Intereses de la luz','Se reparte entre quienes aún no pagan '+mesLargo(mesAnterior(mes)),x.partes.atrasoLuz||null)}
+      ${fila('Mora del agua','Se reparte entre quienes aún no pagan '+prev,x.partes.atrasoAgua||null)}${fila('Intereses de la luz','Se reparte entre quienes aún no pagan '+prev,x.partes.atrasoLuz||null)}
       ${x.aFavor?`<tr><td>Saldo a favor del mes anterior</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
       <tr class="sum"><td>Total del mes</td><td>${fmtS(x.neto)}</td></tr>
-      ${x.cobrado!=null?`<tr><td>Pagado</td><td>${fmtS(x.cobrado)}</td></tr>`:''}
+      ${x.cobrado!=null?`<tr><td>Pagado${x.cobro&&x.cobro.fechaCobro?' el '+fechaCorta(x.cobro.fechaCobro):''}</td><td>${fmtS(x.cobrado)}</td></tr>`:x.legado!=null?`<tr><td>Pagado (solo luz)</td><td>${fmtS(x.legado)}</td></tr>`:''}
+      ${x.estado.cls!=='ok'&&x.falta>0?`<tr class="sum"><td>Por pagar</td><td>${fmtS(x.falta)}</td></tr>`:''}
     </tbody></table></div>
-    <div class="row" style="margin-top:12px">
-      ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 Foto medidor de luz</a>`:''}
-      ${la&&la.fotoUrl?`<a class="btn sm" href="${esc(la.fotoUrl)}" target="_blank" rel="noopener">📷 Foto medidor de agua</a>`:''}
+    ${x.faltan.length?`<div class="banner warn" style="margin-top:10px">Monto provisional: falta ${x.faltan.join(' y ')}.</div>`:''}
+    ${(l&&l.fotoUrl)||(la&&la.fotoUrl)||(rl&&rl.pdfId)||(ra&&ra.pdfId)?`<h3 style="margin-top:16px">Fotos y recibos</h3><div class="row">
+      ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 Medidor de luz</a>`:''}
+      ${la&&la.fotoUrl?`<a class="btn sm" href="${esc(la.fotoUrl)}" target="_blank" rel="noopener">📷 Medidor de agua</a>`:''}
       ${rl&&rl.pdfId?`<button class="btn sm" data-inq-pdf="luz">Recibo de luz del edificio</button>`:''}
-      ${ra&&ra.pdfId?`<button class="btn sm" data-inq-pdf="agua">Recibo de agua del edificio</button>`:''}
-    </div>
-    <details style="margin-top:14px"><summary class="small"><strong>¿Cómo se calcula?</strong></summary>
+      ${ra&&ra.pdfId?`<button class="btn sm" data-inq-pdf="agua">Recibo de agua del edificio</button>`:''}</div>`:''}
+    <details style="margin-top:16px"><summary class="small"><strong>¿Cómo se calcula?</strong></summary>
       <p class="small muted">La luz del edificio se reparte según el consumo de tu medidor comparado con la suma de todos los medidores internos. El agua se reparte según tu medidor; el agua que no marca ningún medidor interno (áreas comunes, diferencias de lectura) se reparte en proporción al consumo de cada uno. A eso se suma la administración. Si Sedapal o Luz del Sur cobran mora, intereses o reconexión por un atraso, se reparte en partes iguales entre quienes aún no han pagado el mes anterior.</p></details>
+    <p class="small muted" style="margin-top:12px">¿Dudas sobre tu cobro? Escribe a la administración.</p>
   </div>
-  <div class="panel"><h2>Historial</h2><div class="scroll"><table><thead><tr><th>Mes</th><th>Total</th><th>Pagado</th><th>Estado</th></tr></thead><tbody>
-    ${meses.map(m=>{const y=detalleCobro(dep,m);return `<tr><td>${mesLargo(m)}</td><td>${fmtS(y.neto)}</td><td>${y.pagado?fmtS(y.pagado):'—'}</td><td><span class="chip sm ${y.estado.cls}">${y.estado.txt}</span></td></tr>`}).join('')}
-  </tbody></table></div></div>
-  <div class="panel"><div class="row" style="justify-content:space-between"><span class="small muted">¿Dudas sobre tu cobro? Escribe a la administración.</span><button class="btn" id="inq-salir">Cerrar sesión</button></div></div>`;
-  $('#sel-mes-inq').onchange=e=>{renderInquilino.mes=e.target.value;renderInquilino()};
-  $('#inq-salir').onclick=()=>cerrarSesion();
-  el.querySelectorAll('[data-inq-pdf]').forEach(b=>b.onclick=()=>abrirVisorPdf(b.dataset.inqPdf==='luz'?rl:ra));
+  <div class="dlg-f"><button class="btn primary" data-close>Cerrar</button></div>`;
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelectorAll('[data-inq-pdf]').forEach(b=>b.onclick=()=>abrirVisorPdf(b.dataset.inqPdf==='luz'?rl:ra));
+  if(!dlg.open)dlg.showModal();
+}
+// Ventana con todos los meses; tocar uno abre su detalle.
+function abrirHistorialInquilino(dep,meses){
+  const dlg=$('#dlg');const filas=meses.map(m=>detalleCobro(dep,m));
+  const debe=sum(filas.filter(y=>y.estado.cls!=='ok'),y=>y.falta);
+  dlg.innerHTML=`<div class="dlg-h"><h2>Historial de pagos</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  <div class="dlg-b">${debe>0?`<div class="banner alert" style="margin-bottom:12px">Debes en total <strong>${fmtS(debe)}</strong>.</div>`:''}
+    <div class="scroll"><table><thead><tr><th>Mes</th><th>Total</th><th>Pagado</th><th>Estado</th></tr></thead><tbody>
+    ${filas.map(y=>`<tr class="clic" data-inq-mes="${y.mes}"><td>${mesLargo(y.mes)}</td><td>${fmtS(y.neto)}</td><td>${y.pagado?fmtS(y.pagado):'—'}</td><td><span class="chip sm ${y.estado.cls}">${y.estado.txt}</span></td></tr>`).join('')}
+    </tbody></table></div><p class="small muted" style="margin-top:10px">Toca un mes para ver su detalle.</p></div>
+  <div class="dlg-f"><button class="btn primary" data-close>Cerrar</button></div>`;
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelectorAll('[data-inq-mes]').forEach(t=>t.onclick=()=>abrirDetalleInquilino(dep,t.dataset.inqMes));
+  if(!dlg.open)dlg.showModal();
 }
 
 /* ---------- Navegación ---------- */
