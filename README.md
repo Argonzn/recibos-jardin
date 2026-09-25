@@ -1,6 +1,6 @@
 # Recibos de luz — Jardín
 
-App web para llevar los recibos de luz (Luz del Sur) de un edificio y las lecturas de los medidores de cada departamento, con fotos desde el celular.
+App web para repartir los recibos de luz (Luz del Sur) y agua (Sedapal) de un edificio entre sus departamentos, con lecturas de medidores (fotos desde el celular), cobros y una vista de solo lectura para cada inquilino.
 
 - **Interfaz:** `index.html`, publicada con GitHub Pages e instalable en el celular (`manifest.webmanifest`, `sw.js`).
 - **Datos y archivos:** Google Apps Script (`Code.gs`) como API sobre una Hoja de cálculo y Google Drive. Se sube con [clasp](https://github.com/google/clasp).
@@ -9,10 +9,9 @@ App web para llevar los recibos de luz (Luz del Sur) de un edificio y las lectur
 ## Publicar cambios
 
 ```bash
-node tools/revisar-html.js   # obligatorio: Apps Script corta los // dentro de textos del JS
-clasp push --force
-clasp deploy -i <deploymentId>   # mantiene la URL de la API
-git push                         # actualiza GitHub Pages
+bash tools/publicar.sh "Descripción del cambio"   # revisa el HTML, clasp push + deploy (misma URL) y git push
 ```
+
+Guía de uso completa: [INSTRUCCIONES.md](INSTRUCCIONES.md).
 
 Los datos personales (`Datos.gs`, `datos/`, `pdfs/`) están excluidos en `.gitignore`.
