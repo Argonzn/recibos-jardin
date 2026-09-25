@@ -93,7 +93,8 @@ h3{font-size:1rem;font-weight:700;margin:0 0 8px}
 .rec:hover{border-color:var(--muted)}
 .rec .m{font-weight:720;font-stretch:85%;font-size:1.05rem}
 .rec .n{font-weight:650}
-@media (max-width:560px){.rec{grid-template-columns:1fr auto}.rec .hide-s{display:none}}
+.solo-movil{display:none}
+@media (max-width:560px){.rec{grid-template-columns:1fr auto}.rec .hide-s{display:none}.solo-movil{display:block;margin-top:2px}}
 .drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted);transition:border-color .15s,background .15s}
 .drop.over{border-color:var(--blue);background:var(--blue-soft)}
 .empty{padding:28px;text-align:center}
@@ -585,12 +586,14 @@ function renderResumen(){
 }
 
 /* ---------- Lista ---------- */
+// Variación porcentual respecto al mes anterior (texto corto) o vacío si no hay con qué comparar.
+function variacion(actual,anterior){if(actual==null||!anterior)return'';const v=Math.round((actual-anterior)/anterior*100);return ' ('+(v>0?'+':'')+v+'%)'}
 function renderRecibos(){
   const el=$('#lista');
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
-    <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
+    <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
     <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh</div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
     <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
     <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
@@ -1841,7 +1844,7 @@ function renderAgua(){
     const info=!a||a.incompleto?`<span class="chip sm miss">Faltan lecturas${a&&a.faltan&&a.faltan.length?': '+a.faltan.map(d=>tituloDepto(d)).join(', '):''}</span>`
       :`<span class="small">Sin medir ${fmtN(a.R,1)} m³ (${fmtN(a.pct*100,0)} %)</span> ${a.fueraDeLoNormal?`<span class="chip sm late">Fuera de lo normal</span>`:''}`;
     return `<button class="rec" data-veragua="${r.id}">
-      <div><div class="m">${mesLargo(r.id)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
+      <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.total)}</strong> · ${fmtN(r.m3)} m³${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
       <div class="hide-s"><div class="n">${fmtN(r.m3)} m³</div><div class="muted small">${info}</div></div>
       <div class="hide-s"><div class="n">${fmtS(r.total)}</div><div class="muted small">${atrasoDe(r)?'incluye '+fmtS(atrasoDe(r))+' por atraso':'sin cargos por atraso'}</div></div>
       <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div></button>`}).join('')
