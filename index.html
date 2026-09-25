@@ -2134,8 +2134,31 @@ function abrirHistorialInquilino(dep,meses){
 
 /* ---------- Navegación ---------- */
 const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes','ruta'];
-function irA(tab){tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"]`));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0)}
+function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)history.pushState({tab},'');tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"]`));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0)}
 window.irA=irA;
+// Botón «atrás» del celular: cierra la ventana abierta o vuelve a la pestaña anterior, en vez de salir de la app.
+const historialActivo=!(typeof google!=='undefined'&&google.script&&google.script.run)&&!!(window.history&&history.pushState);
+if(historialActivo){
+  let atrasPropios=0;
+  history.replaceState({tab:tabActual},'');
+  const mostrarOrig=HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal=function(){
+    mostrarOrig.call(this);
+    if(this.id==='dlgLogin'||this.__enHistorial)return;
+    this.__enHistorial=true;history.pushState({dlg:this.id},'');
+    this.addEventListener('close',()=>salirDeHistorial(this),{once:true}); // respaldo (p. ej. cierre con Esc)
+  };
+  // Al cerrar una ventana se quita su entrada del historial (si no se cerró justamente con «atrás»).
+  const salirDeHistorial=d=>{if(!d.__enHistorial)return;d.__enHistorial=false;if(!d.__cerradoConAtras){atrasPropios++;history.back()}d.__cerradoConAtras=false};
+  const cerrarOrig=HTMLDialogElement.prototype.close;
+  HTMLDialogElement.prototype.close=function(v){const estaba=this.open;cerrarOrig.call(this,v);if(estaba)salirDeHistorial(this)};
+  window.addEventListener('popstate',e=>{
+    if(atrasPropios>0){atrasPropios--;return}
+    const abiertos=[...document.querySelectorAll('dialog[open]')].filter(d=>d.id!=='dlgLogin');
+    if(abiertos.length){const d=abiertos[abiertos.length-1];d.__cerradoConAtras=true;d.close();return}
+    const tab=e.state&&e.state.tab;if(tab&&tab!==tabActual){irA.desdeAtras=true;try{irA(tab)}finally{irA.desdeAtras=false}}
+  });
+}
 function renderTodo(){
   if(esInquilino()){renderInquilino();return}
   const r=recibos[recibos.length-1];
