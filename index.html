@@ -509,6 +509,12 @@ async function unaVez(clave,fn){
   accionesEnCurso.add(clave);
   try{return await fn()}finally{setTimeout(()=>accionesEnCurso.delete(clave),900)}
 }
+// Texto de advertencia al borrar algo de un mes que ya tiene cobros registrados (sus montos calculados cambiarán).
+function avisoCobrosDelMes(mes){
+  if(!mes||mesCerrado(mes))return '';
+  const n=cobros.filter(c=>c.mes===mes&&c.montoCobrado!=null).length;
+  return n?' Ojo: '+mesLargo(mes)+' ya tiene '+n+' cobro'+(n>1?'s':'')+' registrado'+(n>1?'s':'')+'; al borrar cambia lo que se calcula para ese mes.':'';
+}
 async function marcarPagado(r,v){return unaVez('pagar-'+r.id,()=>marcarPagadoAhora(r,v))}
 async function marcarPagadoAhora(r,v){
   const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?hoyLocal():null;
@@ -614,7 +620,7 @@ function abrirDetalle(id){
   dlg.querySelector('[data-close]').onclick=()=>dlg.close();
   dlg.querySelector('[data-editar]').onclick=()=>{dlg.close();abrirFormulario({...r},{editando:true})};
   dlg.querySelector('[data-pagar]').onclick=async()=>{dlg.close();await marcarPagado(r,!r.pagado)};
-  dlg.querySelector('[data-borrar]').onclick=async()=>{if(!(await confirmar(`¿Eliminar el recibo de ${mesLargo(r.id)}? Esto también borra su PDF.`,'Eliminar',true)))return;dlg.close();try{await borrar(r);toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
+  dlg.querySelector('[data-borrar]').onclick=async()=>{if(!(await confirmar(`¿Eliminar el recibo de ${mesLargo(r.id)}? Esto también borra su PDF.`+avisoCobrosDelMes(r.id),'Eliminar',true)))return;dlg.close();try{await borrar(r);toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
   dlg.showModal();
 }
 
@@ -1052,11 +1058,12 @@ function abrirDepto(id){
       const l=lecturas.find(x=>x.id===b.dataset.dell);
       let clave=null;
       if(l.montoCobrado!=null||Array.isArray(l.historialCobro)&&l.historialCobro.length){clave=await pedirPassword('eliminar una lectura con cobros registrados');if(!clave)return}
-      if(!(await confirmar('¿Eliminar esta lectura de luz?','Eliminar',true)))return;
+      if(!(await confirmar('¿Eliminar la lectura de luz de '+mesLargo(l.mes)+'?'+avisoCobrosDelMes(l.mes),'Eliminar',true)))return;
       try{await borrarLectura(l,clave);pintar()}catch(e){toast(mensajeClave(e)||'No se pudo eliminar')}
     });
     dlg.querySelectorAll('[data-della]').forEach(b=>b.onclick=async()=>{
-      if(!(await confirmar('¿Eliminar esta lectura de agua?','Eliminar',true)))return;
+      const la=lecturasAgua.find(x=>x.id===b.dataset.della)||{};
+      if(!(await confirmar('¿Eliminar la lectura de agua de '+mesLargo(la.mes||'')+'?'+avisoCobrosDelMes(la.mes),'Eliminar',true)))return;
       try{await db.doc('lecturas_agua/'+b.dataset.della).delete();toast('Lectura eliminada')}catch(e){toast('No se pudo eliminar')}
     });
     if(ls.length&&!window.Chart)cargarChart().then(()=>{if(dlg.open&&dlg.querySelector('#dep-chart'))pintar()}).catch(()=>{});
@@ -1742,7 +1749,7 @@ function abrirDetalleAgua(mes){
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     dlg.querySelector('#ag-editar').onclick=()=>{dlg.close();abrirFormAgua({...r},{editando:true})};
     dlg.querySelector('#ag-pagar').onclick=async()=>{const body={...r};delete body.id;body.pagado=!r.pagado;body.fechaPago=body.pagado?hoyLocal():null;try{await guardarReciboAgua(mes,body);r.pagado=body.pagado;toast(body.pagado?'Marcado como pagado':'Marcado como pendiente');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
-    dlg.querySelector('#ag-borrar').onclick=async()=>{if(!(await confirmar('¿Eliminar el recibo de agua de '+mesLargo(mes)+'? También se borra su PDF.','Eliminar',true)))return;try{await db.doc('agua_recibos/'+mes).delete();if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}dlg.close();toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
+    dlg.querySelector('#ag-borrar').onclick=async()=>{if(!(await confirmar('¿Eliminar el recibo de agua de '+mesLargo(mes)+'? También se borra su PDF.'+avisoCobrosDelMes(mes),'Eliminar',true)))return;try{await db.doc('agua_recibos/'+mes).delete();if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}dlg.close();toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
     const rg=dlg.querySelector('#resp-guardar');if(rg)rg.onclick=async()=>{const ids=[...dlg.querySelectorAll('[data-resp]:checked')].map(c=>c.dataset.resp);const body={...r};delete body.id;body.responsablesAtraso={manual:true,ids};try{await guardarReciboAgua(mes,body);r.responsablesAtraso=body.responsablesAtraso;toast('Responsables guardados');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
     const ra=dlg.querySelector('#resp-auto');if(ra)ra.onclick=async()=>{const body={...r};delete body.id;body.responsablesAtraso=[];try{await guardarReciboAgua(mes,body);r.responsablesAtraso=[];toast('Responsables automáticos');pintar()}catch(e){toast('No se pudo guardar')}};
     const vp=dlg.querySelector('[data-verpdfagua]');if(vp)vp.onclick=()=>abrirVisorPdf(r);
