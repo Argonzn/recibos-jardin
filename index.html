@@ -1208,9 +1208,12 @@ function calcAgua(mes){
     porDepto[d.id]={m3Leido,m3,agua:consumo*m3/s.general,atraso:0};
   });
   const resp=responsablesAtraso(mes);
-  if(atraso>0){const ids=(resp.ids.length?resp.ids:Object.keys(porDepto)).filter(id=>porDepto[id]);ids.forEach(id=>{porDepto[id].atraso=atraso/ids.length})}
+  // Solo pagan el atraso quienes pagaron fuera de fecha el mes anterior. Si nadie, no se cobra a ningún depto
+  // (lo asume la administración) y queda como "sin responsable".
+  let atrasoSinResponsable=0;
+  if(atraso>0){const ids=resp.ids.filter(id=>porDepto[id]);if(ids.length)ids.forEach(id=>{porDepto[id].atraso=atraso/ids.length});else atrasoSinResponsable=atraso}
   return{r,general:s.general,fuente:s.fuente,medidos:s.medidos,R:s.R,pct:s.R/s.general,nHist:hist.length,normal,tol,exceso,base,
-    m3SinMed,factor,consumo,atraso,precio:consumo/s.general,porDepto,resp,fueraDeLoNormal:exceso>0};
+    m3SinMed,factor,consumo,atraso,atrasoSinResponsable,precio:consumo/s.general,porDepto,resp,fueraDeLoNormal:exceso>0};
 }
 // Los cargos por atraso del recibo de un mes se deben a pagar tarde el recibo anterior.
 // Automático: deptos que no pagaron, o pagaron después del corte interno, el cobro del mes anterior.
@@ -1222,7 +1225,7 @@ function responsablesAtraso(mes){
   const prev=mesAnterior(mes),lim=fechaLimitePago(prev);
   // pagoTarde marcado en el cobro manda; si no está marcado, se decide por la fecha de cobro.
   const ids=deptosConAgua().filter(d=>{const c=cobroDe(d.id,prev);if(!c||c.montoCobrado==null)return true;if(c.pagoTarde===true)return true;if(c.pagoTarde===false)return false;return !!(c.fechaCobro&&c.fechaCobro>lim)}).map(d=>d.id);
-  return{ids,fuente:ids.length?'auto':'todos'};
+  return{ids,fuente:ids.length?'auto':'nadie'};
 }
 
 /* ---------- Cobro del mes (luz + agua + administración) ---------- */
@@ -1279,6 +1282,9 @@ function renderCobros(){
     <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
     <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
+    ${(()=>{const a=calcAgua(mes);if(!a||a.incompleto||!a.atraso)return'';const prev=mesLargo(mesAnterior(mes));
+      return a.atrasoSinResponsable?`<div class="banner info" style="margin-bottom:12px">El recibo de agua de ${mesLargo(mes)} trae ${fmtS(a.atraso)} de mora, corte o reapertura. Nadie figura como «fuera de fecha» en ${prev}, así que no se cobra a ningún depto (lo asume la administración). Si alguien pagó ${prev} tarde, edita su cobro de ${prev} y marca «Fuera de fecha».</div>`
+        :`<p class="small muted" style="margin:0 0 10px">Atrasos: ${fmtS(a.atraso)} de mora, corte o reapertura del agua de ${mesLargo(mes)}, repartidos entre quienes pagaron ${prev} fuera de fecha.</p>`})()}
     <div class="scroll"><table class="tabla-cobro">
       <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>Total</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
@@ -1359,7 +1365,7 @@ async function abrirCobroMes(dep,mes){
     const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
     dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
     <div class="dlg-b">
-      <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atraso?linea('Cargos por atraso',x.partes.atraso):''}
+      <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atraso?linea('Atraso del agua (por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha)',x.partes.atraso):''}
         <tr class="sum"><td>Total a pagar</td><td>${fmtS(x.total)}</td></tr></tbody></table></div>
       ${x.faltan.length?`<div class="banner warn" style="margin:10px 0">Falta ${x.faltan.join(' y ')}: el total puede cambiar.</div>`:''}
       ${x.legado!=null?`<div class="banner info" style="margin:10px 0">Antes se registró ${fmtS(x.legado)} solo por la luz. Escribe el total cobrado del mes (luz + agua + administración).</div>`:''}
@@ -1380,7 +1386,7 @@ async function abrirCobroMes(dep,mes){
     // A tiempo / fuera de fecha: se sugiere por la fecha hasta que se elige a mano. Se actualiza sin redibujar el formulario.
     const pintarTarde=()=>{const t=tardeEfectivo();
       dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
-      dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Le tocará una parte de la mora, el corte y la reapertura del recibo de agua de ${mesLargo(mesAgua)}.`:`No pagará mora, corte ni reapertura del recibo de agua de ${mesLargo(mesAgua)}.`)
+      dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Por pagar ${mesLargo(mes)} tarde, en su cobro de <strong>${mesLargo(mesAgua)}</strong> le tocará una parte de la mora, el corte y la reapertura que cobre Sedapal.`:`En su cobro de <strong>${mesLargo(mesAgua)}</strong> no pagará mora, corte ni reapertura.`)
         +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
     dlg.querySelectorAll('[data-tarde]').forEach(b=>b.onclick=()=>{data.tarde=b.dataset.tarde==='si';pintarTarde()});
     dlg.querySelector('#cm-fecha').oninput=e=>{data.fecha=e.target.value;pintarTarde()};
@@ -1465,7 +1471,7 @@ function abrirDetalleAgua(mes){
         ${deps.map(d=>{const p=aa.porDepto[d.id];return p?`<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`:''}).join('')}
       </tbody><tfoot><tr><td>Total</td><td>${fmtN(aa.medidos,2)}</td><td>${fmtN(aa.general,2)}</td><td>${fmtS(aa.consumo)}</td><td>${aa.atraso?fmtS(aa.atraso):'—'}</td></tr></tfoot></table></div>`}
       ${atrasoDe(r)>0&&aa&&!aa.incompleto?`<h3 style="margin-top:16px">¿Quién paga el atraso?</h3>
-        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='auto'?'Automático: quienes no pagaron, o pagaron después del '+fechaCorta(fechaLimitePago(mesAnterior(mes)))+', el cobro de '+mesLargo(mesAnterior(mes))+'.':'Nadie figura con pago tardío en '+mesLargo(mesAnterior(mes))+': se reparte entre todos. Marca a los responsables si lo sabes.'}</p>
+        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='auto'?'Automático: quienes no pagaron, o pagaron después del '+fechaCorta(fechaLimitePago(mesAnterior(mes)))+', el cobro de '+mesLargo(mesAnterior(mes))+'.':'Nadie figura con pago fuera de fecha en '+mesLargo(mesAnterior(mes))+': el atraso de '+fmtS(aa.atraso)+' no se cobra a ningún depto (lo asume la administración). Si alguien pagó tarde, márcalo en su cobro de '+mesLargo(mesAnterior(mes))+' o aquí abajo.'}</p>
         <div class="list">${deps.map(d=>`<label class="row small" style="gap:8px"><input type="checkbox" data-resp="${d.id}" ${aa.resp.ids.includes(d.id)?'checked':''}> ${esc(nombreDepto(d))}</label>`).join('')}</div>
         <div class="row" style="margin-top:8px"><button class="btn sm" id="resp-guardar">Guardar responsables</button>${aa.resp.fuente==='manual'?'<button class="iconbtn" id="resp-auto">Volver a automático</button>':''}</div>`:''}
     </div>
