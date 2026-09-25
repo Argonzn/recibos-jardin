@@ -1223,7 +1223,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     const directo=data.origen==='directo';
     const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
     const sospechosa=!directo&&kwh!=null&&kwh<0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${AG?'💧 ':'💡 '}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       <label class="f" style="margin-bottom:12px">Mes<input type="month" id="f-mes" value="${data.mes||''}"></label>
       <div class="seg" style="margin-bottom:14px">
@@ -1255,7 +1255,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       `}
       <p class="muted small" style="margin-top:14px">${AG?'Los m³ del medidor de agua tienen 3 decimales (litros). ':''}El cobro del mes se registra en la pestaña Cobros.</p>
     </div>
-    <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
+    <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${AG?'💧 ':'💡 '}${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value;
       if(!existente&&!data.antManual&&data.mes){const prev=ls.filter(l=>l.mes<data.mes&&l.lecturaActual!=null).pop();data.lecturaAnterior=prev?prev.lecturaActual:null;pintar()}};
