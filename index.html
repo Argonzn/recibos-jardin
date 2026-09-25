@@ -1182,6 +1182,16 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     origen:existente?.origen==='foto'?'foto':sinLecturaCruda?'directo':(existente?.origen==='directo'?'directo':'manual'),
     fotoId:existente?.fotoId||null,fotoUrl:existente?.fotoUrl||null};
   const dlg=$('#dlg');
+  // Consumo del mes comparado con el mes anterior y con lo normal del depto; se actualiza mientras se escribe.
+  const textoConsumo=k=>{
+    if(k==null)return '<span class="muted">'+unidad+' del periodo: —</span>';
+    const dd=AG?2:0,prev=ls.filter(l=>l.mes<(data.mes||'9999')).pop(),cp=prev?consumoDe(prev):null,norm=deptoId==='general'?null:consumoNormal(deptoId,data.mes,AG?'agua':'luz');
+    const raro=k<0||(norm&&(k>norm*2||k<norm/3));
+    const partes=['<strong>'+fmtN(k,AG?3:0)+' '+unidad+'</strong> este periodo'];
+    if(cp!=null){const v=cp?Math.round((k-cp)/cp*100):null;partes.push('mes anterior '+fmtN(cp,dd)+(v!=null&&isFinite(v)?' ('+(v>0?'+':'')+v+'%)':''))}
+    if(norm)partes.push('normal ~'+fmtN(norm,dd));
+    return '<span style="color:'+(raro?'var(--red)':'inherit')+'">'+(raro?'⚠ ':'')+partes.join(' · ')+(k<0?' — la actual es menor que la anterior':raro?' — revisa el número':'')+'</span>';
+  };
   const pintar=()=>{
     const directo=data.origen==='directo';
     const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
@@ -1197,6 +1207,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       ${directo?`
         <p class="muted small" style="margin:0 0 10px">Para medidores que no muestran un acumulado, solo el consumo del mes.</p>
         <label class="f">Consumo del mes (${unidad})<input type="text" inputmode="decimal" id="f-kwh" value="${data.kwhDirecto??''}"></label>
+        <p class="small" id="f-vivo" style="margin:8px 0 0">${textoConsumo(data.kwhDirecto)}</p>
       `:`
       <div id="foto-zona" ${data.origen==='foto'?'':'hidden'} style="margin-bottom:14px">
         <div class="row">
@@ -1212,7 +1223,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
         <label class="f">Lectura anterior<input type="text" inputmode="decimal" id="f-ant" value="${data.lecturaAnterior??''}"></label>
         <label class="f">Lectura actual<input type="text" inputmode="decimal" id="f-act" value="${data.lecturaActual??''}"></label>
       </div>
-      <p class="small muted" style="margin:8px 0 0">${unidad} del periodo: <strong>${kwh!=null?fmtN(kwh,AG?3:0):'—'}</strong></p>
+      <p class="small" id="f-vivo" style="margin:8px 0 0">${textoConsumo(kwh)}</p>
       ${sospechosa?'<div class="banner warn" style="margin-top:10px">La lectura actual es menor que la anterior. Revísala antes de guardar.</div>':''}
       `}
       <p class="muted small" style="margin-top:14px">${AG?'Los m³ del medidor de agua tienen 3 decimales (litros). ':''}El cobro del mes se registra en la pestaña Cobros.</p>
@@ -1227,6 +1238,8 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);data.antManual=true;pintar()};
     // Enter (o «Ir» en el celular) en la lectura actual o en el consumo guarda sin buscar el botón.
     [['#f-act','lecturaActual'],['#f-kwh','kwhDirecto']].forEach(([s,k])=>{const i=dlg.querySelector(s);if(i)i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();data[k]=num(i.value);dlg.querySelector('#f-save').click()}}});
+    const vivo=()=>{const v=dlg.querySelector('#f-vivo');if(!v)return;const ant=num((dlg.querySelector('#f-ant')||{}).value),act=num((dlg.querySelector('#f-act')||{}).value),kd=num((dlg.querySelector('#f-kwh')||{}).value);v.innerHTML=textoConsumo(data.origen==='directo'?kd:(ant!=null&&act!=null?Math.round((act-ant)*(AG?1000:100))/(AG?1000:100):null))};
+    ['#f-ant','#f-act','#f-kwh'].forEach(s=>{const i=dlg.querySelector(s);if(i)i.addEventListener('input',vivo)});
     const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value);pintar()};
     const bCam=dlg.querySelector('#f-camara'),bGal=dlg.querySelector('#f-galeria');
     if(bCam)bCam.onclick=()=>dlg.querySelector('#f-foto-cam').click();
