@@ -205,7 +205,7 @@ function conPermisoCalendar_(fn) {
 function estadoRecordatorio_() {
   const p = PropertiesService.getScriptProperties();
   const id = p.getProperty('RECORDATORIO_SERIE_ID');
-  const dia = Number(p.getProperty('RECORDATORIO_DIA') || 14);
+  const dia = Number(p.getProperty('RECORDATORIO_DIA') || 12);
   const hora = Number(p.getProperty('RECORDATORIO_HORA') || 9);
   // Sin serie guardada no se toca Calendar, así la app funciona aunque falte el permiso.
   const activo = id ? conPermisoCalendar_(() => !!CalendarApp.getEventSeriesById(id)) : false;
@@ -245,10 +245,10 @@ function crearRecordatorio_(dia, hora) {
   });
 }
 
-/** Ejecutar UNA vez desde el editor para autorizar Calendar y crear el recordatorio (día 14, 9:00). */
+/** Ejecutar desde el editor para autorizar Calendar y crear el recordatorio el día 12 a las 9:00 (el día se cambia luego desde la app). */
 function crearRecordatorioMedidores() {
   const p = PropertiesService.getScriptProperties();
-  const r = crearRecordatorio_(p.getProperty('RECORDATORIO_DIA') || 14, p.getProperty('RECORDATORIO_HORA') || 9);
+  const r = crearRecordatorio_(12, p.getProperty('RECORDATORIO_HORA') || 9);
   console.log('Recordatorio creado: día ' + r.dia + ' de cada mes a las ' + r.hora + ':00.');
 }
 

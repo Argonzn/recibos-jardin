@@ -1155,12 +1155,12 @@ $('#btn-menu').onclick=abrirMenu;
 let estadoRec=null;
 function mensajeRec(e){const m=String(e&&(e.message||e.code)||'');
   return m.includes('falta_permiso_calendar')?'permiso':m.includes('dia_invalido')?'El día debe estar entre 1 y 28.':m.includes('hora_invalida')?'La hora debe estar entre 6 y 21.':'No se pudo conectar con Google Calendar.'}
-async function cargarEstadoRec(){try{estadoRec=await db._post({action:'recordatorio'})}catch(e){estadoRec={activo:false,dia:14,hora:9,error:mensajeRec(e)}}return estadoRec}
+async function cargarEstadoRec(){try{estadoRec=await db._post({action:'recordatorio'})}catch(e){estadoRec={activo:false,dia:12,hora:9,error:mensajeRec(e)}}return estadoRec}
 async function abrirRecordatorio(){
   if(!db)return;
   const c=$('#dlg');
   const pintar=(aviso='')=>{
-    const r=estadoRec||{activo:false,dia:14,hora:9};
+    const r=estadoRec||{activo:false,dia:12,hora:9};
     const horas=[];for(let i=6;i<=21;i++)horas.push('<option value="'+i+'"'+(i===r.hora?' selected':'')+'>'+i+':00</option>');
     const permiso=aviso==='permiso'||r.error==='permiso';
     c.innerHTML='<div class="dlg-h"><h2>Recordatorio de lecturas</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>'+
@@ -1171,7 +1171,7 @@ async function abrirRecordatorio(){
       (aviso&&!permiso?'<div class="banner alert" style="margin-bottom:14px">'+esc(aviso)+'</div>':'')+
       '<div class="form-rec"><label class="f">Día del mes<input type="number" id="rec-dia" min="1" max="28" value="'+r.dia+'" inputmode="numeric"></label>'+
       '<label class="f">Hora del aviso<select id="rec-hora">'+horas.join('')+'</select></label></div>'+
-      '<p class="muted small" style="margin:12px 0 0">Tus recibos se leen entre el 12 y el 16 de cada mes; conviene tomar las fotos esos mismos días para que los periodos coincidan.</p>'+
+      '<p class="muted small" style="margin:12px 0 0">Tus recibos se leen entre el 12 y el 16 de cada mes: tomar las fotos el día 12 mantiene los periodos alineados con el recibo.</p>'+
     '</div>'+
     '<div class="dlg-f">'+(r.activo?'<button class="btn danger" id="rec-quitar" style="margin-right:auto">Quitar</button>':'')+
       '<button class="btn" data-close>Cerrar</button><button class="btn primary" id="rec-guardar">'+(r.activo?'Guardar cambios':'Activar recordatorio')+'</button></div>';
