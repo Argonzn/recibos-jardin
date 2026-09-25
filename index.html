@@ -1069,8 +1069,8 @@ function abrirDepto(id){
     dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#edit-telefono').onchange=async e=>{const v=e.target.value.replace(/[^\d+ ]/g,'').trim();try{await guardarDepto(id,{...d,telefono:v});d.telefono=v;toast('Celular guardado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#btn-acceso-inq').onclick=()=>abrirAccesoInquilino(d);
-    dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar()}catch(e){toast('No se pudo actualizar')}};
-    dlg.querySelector('#tipo-agua').onchange=async e=>{const v=e.target.value;try{await guardarDepto(id,{...d,agua:v});d.agua=v;pintar()}catch(err){toast('No se pudo actualizar')}};
+    dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar();toast(tituloDepto(d)+(ne==='desocupado'?': marcado sin luz':': marcado con luz'))}catch(e){toast('No se pudo actualizar')}};
+    dlg.querySelector('#tipo-agua').onchange=async e=>{const v=e.target.value;try{await guardarDepto(id,{...d,agua:v});d.agua=v;pintar();toast(tituloDepto(d)+': agua '+({medidor:'con medidor',sin_medidor:'sin medidor (se estima)',no:'sin servicio'}[v]||v))}catch(err){toast('No se pudo actualizar')}};
     const bu=dlg.querySelector('#btn-ubicar-aqui');if(bu)bu.onclick=()=>{dlg.close();abrirUbicar(id)};
     const br=dlg.querySelector('#btn-reubicar');if(br)br.onclick=()=>{dlg.close();abrirUbicar(id)};
     dlg.querySelector('#btn-ver-cobros').onclick=()=>{dlg.close();irA('cobros')};
