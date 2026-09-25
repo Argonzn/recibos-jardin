@@ -20,6 +20,7 @@ const SHEETS = {
   lecturas: ['id','deptoId','mes','lecturaAnterior','lecturaActual','kwh','montoCobrado','fechaCobro',
     'origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   config: ['id','diaCorte','mantenimiento','actualizado'],
+  tareas: ['id','hecho','fecha','actualizado'], // casillas de la hoja de ruta, compartidas entre dispositivos
 };
 
 // Columnas que deben guardarse como texto plano. Sin esto Sheets convierte "2025-12" o
@@ -30,6 +31,7 @@ const TEXT_COLS = {
   departamentos: ['id','encargado','estado','actualizado'],
   lecturas: ['id','deptoId','mes','fechaCobro','origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   config: ['id','actualizado'],
+  tareas: ['id','fecha','actualizado'],
 };
 
 function formatTextCols_(sh, name) {
@@ -186,6 +188,83 @@ function uploadFile_(base64Data, mimeType, filename, carpeta) {
   return { id: file.getId(), url: url, viewUrl: file.getUrl() };
 }
 
+/* ---------- Recordatorio mensual de lecturas (Google Calendar) ----------
+ * Un evento que se repite cada mes en el calendario del dueño del script, con aviso en el celular.
+ * El día y la hora se guardan en Propiedades (RECORDATORIO_DIA / _HORA / _SERIE_ID).
+ * La primera vez hay que autorizar Calendar: ejecutar crearRecordatorioMedidores() desde el editor. */
+const RECORDATORIO_TITULO = '📷 Tomar fotos de los medidores — Recibos Jardín';
+const APP_URL = 'https://argonzn.github.io/recibos-jardin/';
+
+function conPermisoCalendar_(fn) {
+  try { return fn(); } catch (e) {
+    if (/permis|autoriz|authoriz|scope/i.test(String(e && e.message))) throw new Error('falta_permiso_calendar');
+    throw e;
+  }
+}
+
+function estadoRecordatorio_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('RECORDATORIO_SERIE_ID');
+  const dia = Number(p.getProperty('RECORDATORIO_DIA') || 14);
+  const hora = Number(p.getProperty('RECORDATORIO_HORA') || 9);
+  // Sin serie guardada no se toca Calendar, así la app funciona aunque falte el permiso.
+  const activo = id ? conPermisoCalendar_(() => !!CalendarApp.getEventSeriesById(id)) : false;
+  return { activo: activo, dia: dia, hora: hora };
+}
+
+function quitarRecordatorio_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('RECORDATORIO_SERIE_ID');
+  if (id) conPermisoCalendar_(() => { const s = CalendarApp.getEventSeriesById(id); if (s) s.deleteEventSeries(); });
+  p.deleteProperty('RECORDATORIO_SERIE_ID');
+  return estadoRecordatorio_();
+}
+
+function crearRecordatorio_(dia, hora) {
+  dia = Math.round(Number(dia)); hora = Math.round(Number(hora));
+  if (!(dia >= 1 && dia <= 28)) throw new Error('dia_invalido'); // hasta 28 para que exista en todos los meses
+  if (!(hora >= 6 && hora <= 21)) throw new Error('hora_invalida');
+  return conPermisoCalendar_(() => {
+    quitarRecordatorio_();
+    const ahora = new Date();
+    let inicio = new Date(ahora.getFullYear(), ahora.getMonth(), dia, hora, 0, 0);
+    if (inicio <= ahora) inicio = new Date(ahora.getFullYear(), ahora.getMonth() + 1, dia, hora, 0, 0);
+    const fin = new Date(inicio.getTime() + 30 * 60 * 1000);
+    const serie = CalendarApp.getDefaultCalendar().createEventSeries(
+      RECORDATORIO_TITULO, inicio, fin,
+      CalendarApp.newRecurrence().addMonthlyRule().onlyOnMonthDay(dia),
+      { description: 'Toma la foto del medidor de cada departamento activo y regístrala en la app:\n' + APP_URL +
+          '\n\nDeptos → departamento → Agregar lectura → Tomar/subir foto.' });
+    serie.removeAllReminders();
+    serie.addPopupReminder(0);
+    const p = PropertiesService.getScriptProperties();
+    p.setProperty('RECORDATORIO_SERIE_ID', serie.getId());
+    p.setProperty('RECORDATORIO_DIA', String(dia));
+    p.setProperty('RECORDATORIO_HORA', String(hora));
+    return estadoRecordatorio_();
+  });
+}
+
+/** Ejecutar UNA vez desde el editor para autorizar Calendar y crear el recordatorio (día 14, 9:00). */
+function crearRecordatorioMedidores() {
+  const p = PropertiesService.getScriptProperties();
+  const r = crearRecordatorio_(p.getProperty('RECORDATORIO_DIA') || 14, p.getProperty('RECORDATORIO_HORA') || 9);
+  console.log('Recordatorio creado: día ' + r.dia + ' de cada mes a las ' + r.hora + ':00.');
+}
+
+// Enlaces a la Hoja, Drive y el editor: se entregan solo con token, para no publicarlos en el código de la web.
+function infoProyecto_() {
+  const id = ScriptApp.getScriptId();
+  return {
+    hoja: getSs_().getUrl(),
+    carpeta: getRootFolder_().getUrl(),
+    recibosPdf: getFolder_(['Recibos PDF']).getUrl(),
+    fotos: getFolder_(['Fotos medidores']).getUrl(),
+    editor: 'https://script.google.com/d/' + id + '/edit',
+    propiedades: 'https://script.google.com/home/projects/' + id + '/settings',
+  };
+}
+
 /* ---------- Vincular PDF dejados en Drive ----------
  * Revisa RECIBOS_JARDIN/Recibos PDF y enlaza cada PDF con el recibo de su mes, deducido del nombre:
  * "Recibo 2026-03.pdf", "MAR26.pdf", "JUN26 (2).pdf", "SET-2026.pdf"… Así basta con arrastrar los PDF a la carpeta. */
@@ -311,6 +390,11 @@ function api(body) {
       return out;
     }
     case 'verificarClave': verificarClave_(body.clave); return { ok: true };
+    case 'info':    return infoProyecto_();
+    case 'recordatorio':
+      if (body.op === 'crear') return crearRecordatorio_(body.dia, body.hora);
+      if (body.op === 'quitar') return quitarRecordatorio_();
+      return estadoRecordatorio_();
   }
   // Escrituras con bloqueo para que dos personas guardando a la vez no se pisen.
   const lock = LockService.getScriptLock();
