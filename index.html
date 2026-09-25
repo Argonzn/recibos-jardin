@@ -783,8 +783,8 @@ function renderReportes(){
 // Cobros de todos los meses: una fila por depto y mes (para archivo o para compartir).
 async function exportarCobrosCSV(){
   const q=v=>v==null?'':/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:String(v);
-  const cab=['Mes','Depto','Encargado','Luz','Agua','Administración','Mantenimiento','Mora e intereses','Saldo a favor','Total a pagar','Pagado','Fecha de pago','Estado'];
-  const filas=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>filas.push([m,x.d.numero,x.d.encargado||'',x.partes.luz,x.partes.agua,r2(x.partes.admLuz+x.partes.admAgua),x.partes.mant,x.partes.atraso,x.aFavor,x.neto,x.pagado||'',x.cobro&&x.cobro.fechaCobro||'',x.estado.txt])));
+  const cab=['Mes','Depto','Encargado','Luz','Agua','Administración','Mantenimiento','Mora e intereses','Saldo a favor','Total a pagar','Pagado','Fecha de pago','Estado','Pendiente'];
+  const filas=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>filas.push([m,x.d.numero,x.d.encargado||'',x.partes.luz,x.partes.agua,r2(x.partes.admLuz+x.partes.admAgua),x.partes.mant,x.partes.atraso,x.aFavor,x.neto,x.pagado||'',x.cobro&&x.cobro.fechaCobro||'',x.estado.txt,x.falta])));
   const csv='\ufeff'+[cab,...filas].map(f=>f.map(q).join(',')).join('\n');
   try{await downloads.save({filename:'cobros-'+hoyLocal()+'.csv',data:csv})}catch(e){if(e.code!=='declined')toast('No se pudo descargar el archivo.')}
 }
