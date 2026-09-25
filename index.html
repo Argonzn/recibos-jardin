@@ -2223,7 +2223,7 @@ function panelEstadoDeptos(){
   const pend=cobrosPendientesTodos(),mesSig=siguienteMes(mesesCobro().slice(-1)[0]);
   const filas=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>{
     const ps=pend.filter(p=>p.d.id===d.id),debe=r2(sum(ps,p=>p.falta)),late=ps.some(p=>p.estado.cls==='late'),favor=creditoEntrante(d.id,mesSig);
-    const estado=debe>0?`<span class="chip sm ${late?'late':'pend'}">debe ${fmtS(debe)}</span><div class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</div>`
+    const estado=debe>0?`<span class="chip sm ${late?'late':'pend'}">debe ${fmtS(debe)}</span><div class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}${(()=>{const inc=ps.filter(p=>p.faltan.length);return inc.length?' · '+fmtS(r2(sum(inc,p=>p.falta)))+' por confirmar ('+inc.map(p=>mesCorto(p.mes)).join(', ')+')':''})()}</div>`
       :favor>0?`<span class="chip sm ok">a favor ${fmtS(favor)}</span>`:'<span class="chip sm ok">al día</span>';
     return {d,debe,html:`<div class="ed-fila"><button class="ed-nombre" data-ed-depto="${d.id}" aria-label="Abrir ficha de ${esc(tituloDepto(d))}"><strong>${tituloDepto(d)}</strong> <span class="muted small">${esc(d.encargado||'')}</span></button><div class="ed-estado">${estado}</div>${debe>0?`<button class="btn sm" data-ed-pago="${d.id}" aria-label="Registrar pago de ${esc(tituloDepto(d))}">💵</button>`:'<span></span>'}</div>`};
   });
