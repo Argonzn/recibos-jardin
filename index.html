@@ -465,7 +465,8 @@ function toast(msg,opts={}){
   const u=!opts.sinDeshacer&&db&&db.deshacer&&!db.deshacer.ofrecido&&Date.now()-db.deshacer.t<4000?db.deshacer:null;
   if(u){u.ofrecido=true;const b=document.createElement('button');b.type='button';b.textContent='Deshacer';b.onclick=()=>{t.hidden=true;deshacerUltimo(u)};t.appendChild(b)}
   if(opts.accion){const b=document.createElement('button');b.type='button';b.textContent=opts.accion[0];b.onclick=()=>{t.hidden=true;opts.accion[1]()};t.appendChild(b)}
-  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,u||opts.accion?7000:3200)}
+  // El aviso dura lo necesario para leerlo: mínimo 3,2 s (7 s si tiene botón), ~55 ms por letra, máximo 10 s.
+  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,Math.min(10000,Math.max(u||opts.accion?7000:3200,String(msg).length*55)))}
 
 /* Confirmación y prompt propios: window.confirm/prompt quedan bloqueados dentro del iframe del artefacto publicado. */
 function confirmar(mensaje,textoOk='Confirmar',danger=false){
@@ -1662,7 +1663,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       ${acciones(x,mes)}</div>`}).join("")}</div>
     <p class="muted small" style="margin:10px 0 0">«✓ Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
-  <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">📲 Recordar a todos</button>`:''}</div>
+  <div class="panel" id="panel-pendientes"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">📲 Recordar a todos</button>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
     <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details data-dep="${id}" class="pend-depto ${late?'atrasado':''}"><summary>
       <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''}: ${ps.map(p=>mesCorto(p.mes)).join(', ')}</div></div>
@@ -2150,7 +2151,9 @@ function iniciarSecuenciaLecturas(mes){
   const cola=pendientesLectura(mes);
   if(!cola.length){toast('Las lecturas de '+mesLargo(mes)+' ya están completas.',{sinDeshacer:true});return}
   const paso=i=>{
-    if(i>=cola.length){toast('Listo: lecturas de '+mesLargo(mes)+' completas',{sinDeshacer:true});return}
+    if(i>=cola.length){
+      const hechas=cola.filter(it=>it.serv==='agua'?lecturaAguaDe(it.dep,mes):lecturaDe(it.dep,mes)).length,faltan=pendientesLectura(mes).length,altos=consumosAltos(mes);
+      toast('Lecturas de '+mesLargo(mes)+': '+hechas+' de '+cola.length+' guardadas'+(faltan?', faltan '+faltan:'')+(altos.length?'. Revisa consumo alto: '+altos.map(a=>tituloDepto(a.d)+' '+a.serv).join(', '):'.'),{sinDeshacer:true});return}
     const it=cola[i];abrirLecturaForm(it.dep,null,it.serv,{mes,progreso:(i+1)+' de '+cola.length,siguiente:()=>paso(i+1)});
   };
   paso(0);
@@ -2192,7 +2195,7 @@ function tareasDelMes(){
   const altos=consumosAltos(mes);
   if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:['Ver deptos',()=>irA('deptos')]});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
-  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:fmtS(sum(ant,p=>p.falta))+' de '+(n=>n+' depto'+(n>1?'s':''))(new Set(ant.map(p=>p.d.id)).size)+'. En Cobros puedes enviarles un recordatorio.',btn:['Ver',()=>irA('cobros')]});
+  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:fmtS(sum(ant,p=>p.falta))+' de '+(n=>n+' depto'+(n>1?'s':''))(new Set(ant.map(p=>p.d.id)).size)+'. En Cobros puedes enviarles un recordatorio.',btn:['Ver',()=>{irA('cobros');const p=document.getElementById('panel-pendientes');if(p)p.scrollIntoView({block:'start'})}]});
   return{mes,T};
 }
 function panelQueHacer(){
