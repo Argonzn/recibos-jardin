@@ -1305,7 +1305,15 @@ function creditoEntrante(dep,mes,prof=0){
   if(!c||c.tipoPago!=='demas'||c.montoCobrado==null)return 0;
   return r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto));
 }
+// Meses anteriores al sistema: quedan cerrados con lo que pagó cada uno (suman exacto los recibos), sin recalcular.
+const MES_INICIO_CALCULO='2026-04';
+const mesCerrado=mes=>mes<MES_INICIO_CALCULO;
 function detalleCobro(dep,mes,prof=0){
+  if(mesCerrado(mes)){
+    const d=deptos.find(x=>x.id===dep),c=cobroDe(dep,mes),cobrado=c&&c.montoCobrado!=null?Number(c.montoCobrado):null;
+    return{d,mes,cerrado:true,partes:{luz:null,agua:null,admLuz:0,admAgua:0,mant:0,atraso:0,atrasoAgua:0,atrasoLuz:0},total:cobrado||0,aFavor:0,neto:cobrado||0,faltan:[],
+      cobro:c,cobrado,legado:null,pagado:cobrado||0,falta:0,diferencia:null,estado:{cls:'ok',txt:'Pagado'+(c&&c.pagoTarde===true?' · fuera de fecha':'')},participa:cobrado!=null};
+  }
   const d=deptos.find(x=>x.id===dep);const car=cargosDe(mes);
   const lz=lecturaDe(dep,mes);const usaLuz=!!lz;
   const pm=primerMesAgua();const usaAgua=tipoAgua(d)!=='no'&&pm&&mes>=pm;
@@ -1379,7 +1387,7 @@ function renderCobros(){
     <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
     <div class="row" style="margin-bottom:12px"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
-    ${(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
+    ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
       const ag=a&&!a.incompleto&&a.atraso?a:null,al=rl0?atrasoLuzDe(rl0):0,rl=al>0?responsablesLuz(mes):null;
       const quien=res=>res.fuente==='pendientes'?'entre quienes aún no pagan '+prev:res.fuente==='tarde'?'entre quienes pagaron '+prev+' fuera de fecha (ya todos pagaron)':res.fuente==='manual'?'entre los deptos elegidos a mano':'';
       const nadie=m=>m+': todos pagaron '+prev+' a tiempo, no se cobra (lo asume la administración)';
@@ -1935,6 +1943,7 @@ function abrirDetalleInquilino(dep,mes){
       ${x.cobrado!=null?`<tr><td>Pagado${x.cobro&&x.cobro.fechaCobro?' el '+fechaCorta(x.cobro.fechaCobro):''}</td><td>${fmtS(x.cobrado)}</td></tr>`:x.legado!=null?`<tr><td>Pagado (solo luz)</td><td>${fmtS(x.legado)}</td></tr>`:''}
       ${x.estado.cls!=='ok'&&x.falta>0?`<tr class="sum"><td>Por pagar</td><td>${fmtS(x.falta)}</td></tr>`:''}
     </tbody></table></div>
+    ${x.cerrado?`<p class="small muted" style="margin-top:10px">Mes anterior al sistema actual: se muestra lo que pagaste, sin desglose.</p>`:""}
     ${x.faltan.length?`<div class="banner warn" style="margin-top:10px">Monto provisional: falta ${x.faltan.join(' y ')}.</div>`:''}
     ${(l&&l.fotoUrl)||(la&&la.fotoUrl)||(rl&&rl.pdfId)||(ra&&ra.pdfId)?`<h3 style="margin-top:16px">Fotos y recibos</h3><div class="row">
       ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 Medidor de luz</a>`:''}
