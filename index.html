@@ -1377,11 +1377,16 @@ function cargosDe(mes){
 }
 function mesesCobro(){return[...new Set([...recibos.map(r=>r.id),...aguaRecibos.map(r=>r.id),...lecturas.map(l=>l.mes)])].sort()}
 // Saldo a favor: si un mes se pagó de más (tipoPago 'demas'), el exceso se descuenta del mes siguiente (en cadena).
+// Si el mes anterior no tuvo pago y quedó cubierto con saldo, lo que sobró sigue pasando al mes siguiente.
 function creditoEntrante(dep,mes,prof=0){
   if(prof>24)return 0;
+  const m=calcAgua.memo||(calcAgua.memo={}),k='cred:'+dep+'|'+mes;
+  if(k in m)return m[k];
   const prev=mesAnterior(mes),c=cobroDe(dep,prev);
-  if(!c||c.tipoPago!=='demas'||c.montoCobrado==null)return 0;
-  return r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto));
+  let v=0;
+  if(c&&c.montoCobrado!=null)v=c.tipoPago==='demas'?r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto)):0;
+  else{const x=detalleCobro(dep,prev,prof+1);v=x.aFavor>0?r2(Math.max(0,x.aFavor-x.total)):0}
+  return m[k]=v;
 }
 // Meses anteriores al sistema: quedan cerrados con lo que pagó cada uno (suman exacto los recibos), sin recalcular.
 const MES_INICIO_CALCULO='2026-04';
