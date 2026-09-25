@@ -16,11 +16,23 @@ const SHEETS = {
     'cargoFijo','mantenimiento','alumbrado','interesCompensatorio','subtotal','igv','electrificacion',
     'interesMoratorio','totalMes','ajusteAnterior','ajusteActual','deudaVencida','pagado','fechaPago',
     'pdfUrl','pdfId','pdfNombre','otrosJSON','actualizado'],
-  departamentos: ['id','numero','encargado','estado','piso','lado','actualizado'],
+  // agua: 'medidor' | 'sin_medidor' | 'no'. Las columnas nuevas van al final (ver asegurarEncabezados_).
+  departamentos: ['id','numero','encargado','estado','piso','lado','actualizado','agua'],
   lecturas: ['id','deptoId','mes','lecturaAnterior','lecturaActual','kwh','montoCobrado','fechaCobro',
     'origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
-  config: ['id','diaCorte','mantenimiento','actualizado'],
+  // mantenimiento = administración de luz (S/ por depto). admAgua y mantExtra se agregaron con el módulo de agua.
+  config: ['id','diaCorte','mantenimiento','actualizado','admAgua','mantExtra','baseSinMedidor'],
   tareas: ['id','hecho','fecha','actualizado'], // casillas de la hoja de ruta, compartidas entre dispositivos
+  // Agua (Sedapal): un recibo por mes facturado. atraso = mora + (cierre + reapertura) con IGV.
+  agua_recibos: ['id','recibo','suministro','emision','vencimiento','periodoInicio','periodoFin','lecturaAnterior',
+    'lecturaActual','m3','volumen','alcantarillado','cargoFijo','cierre','reapertura','mora','igv','redondeoAnterior',
+    'redondeoActual','total','pagado','fechaPago','pdfUrl','pdfId','pdfNombre','responsablesAtrasoJSON','otrosJSON','actualizado'],
+  // Lecturas de agua del día 12. deptoId 'general' = medidor de Sedapal leído por nosotros.
+  lecturas_agua: ['id','deptoId','mes','lecturaAnterior','lecturaActual','m3','origen','fotoUrl','fotoId','actualizado'],
+  // Cargos del mes por depto (si falta el mes, se usan los de config).
+  cargos: ['id','admLuz','admAgua','mant','actualizado'],
+  // Cobro único por depto y mes (luz + agua + administración + mantenimiento + atrasos).
+  cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado'],
 };
 
 // Columnas que deben guardarse como texto plano. Sin esto Sheets convierte "2025-12" o
@@ -28,10 +40,15 @@ const SHEETS = {
 const TEXT_COLS = {
   recibos: ['id','recibo','suministro','titular','tarifa','fechaLectura','fechaLecturaAnterior','emision',
     'corte','vencimiento','fechaPago','pdfUrl','pdfId','pdfNombre','otrosJSON','actualizado'],
-  departamentos: ['id','encargado','estado','actualizado'],
+  departamentos: ['id','encargado','estado','actualizado','agua'],
   lecturas: ['id','deptoId','mes','fechaCobro','origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   config: ['id','actualizado'],
   tareas: ['id','fecha','actualizado'],
+  agua_recibos: ['id','recibo','suministro','emision','vencimiento','periodoInicio','periodoFin','fechaPago',
+    'pdfUrl','pdfId','pdfNombre','responsablesAtrasoJSON','otrosJSON','actualizado'],
+  lecturas_agua: ['id','deptoId','mes','origen','fotoUrl','fotoId','actualizado'],
+  cargos: ['id','actualizado'],
+  cobros: ['id','deptoId','mes','fechaCobro','nota','historialCobroJSON','actualizado'],
 };
 
 function formatTextCols_(sh, name) {
@@ -49,6 +66,8 @@ function getSs_() {
   return SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
 }
 
+const hojasRevisadas_ = {}; // por ejecución: evita revisar encabezados en cada llamada
+
 function getSheet_(name) {
   if (!SHEETS[name]) throw new Error('unknown_collection: ' + name);
   const ss = getSs_();
@@ -58,8 +77,24 @@ function getSheet_(name) {
     sh.appendRow(SHEETS[name]);
     sh.setFrozenRows(1);
     formatTextCols_(sh, name);
+  } else if (!hojasRevisadas_[name]) {
+    asegurarEncabezados_(sh, name);
   }
+  hojasRevisadas_[name] = true;
   return sh;
+}
+
+// Migración: si SHEETS ganó columnas nuevas al final, se agregan sus encabezados (y formato de texto)
+// sin tocar los datos. Solo se permite agregar al final: el orden de las columnas existentes no cambia.
+function asegurarEncabezados_(sh, name) {
+  const headers = SHEETS[name];
+  const actuales = sh.getLastColumn();
+  if (actuales >= headers.length) return;
+  const faltan = headers.slice(actuales);
+  sh.getRange(1, actuales + 1, 1, faltan.length).setValues([faltan]);
+  faltan.forEach((col, i) => {
+    if (TEXT_COLS[name].indexOf(col) > -1) sh.getRange(1, actuales + 1 + i, sh.getMaxRows(), 1).setNumberFormat('@');
+  });
 }
 
 // google.script.run no puede devolver objetos Date (devuelve null entero), así que se normalizan.
@@ -233,8 +268,9 @@ function crearRecordatorio_(dia, hora) {
     const serie = CalendarApp.getDefaultCalendar().createEventSeries(
       RECORDATORIO_TITULO, inicio, fin,
       CalendarApp.newRecurrence().addMonthlyRule().onlyOnMonthDay(dia),
-      { description: 'Toma la foto del medidor de cada departamento activo y regístrala en la app:\n' + APP_URL +
-          '\n\nDeptos → departamento → Agregar lectura → Tomar/subir foto.' });
+      { description: 'Toma la foto de los medidores de LUZ y de AGUA de cada departamento, y la del medidor ' +
+          'general de agua (Sedapal). Regístralas en la app:\n' + APP_URL +
+          '\n\nLuz y agua: Deptos → departamento → Lecturas.\nMedidor general de agua: pestaña Agua.' });
     serie.removeAllReminders();
     serie.addPopupReminder(0);
     const p = PropertiesService.getScriptProperties();
@@ -282,9 +318,14 @@ function mesDesdeNombre_(nombre) {
   return null;
 }
 
-function vincularPdfs_() {
-  const carpeta = getFolder_(['Recibos PDF']);
-  const recibos = listCollection_('recibos');
+// tipo 'luz' → Recibos PDF + pestaña recibos; 'agua' → Recibos agua PDF + pestaña agua_recibos.
+const TIPOS_PDF_ = { luz: { carpeta: 'Recibos PDF', coleccion: 'recibos', prefijo: 'Recibo ' },
+                     agua: { carpeta: 'Recibos agua PDF', coleccion: 'agua_recibos', prefijo: 'Agua ' } };
+
+function vincularPdfs_(tipo) {
+  const t = TIPOS_PDF_[tipo] || TIPOS_PDF_.luz;
+  const carpeta = getFolder_([t.carpeta]);
+  const recibos = listCollection_(t.coleccion);
   const porMes = {};
   recibos.forEach(r => { porMes[r.id] = r; });
   const res = { vinculados: [], yaEstaban: [], sinRecibo: [], noReconocidos: [] };
@@ -299,8 +340,8 @@ function vincularPdfs_() {
     if (r.pdfId) { res.yaEstaban.push(mes + ' (ya tenía otro PDF; no se cambió)'); continue; }
     f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     const original = f.getName();
-    f.setName('Recibo ' + mes + '.pdf');
-    updateDoc_('recibos', mes, { pdfId: f.getId(), pdfUrl: f.getUrl(), pdfNombre: original, actualizado: new Date().toISOString() });
+    f.setName(t.prefijo + mes + '.pdf');
+    updateDoc_(t.coleccion, mes, { pdfId: f.getId(), pdfUrl: f.getUrl(), pdfNombre: original, actualizado: new Date().toISOString() });
     r.pdfId = f.getId();
     res.vinculados.push(mes);
   }
@@ -364,10 +405,10 @@ function getDoc_(collection, id) {
   return rowToObj_(SHEETS[collection], sh.getRange(idx, 1, 1, SHEETS[collection].length).getValues()[0]);
 }
 
-// Protegido: borrar una lectura con cobros registrados, o quitar entradas de su historial de cobro.
+// Protegido: borrar una lectura o un cobro con pagos registrados, o quitar entradas de su historial de cobro.
 function requiereClave_(body) {
-  if (body.collection !== 'lecturas') return false;
-  const actual = getDoc_('lecturas', body.id);
+  if (body.collection !== 'lecturas' && body.collection !== 'cobros') return false;
+  const actual = getDoc_(body.collection, body.id);
   if (!actual) return false;
   const histActual = (actual.historialCobro || []).length;
   if (body.action === 'delete') return actual.montoCobrado != null || histActual > 0;
@@ -407,7 +448,7 @@ function api(body) {
       case 'delete':     return deleteDoc_(body.collection, body.id);
       case 'upload':     return uploadFile_(body.base64, body.mimeType, body.filename, body.carpeta);
       case 'deleteFile': return deleteFile_(body.fileId);
-      case 'vincularPdfs': return vincularPdfs_();
+      case 'vincularPdfs': return vincularPdfs_(body.tipo);
       default: throw new Error('unknown_action: ' + body.action);
     }
   } finally {
