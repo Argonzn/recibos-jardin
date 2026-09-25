@@ -1209,11 +1209,12 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     </div>
     <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-    dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value};
+    dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value;
+      if(!existente&&!data.antManual&&data.mes){const prev=ls.filter(l=>l.mes<data.mes&&l.lecturaActual!=null).pop();data.lecturaAnterior=prev?prev.lecturaActual:null;pintar()}};
     const sl=dlg.querySelector('#f-saltar');if(sl)sl.onclick=()=>{dlg.close();opts.siguiente()};
     dlg.querySelectorAll('[data-origen]').forEach(b=>b.onclick=()=>{data.origen=b.dataset.origen;pintar()});
     const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value);pintar()};
-    const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);pintar()};
+    const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);data.antManual=true;pintar()};
     const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value);pintar()};
     const bCam=dlg.querySelector('#f-camara'),bGal=dlg.querySelector('#f-galeria');
     if(bCam)bCam.onclick=()=>dlg.querySelector('#f-foto-cam').click();
@@ -1270,6 +1271,17 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             lecturaAnterior:directo?null:data.lecturaAnterior,lecturaActual:directo?null:data.lecturaActual,kwh:consumo,
             montoCobrado:existente?.montoCobrado??null,fechaCobro:existente?.fechaCobro??null,historialCobro:existente?.historialCobro||[],origen:data.origen,
             fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl},null,esperado);
+        }
+        // Si se corrigió la lectura actual y el mes siguiente empezaba en el valor antiguo, se ofrece actualizarlo.
+        if(existente&&!directo&&existente.lecturaActual!=null&&data.lecturaActual!=null&&Number(existente.lecturaActual)!==Number(data.lecturaActual)){
+          const sig=ls.filter(l=>l.mes>data.mes).sort((a,b)=>a.mes.localeCompare(b.mes))[0];
+          if(sig&&sig.lecturaAnterior!=null&&sig.lecturaActual!=null&&Number(sig.lecturaAnterior)===Number(existente.lecturaActual)){
+            const nuevoC=Math.round((sig.lecturaActual-data.lecturaActual)*dec)/dec,viejoC=consumoDe(sig);
+            if(await confirmar('La lectura de '+mesLargo(sig.mes)+' empieza en '+fmtN(existente.lecturaActual,AG?3:1)+' (el valor que corregiste). ¿Cambiarla a '+fmtN(data.lecturaActual,AG?3:1)+'? Su consumo pasa de '+fmtN(viejoC,AG?3:0)+' a '+fmtN(nuevoC,AG?3:0)+' '+unidad+'.','Actualizar '+mesLargo(sig.mes))){
+              const b={...sig};delete b.id;b.lecturaAnterior=data.lecturaActual;if(AG)b.m3=nuevoC;else b.kwh=nuevoC;
+              if(AG)await guardarLecturaAgua(sig.id,b,{esperado:sig.actualizado});else await guardarLectura(sig.id,b,null,{esperado:sig.actualizado});
+            }
+          }
         }
         dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
