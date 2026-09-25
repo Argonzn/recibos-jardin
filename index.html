@@ -1716,12 +1716,13 @@ async function abrirCobroMes(dep,mes){
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
   const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
-  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}${x.d.encargado?' · '+esc(x.d.encargado):''}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
   <div class="dlg-b">
     <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atrasoAgua?linea('Mora del agua (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoAgua):''}${x.partes.atrasoLuz?linea('Intereses de la luz (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoLuz):''}
       ${x.aFavor?`<tr><td>Total del mes</td><td>${fmtS(x.total)}</td></tr><tr><td>Saldo a favor de ${mesLargo(mesAnterior(mes))}</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
       <tr class="sum"><td>A pagar</td><td>${fmtS(x.neto)}</td></tr></tbody></table></div>
     ${x.faltan.length?`<div class="banner warn" style="margin:10px 0">Falta ${x.faltan.join(' y ')}: el total puede cambiar.</div>`:''}
+    ${(()=>{const otros=cobrosPendientesTodos().filter(p=>p.d.id===dep&&p.mes!==mes);return otros.length?`<div class="banner warn" style="margin:10px 0">Además debe <strong>${fmtS(sum(otros,p=>p.falta))}</strong> de ${otros.map(p=>mesCorto(p.mes)).join(', ')}. <button class="iconbtn" id="cm-varios" style="color:inherit">Registrar un pago para varios meses</button></div>`:''})()}
     ${x.legado!=null?`<div class="banner info" style="margin:10px 0">Antes se registró ${fmtS(x.legado)} solo por la luz. Escribe el total cobrado del mes (luz + agua + administración).</div>`:''}
     <label class="f" style="margin-top:12px">Monto recibido (S/)<input type="text" inputmode="decimal" id="cm-monto" value="${data.monto??''}" placeholder="${x.neto}"></label>
     <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Usar lo que debe (${fmtS(x.neto)})</button></div>
@@ -1742,6 +1743,7 @@ async function abrirCobroMes(dep,mes){
   <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>📲 WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
   dlg.querySelector('[data-wa-dlg]').onclick=()=>enviarCobroWhatsApp(dep,mes);
+  const cv=dlg.querySelector('#cm-varios');if(cv)cv.onclick=()=>abrirPagoDepto(dep);
   const inMonto=dlg.querySelector('#cm-monto');
   // Las dos preguntas se actualizan sin redibujar el formulario (no se pierde lo escrito).
   const pintarTipo=()=>{const t=tipoEfectivo();dlg.querySelectorAll('[data-tipo]').forEach(b=>b.classList.toggle('on',b.dataset.tipo===t));
