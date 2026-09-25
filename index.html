@@ -253,6 +253,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .ed-lista{display:grid;margin-top:8px}
 .ed-fila{display:grid;grid-template-columns:1fr auto 44px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
 .ed-fila:last-child{border-bottom:0}.ed-estado{text-align:right}
+.hist-cobro{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 .cobro-cards{display:none}
 .cobro-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);display:grid;gap:6px}
 .cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
@@ -1703,6 +1704,13 @@ async function abrirCargosMes(mes){
   };
   c.showModal();
 }
+// Una línea del historial de un cobro: cuándo, monto anterior → nuevo y fecha de pago.
+function lineaHistorial(e){
+  const f=e.cuando?new Date(e.cuando):null;
+  const cuando=f&&!isNaN(f)?fechaCorta(f.getFullYear()+'-'+String(f.getMonth()+1).padStart(2,'0')+'-'+String(f.getDate()).padStart(2,'0'))+' '+String(f.getHours()).padStart(2,'0')+':'+String(f.getMinutes()).padStart(2,'0'):'';
+  const m=v=>v==null?'sin pago':fmtS(v);
+  return '<li><span class="muted">'+cuando+'</span> · '+(e.deshecho?'↩ deshecho: ':'')+m(e.anterior&&e.anterior.monto)+' → <strong>'+m(e.nuevo&&e.nuevo.monto)+'</strong>'+(e.nuevo&&e.nuevo.fecha?' (pago del '+fechaCorta(e.nuevo.fecha)+')':'')+'</li>';
+}
 async function abrirCobroMes(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);const c0=x.cobro;
@@ -1738,7 +1746,7 @@ async function abrirCobroMes(dep,mes){
       <p class="small" id="cm-tarde-info" style="margin:6px 0 0"></p>
     </div>
     <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
-    <p class="muted small" style="margin-top:12px">Cada cambio queda en el historial${hist.length?` (${hist.length} cambio${hist.length>1?'s':''})`:''}.</p>
+    ${hist.length?`<details class="small" style="margin-top:12px"><summary class="muted">Historial de cambios (${hist.length})</summary><ul class="hist-cobro">${hist.slice().reverse().map(lineaHistorial).join('')}</ul></details>`:'<p class="muted small" style="margin-top:12px">Cada cambio queda en el historial.</p>'}
   </div>
   <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>📲 WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
