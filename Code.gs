@@ -602,7 +602,8 @@ function api(body) {
     // entretanto, no se pisa su cambio. esperado = '' significa que el dato no existía.
     if (body.action === 'set' && 'esperado' in body) {
       const actual = getDoc_(body.collection, body.id);
-      if (String((actual && actual.actualizado) || '') !== String(body.esperado || '')) throw new Error('conflicto');
+      const ya = String((actual && actual.actualizado) || '');
+      if (ya !== String(body.esperado || '') && ya !== String((body.data && body.data.actualizado) || '')) throw new Error('conflicto');
     }
     switch (body.action) {
       case 'set':        return setDoc_(body.collection, body.id, body.data);

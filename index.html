@@ -428,6 +428,17 @@ function esperarDatos(){
 }
 
 // Tras un guardado, el aviso ofrece "Deshacer" durante unos segundos.
+// Traduce errores técnicos a algo que se entienda.
+function mensajeError(e){
+  const m=String(e&&(e.message||e.code)||'');
+  if(/failed to fetch|networkerror|network|load failed/i.test(m))return 'sin conexión a internet';
+  if(/lock|timeout|tiempo de espera/i.test(m))return 'el servidor estaba ocupado';
+  if(m.includes('no_autorizado'))return 'la sesión se cerró; vuelve a entrar';
+  if(m.includes('solo_lectura'))return 'tu acceso es solo de lectura';
+  if(m.includes('conflicto'))return 'otra persona cambió este dato hace un momento';
+  const c=mensajeClave(e);if(c)return c;
+  return m.replace(/^Error:\s*/,'')||'error desconocido';
+}
 function toast(msg,opts={}){
   const t=$('#toast');t.innerHTML='';const s=document.createElement('span');s.textContent=msg;t.appendChild(s);
   const u=!opts.sinDeshacer&&db&&db.deshacer&&!db.deshacer.ofrecido&&Date.now()-db.deshacer.t<4000?db.deshacer:null;
@@ -486,7 +497,7 @@ async function unaVez(clave,fn){
 async function marcarPagado(r,v){return unaVez('pagar-'+r.id,()=>marcarPagadoAhora(r,v))}
 async function marcarPagadoAhora(r,v){
   const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?new Date().toISOString().slice(0,10):null;
-  try{await guardar(r.id,body);toast(v?'Marcado como pagado':'Marcado como pendiente')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+  try{await guardar(r.id,body);toast(v?'Marcado como pagado':'Marcado como pendiente')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}
 }
 
 /* ---------- Resumen ---------- */
@@ -588,7 +599,7 @@ function abrirDetalle(id){
   dlg.querySelector('[data-close]').onclick=()=>dlg.close();
   dlg.querySelector('[data-editar]').onclick=()=>{dlg.close();abrirFormulario({...r},{editando:true})};
   dlg.querySelector('[data-pagar]').onclick=async()=>{dlg.close();await marcarPagado(r,!r.pagado)};
-  dlg.querySelector('[data-borrar]').onclick=async()=>{if(!(await confirmar(`¿Eliminar el recibo de ${mesLargo(r.id)}? Esto también borra su PDF.`,'Eliminar',true)))return;dlg.close();try{await borrar(r);toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+(e.message||e.code))}};
+  dlg.querySelector('[data-borrar]').onclick=async()=>{if(!(await confirmar(`¿Eliminar el recibo de ${mesLargo(r.id)}? Esto también borra su PDF.`,'Eliminar',true)))return;dlg.close();try{await borrar(r);toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
   dlg.showModal();
 }
 
@@ -641,7 +652,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
           body.pagado=!!body.pagado;body.otros=body.otros||[];body.historial=body.historial||[];
           for(const k of Object.keys(body))if(body[k]===undefined)body[k]=null;
           await guardar(data.mes,body);dlg.close();toast(`Recibo de ${mesLargo(data.mes)} guardado`);
-        }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+(e.message||e.code))}
+        }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+mensajeError(e))}
       };
     };
     pintar();
@@ -834,7 +845,7 @@ function renderDeptos(){
   $('#btn-add-depto').onclick=async()=>{
     const n=(Math.max(0,...deptos.map(d=>d.numero||0)))+1;
     const id='dep_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    try{await guardarDepto(id,{numero:n,encargado:'',estado:'activo',piso:null,lado:null});toast('Departamento agregado. Ubícalo en el plano.')}catch(e){toast('No se pudo agregar: '+(e.message||e.code))}
+    try{await guardarDepto(id,{numero:n,encargado:'',estado:'activo',piso:null,lado:null});toast('Departamento agregado. Ubícalo en el plano.')}catch(e){toast('No se pudo agregar: '+mensajeError(e))}
   };
   $('#btn-corte').onclick=async()=>{
     const v=await pedirTexto('¿Qué día del mes es el corte interno de pago? (1-28)',config.diaCorte||12);
@@ -1082,7 +1093,7 @@ async function abrirCobro(l,deptoId){
         const h=registrarCambioCobro(l,monto,fecha);
         await guardarLectura(l.id,{...l,montoCobrado:monto,fechaCobro:fecha,historialCobro:h});
         dlg.close();toast('Cobro registrado');renderDeptos();
-      }catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
+      }catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
   pintar();
@@ -1231,7 +1242,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl},null,esperado);
         }
         dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
-      }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+(e.message||e.code))}
+      }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
   pintar();
@@ -1411,7 +1422,7 @@ async function pagoRapidoAhora(dep,mes){
   try{
     await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'},null,{esperado:c0?c0.actualizado:''});
     toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]});
-  }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+  }catch(e){toast('No se pudo guardar: '+mensajeError(e))}
 }
 
 function renderCobros(){
@@ -1494,7 +1505,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
   el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
-  const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
+  const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
   const rt=$('#btn-recordar-todos');if(rt)rt.onclick=()=>abrirRecordatorios();
   el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
@@ -1512,7 +1523,7 @@ async function cambiarValorConfig(k){
       .map(m=>{const e=cargosDe(m);return{id:m,data:{admLuz:e.admLuz,admAgua:e.admAgua,mant:e.mant,base:e.base,actualizado:new Date().toISOString()}}});
     if(docs.length){toast('Guardando los valores de '+docs.length+' meses…');await db._write({action:'setMany',collection:'cargos',docs})}
     await guardarConfig({...config,[k]:n});toast('Guardado. Se aplica desde el próximo mes.');
-  }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+  }catch(e){toast('No se pudo guardar: '+mensajeError(e))}
 }
 async function abrirCargosMes(mes){
   await esperarDatos();
@@ -1529,7 +1540,7 @@ async function abrirCargosMes(mes){
     const vals=['luz','agua','mant'].map(k=>num(c.querySelector('#cm-'+k).value));
     const cb=c.querySelector('#cm-base');const base=cb?num(cb.value):car.base;
     if(vals.some(v=>v==null||v<0)||base==null||base<0){toast('Revisa los montos.');return}
-    try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2],base});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+    try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2],base});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}
   };
   c.showModal();
 }
@@ -1595,13 +1606,13 @@ async function abrirCobroMes(dep,mes){
     await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h,
       pagoTarde:monto==null?null:tardeEfectivo(),tipoPago:monto==null?null:tipoEfectivo()},null,{esperado:c0?c0.actualizado:''});
   };
-  const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
+  const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
   dlg.querySelector('#cm-save').onclick=async()=>{
     const monto=num(inMonto.value),fecha=dlg.querySelector('#cm-fecha').value||null,nota=dlg.querySelector('#cm-nota').value.trim();
     if(monto==null){toast('Ingresa el monto recibido.');return}
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
+    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
   };
   dlg.showModal();
 }
@@ -1679,9 +1690,9 @@ function abrirDetalleAgua(mes){
       <button class="btn" id="ag-editar">Editar</button><button class="btn primary" id="ag-pagar">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button></div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     dlg.querySelector('#ag-editar').onclick=()=>{dlg.close();abrirFormAgua({...r},{editando:true})};
-    dlg.querySelector('#ag-pagar').onclick=async()=>{const body={...r};delete body.id;body.pagado=!r.pagado;body.fechaPago=body.pagado?new Date().toISOString().slice(0,10):null;try{await guardarReciboAgua(mes,body);r.pagado=body.pagado;toast(body.pagado?'Marcado como pagado':'Marcado como pendiente');pintar()}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
-    dlg.querySelector('#ag-borrar').onclick=async()=>{if(!(await confirmar('¿Eliminar el recibo de agua de '+mesLargo(mes)+'? También se borra su PDF.','Eliminar',true)))return;try{await db.doc('agua_recibos/'+mes).delete();if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}dlg.close();toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+(e.message||e.code))}};
-    const rg=dlg.querySelector('#resp-guardar');if(rg)rg.onclick=async()=>{const ids=[...dlg.querySelectorAll('[data-resp]:checked')].map(c=>c.dataset.resp);const body={...r};delete body.id;body.responsablesAtraso={manual:true,ids};try{await guardarReciboAgua(mes,body);r.responsablesAtraso=body.responsablesAtraso;toast('Responsables guardados');pintar()}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
+    dlg.querySelector('#ag-pagar').onclick=async()=>{const body={...r};delete body.id;body.pagado=!r.pagado;body.fechaPago=body.pagado?new Date().toISOString().slice(0,10):null;try{await guardarReciboAgua(mes,body);r.pagado=body.pagado;toast(body.pagado?'Marcado como pagado':'Marcado como pendiente');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
+    dlg.querySelector('#ag-borrar').onclick=async()=>{if(!(await confirmar('¿Eliminar el recibo de agua de '+mesLargo(mes)+'? También se borra su PDF.','Eliminar',true)))return;try{await db.doc('agua_recibos/'+mes).delete();if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}dlg.close();toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
+    const rg=dlg.querySelector('#resp-guardar');if(rg)rg.onclick=async()=>{const ids=[...dlg.querySelectorAll('[data-resp]:checked')].map(c=>c.dataset.resp);const body={...r};delete body.id;body.responsablesAtraso={manual:true,ids};try{await guardarReciboAgua(mes,body);r.responsablesAtraso=body.responsablesAtraso;toast('Responsables guardados');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
     const ra=dlg.querySelector('#resp-auto');if(ra)ra.onclick=async()=>{const body={...r};delete body.id;body.responsablesAtraso=[];try{await guardarReciboAgua(mes,body);r.responsablesAtraso=[];toast('Responsables automáticos');pintar()}catch(e){toast('No se pudo guardar')}};
     const vp=dlg.querySelector('[data-verpdfagua]');if(vp)vp.onclick=()=>abrirVisorPdf(r);
     const ab=dlg.querySelector('#ag-base');if(ab)ab.onclick=()=>{dlg.close();abrirCargosMes(mes)};
@@ -1778,7 +1789,7 @@ async function abrirFormAgua(data,{file=null,editando=false}={}){
           if(!body.suministro)body.suministro=(aguaRecibos.find(x=>x.suministro)||{}).suministro||null;
           for(const k of Object.keys(body))if(body[k]===undefined)body[k]=null;
           await guardarReciboAgua(data.mes,body);dlg.close();toast(`Recibo de agua de ${mesLargo(data.mes)} guardado`);
-        }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+(e.message||e.code))}
+        }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+mensajeError(e))}
       };
     };
     pintar();
@@ -1802,7 +1813,7 @@ async function buscarPdfsDrive(tipos=['luz','agua']){
       if(r.noReconocidos.length)p.push('⚠️ sin mes reconocible: '+r.noReconocidos.map(esc).join(', ')+' (renómbralos como «2026-03.pdf»)');
       if(!p.length)p.push(r.yaEstaban.length?'todo al día ('+r.yaEstaban.length+' ya vinculados)':'no hay PDF en la carpeta');
       l.push('<strong>'+nombres[tipo]+'</strong> ('+(tipo==='luz'?'Recibos PDF':'Recibos agua PDF')+'): '+p.join('; ')+'.');
-    }catch(e){l.push('<strong>'+nombres[tipo]+'</strong>: no se pudo revisar ('+esc(e.message||e.code)+').')}
+    }catch(e){l.push('<strong>'+nombres[tipo]+'</strong>: no se pudo revisar ('+esc(mensajeError(e))+').')}
   }
   db._poll(true);mostrarResultado('PDF en Drive',l);
 }
@@ -1840,7 +1851,7 @@ function deshacerUltimo(u=db&&db.deshacer){
     rev={action:'set',collection:p.collection,id:p.id,data}}
   else if(p.collection==='cobros')rev={action:'set',collection:'cobros',id:p.id,data:{...p.data,montoCobrado:null,fechaCobro:null,pagoTarde:null,tipoPago:null,historialCobro:(p.data.historialCobro||[]).concat([entrada(p.data)])}};
   else rev={action:'delete',collection:p.collection,id:p.id};
-  db._write(rev,{sinDeshacer:true}).then(()=>toast('Cambio deshecho',{sinDeshacer:true})).catch(e=>toast('No se pudo deshacer: '+(e.message||e.code),{sinDeshacer:true}));
+  db._write(rev,{sinDeshacer:true}).then(()=>toast('Cambio deshecho',{sinDeshacer:true})).catch(e=>toast('No se pudo deshacer: '+mensajeError(e),{sinDeshacer:true}));
 }
 
 /* ---------- Cobro por WhatsApp ---------- */
@@ -1976,7 +1987,7 @@ function tareasDelMes(){
   T.push({ok:filas.length&&nOk===filas.length,t:'Cobrar '+mesLargo(mes),d:nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta))+' · límite '+fechaCorta(fechaLimitePago(mes)),btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
   if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
   if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
-    btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+(e.message||e.code)))}]})}
+    btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+mensajeError(e)))}]})}
   const altos=consumosAltos(mes);
   if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:['Ver deptos',()=>irA('deptos')]});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
@@ -2003,13 +2014,13 @@ async function abrirAccesoInquilino(d){
       <p class="muted small">Si cambias el código, el anterior deja de funcionar al instante.</p></div>
     <div class="dlg-f">${cod?'<button class="btn danger" id="ai-quitar" style="margin-right:auto">Quitar acceso</button>':''}${cod?'<button class="btn" id="ai-nuevo">Cambiar código</button><button class="btn primary" id="ai-wa">📲 Enviar por WhatsApp</button>':'<button class="btn primary" id="ai-nuevo">Crear código</button>'}</div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
-    const op=async o=>{try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:o});pintar(r.codigo)}catch(e){toast('No se pudo: '+(e.message||e.code))}};
+    const op=async o=>{try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:o});pintar(r.codigo)}catch(e){toast('No se pudo: '+mensajeError(e))}};
     const n=dlg.querySelector('#ai-nuevo');if(n)n.onclick=()=>op('generar');
     const q=dlg.querySelector('#ai-quitar');if(q)q.onclick=async()=>{if(await confirmar('¿Quitar el acceso del inquilino de '+tituloDepto(d)+'?','Quitar',true))op('quitar')};
     const w=dlg.querySelector('#ai-wa');if(w)w.onclick=()=>abrirEnlace(waUrl(d.telefono,'Hola'+(d.encargado?' '+d.encargado:'')+'. Aquí puedes ver tus cobros de luz y agua del depto '+(d.numero??'')+', cómo se calculan y tus pagos:\n'+APP_PUBLICA+'\nTu código de acceso es: *'+cod+'*'));
   };
   pintar(null,true);if(!dlg.open)dlg.showModal();
-  try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:'ver'});pintar(r.codigo)}catch(e){pintar(null);toast('No se pudo consultar: '+(e.message||e.code))}
+  try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:'ver'});pintar(r.codigo)}catch(e){pintar(null);toast('No se pudo consultar: '+mensajeError(e))}
 }
 
 /* ---------- Vista del inquilino ---------- */
@@ -2159,7 +2170,7 @@ $('#btn-vincular-viejo').onclick=async()=>{
     if(r.noReconocidos.length)l.push('⚠️ No se reconoció el mes de: '+r.noReconocidos.map(esc).join(', ')+'. Renómbralos como «Recibo 2026-03.pdf».');
     if(!l.length)l.push('No hay PDF en la carpeta <strong>RECIBOS_JARDIN / Recibos PDF</strong> de tu Drive.');
     mostrarResultado('PDF en Drive',l);
-  }catch(e){toast('No se pudo revisar Drive: '+(e.message||e.code))}
+  }catch(e){toast('No se pudo revisar Drive: '+mensajeError(e))}
   btn.disabled=false;btn.textContent='Buscar PDF en Drive';
 };
 
@@ -2336,7 +2347,7 @@ function pintarTareas(){
   el.querySelectorAll('[data-tarea]').forEach(c=>c.onchange=async()=>{
     const id=c.dataset.tarea,v=c.checked;tareasHechas[id]=v;c.closest('.tarea').classList.toggle('hecha',v);
     try{await db.doc('tareas/'+id).set({hecho:v,fecha:v?new Date().toISOString().slice(0,10):null,actualizado:new Date().toISOString()})}
-    catch(e){tareasHechas[id]=!v;c.checked=!v;c.closest('.tarea').classList.toggle('hecha',!v);toast('No se pudo guardar: '+(e.message||e.code))}
+    catch(e){tareasHechas[id]=!v;c.checked=!v;c.closest('.tarea').classList.toggle('hecha',!v);toast('No se pudo guardar: '+mensajeError(e))}
   });
 }
 function renderRuta(){
@@ -2403,8 +2414,16 @@ function sesionCaducada(){tokenAcceso=null;lsSet('recibos_token',null);mostrarLo
 class SheetsDB{
   constructor(base){this.base=base;this.subs={};this.timer=null;this.ultimo=null;this.enVuelo=false;this.repetir=false;this.cola=Promise.resolve();this.pendientes=[]}
   async _post(payload){
-    try{return await llamarApi(this.base,{...payload,token:tokenAcceso})}
-    catch(e){if(String(e.message).includes('no_autorizado'))sesionCaducada();throw e}
+    const reintentable=payload.action!=='upload'&&payload.action!=='login';
+    for(let intento=0;;intento++){
+      try{return await llamarApi(this.base,{...payload,token:tokenAcceso})}
+      catch(e){
+        if(String(e.message).includes('no_autorizado')){sesionCaducada();throw e}
+        const deRed=/failed to fetch|networkerror|network|load failed/i.test(String(e.message||e.code));
+        if(!(deRed&&reintentable&&intento<2))throw e;
+        await new Promise(r=>setTimeout(r,1500*(intento+1)));
+      }
+    }
   }
   // Un solo sondeo a la vez para todas las colecciones (o solo las indicadas). Si ya hay uno en curso, se agenda otro
   // al terminar: así las consultas nunca se amontonan en el servidor ni hacen esperar a los guardados.
@@ -2416,6 +2435,7 @@ class SheetsDB{
     try{
       const all=await this._post({action:'listAll',collections:names});
       if(!datosListos){datosListos=true;marcarEstadoSync()}
+      const ad=$('#aviso-db');if(ad&&ad.dataset.conexion){ad.hidden=true;delete ad.dataset.conexion}
       // Si nada cambió desde el último sondeo, no se redibuja (así no se pierde lo que la persona tiene abierto o escribiendo).
       const nuevo={...(this.ultimo||{}),...all},firma=JSON.stringify(nuevo);
       if(firma!==this._firma||this.pendientes.length){this._firma=firma;this.ultimo=nuevo;this._entregar(this.ultimo);try{localStorage.setItem('recibos_cache',firma)}catch(e){}}
@@ -2486,7 +2506,7 @@ function marcarGuardando(n){const e=$('#estado-sync');if(e)e.textContent=n?(n>1?
 function avisarNoGuardado(e){
   const a=$('#aviso-guardado');a.hidden=false;
   a.textContent=String(e.message||e.code).includes('conflicto')?'Otra persona cambió ese mismo dato hace un momento, así que tu cambio no se guardó para no borrar el suyo. Ya ves su versión: revísala y vuelve a guardar si hace falta.'
-    :'No se pudo guardar un cambio y se deshizo: '+(mensajeClave(e)||e.message||e.code||'error de conexión')+'. Vuelve a intentarlo.';
+    :'No se pudo guardar un cambio y se deshizo: '+mensajeError(e)+'. Vuelve a intentarlo.';
   clearTimeout(avisarNoGuardado._t);avisarNoGuardado._t=setTimeout(()=>{a.hidden=true},12000);
 }
 window.addEventListener('beforeunload',e=>{if(db&&db.pendientes&&db.pendientes.length){e.preventDefault();e.returnValue=''}});
@@ -2557,7 +2577,7 @@ async function conectar(){
   $('#aviso-db').hidden=true;
   if(esInquilino()){tabActual='inquilino';$('nav.tabs').hidden=true;PESTANAS.forEach(t=>$('#tab-'+t).hidden=true);$('#tab-inquilino').hidden=false;document.body.classList.add('modo-inquilino')}
   const reVista=()=>{if(tabActual==='resumen')renderResumen();if(tabActual==='inquilino')renderInquilino()};
-  db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').textContent='No se pudo conectar con la Hoja de cálculo ('+(err.code||'error')+'). Revisa tu conexión a internet; la app reintenta sola cada pocos segundos.'});
+  db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').dataset.conexion='1';$('#aviso-db').textContent='No se pudo conectar con los datos ('+mensajeError(err)+'). Mientras tanto ves la última copia guardada en este dispositivo; la app reintenta sola.'});
   db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
   db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();reVista()});
   db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos();reAgua()});
