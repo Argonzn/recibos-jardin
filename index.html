@@ -250,6 +250,9 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .pend-depto>summary{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;cursor:pointer;list-style:none;padding:8px 0}
 .pend-depto>summary::-webkit-details-marker{display:none}.pend-depto.atrasado .pend-total{color:var(--red)}
 .pend-total{font-weight:800;text-align:right}
+.ed-lista{display:grid;margin-top:8px}
+.ed-fila{display:grid;grid-template-columns:1fr auto 44px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.ed-fila:last-child{border-bottom:0}.ed-estado{text-align:right}
 .cobro-cards{display:none}
 .cobro-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);display:grid;gap:6px}
 .cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
@@ -542,7 +545,7 @@ function renderResumen(){
   const prev=recibos.length>1?recibos[recibos.length-2]:null;
   const delta=(a,b,suf)=>{if(a==null||b==null||!b)return'';const p=(a-b)/b*100;return `${p>0?'+':''}${fmtN(p,1)}% ${suf}`};
   const intTot=sum(recibos,intereses);
-  el.innerHTML=`${panelQueHacer()}${banners}
+  el.innerHTML=`${panelQueHacer()}${panelEstadoDeptos()}${banners}
   <div class="panel hero">
     <div class="meter">
       <div class="meter-label">Lectura del medidor al ${fechaCorta(r.fechaLectura)}</div>
@@ -2152,7 +2155,21 @@ function panelQueHacer(){
     <ul class="qh">${T.map((x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
       <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`).join('')}</ul></div>`;
 }
-function conectarQueHacer(){document.querySelectorAll('[data-qh]').forEach(b=>b.onclick=()=>{const x=(panelQueHacer.T||[])[+b.dataset.qh];if(x&&x.btn)unaVez('qh-'+x.t,()=>x.btn[1]())})}
+// Estado de cada depto de un vistazo: cuánto debe (y desde cuándo), al día o con saldo a favor.
+function panelEstadoDeptos(){
+  if(!deptos.length||!mesesCobro().length)return'';
+  const pend=cobrosPendientesTodos(),mesSig=siguienteMes(mesesCobro().slice(-1)[0]);
+  const filas=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>{
+    const ps=pend.filter(p=>p.d.id===d.id),debe=r2(sum(ps,p=>p.falta)),late=ps.some(p=>p.estado.cls==='late'),favor=creditoEntrante(d.id,mesSig);
+    const estado=debe>0?`<span class="chip sm ${late?'late':'pend'}">debe ${fmtS(debe)}</span><div class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</div>`
+      :favor>0?`<span class="chip sm ok">a favor ${fmtS(favor)}</span>`:'<span class="chip sm ok">al día</span>';
+    return {d,debe,html:`<div class="ed-fila"><div><strong>${tituloDepto(d)}</strong> <span class="muted small">${esc(d.encargado||'')}</span></div><div class="ed-estado">${estado}</div>${debe>0?`<button class="btn sm" data-ed-pago="${d.id}" aria-label="Registrar pago de ${esc(tituloDepto(d))}">💵</button>`:'<span></span>'}</div>`};
+  });
+  const total=r2(sum(filas,f=>f.debe)),n=filas.filter(f=>f.debe>0).length;
+  return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Estado por depto</h2><span class="small muted">${n?n+' con deuda · '+fmtS(total):'todos al día'}</span></div>
+    <div class="ed-lista">${filas.map(f=>f.html).join('')}</div></div>`;
+}
+function conectarQueHacer(){document.querySelectorAll('[data-ed-pago]').forEach(b=>b.onclick=()=>abrirPagoDepto(b.dataset.edPago));document.querySelectorAll('[data-qh]').forEach(b=>b.onclick=()=>{const x=(panelQueHacer.T||[])[+b.dataset.qh];if(x&&x.btn)unaVez('qh-'+x.t,()=>x.btn[1]())})}
 
 /* ---------- Acceso del inquilino (administración) ---------- */
 async function abrirAccesoInquilino(d){
