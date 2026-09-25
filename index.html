@@ -242,6 +242,14 @@ body.modo-inquilino .wrap{padding-bottom:24px}
 .inq-btn{width:100%;justify-content:center;margin-top:18px}
 table.detail td:last-child{white-space:nowrap}
 tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
+.avance{margin:12px 0 4px;display:grid;gap:6px}
+.avance .barra{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.avance .barra i{display:block;height:100%;background:var(--green)}
+.info-mes{margin:0 0 12px}.info-mes summary{cursor:pointer;color:var(--muted);padding:6px 0}
+.cobro-cards{display:none}
+.cobro-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);display:grid;gap:6px}
+.cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
+.cc-monto{font-size:1.35rem;font-weight:800}
+@media (max-width:640px){.tabla-cobro-wrap{display:none}.cobro-cards{display:grid;gap:10px}.cobro-card .row .btn{flex:1;justify-content:center}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1383,11 +1391,13 @@ function renderCobros(){
   el.innerHTML=`<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
-    <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
-    <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
-    <div class="row" style="margin-bottom:12px"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
+    <div class="avance"><div class="row" style="justify-content:space-between"><span><strong>${fmtS(cobrado)}</strong> <span class="muted">de ${fmtS(esperado)} cobrados</span></span><span class="small muted">${nOk} de ${filas.length} deptos</span></div><div class="barra"><i style="width:${esperado?Math.min(100,Math.round(cobrado/esperado*100)):0}%"></i></div><div class="small muted">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}</div></div>
+    <div class="row" style="margin:12px 0"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
-    ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
+    ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
+    <details class="info-mes"><summary class="small">Cargos y moras del mes</summary>
+    <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
+${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
       const ag=a&&!a.incompleto&&a.atraso?a:null,al=rl0?atrasoLuzDe(rl0):0,rl=al>0?responsablesLuz(mes):null;
       const quien=res=>res.fuente==='pendientes'?'entre quienes aún no pagan '+prev:res.fuente==='tarde'?'entre quienes pagaron '+prev+' fuera de fecha (ya todos pagaron)':res.fuente==='manual'?'entre los deptos elegidos a mano':'';
       const nadie=m=>m+': todos pagaron '+prev+' a tiempo, no se cobra (lo asume la administración)';
@@ -1395,7 +1405,8 @@ function renderCobros(){
       if(ag)L.push(ag.atrasoSinResponsable?nadie('agua '+fmtS(ag.atraso)):'agua '+fmtS(ag.atraso)+' '+quien(ag.resp));
       if(rl)L.push(rl.ids.length?'luz '+fmtS(al)+' '+quien(rl):nadie('luz '+fmtS(al)));
       return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales; cuando alguien registra su pago completo de ${prev}, sale del reparto.</p>`:''})()}
-    <div class="scroll"><table class="tabla-cobro">
+    </details>
+    <div class="scroll tabla-cobro-wrap"><table class="tabla-cobro">
       <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
         <td><strong>${tituloDepto(x.d)}</strong><div class="muted small">${esc(x.d.encargado||'')}</div></td>
@@ -1407,6 +1418,11 @@ function renderCobros(){
         <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz))}</td><td>${fmtS(sum(filas,x=>x.partes.admAgua))}</td><td>${fmtS(sum(filas,x=>x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
+    <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
+      <div class="row" style="justify-content:space-between;gap:8px"><div><strong>${tituloDepto(x.d)}</strong> <span class="muted small">${esc(x.d.encargado||"")}</span></div><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
+      <div class="cc-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)} <span class="small muted">${ok?"cobrado":"por cobrar"}${x.faltan.length?" · incompleto":""}</span></div>
+      <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · 📲 enviado":""}</div>
+      ${acciones(x,mes)}</div>`}).join("")}</div>
     <p class="muted small" style="margin:10px 0 0">«✓ Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
   <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<span class="chip ${pend.some(p=>p.estado.cls==='late')?'late':'pend'}">${pend.length}</span>`:''}</div>
