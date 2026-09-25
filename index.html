@@ -636,6 +636,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
       <div class="dlg-b">
         ${file?`<p class="muted small" style="margin-top:0">Leído de ${esc(file.name)}. Corrige lo que haga falta y guarda.</p>`:''}
         ${f.length?`<div class="banner warn" style="margin-bottom:14px">Faltan: ${f.map(k=>CAMPOS.find(c=>c.k===k).l).join(', ')}.${sample&&texto&&!sample.soloOCR?' <button class="btn" data-ia style="margin-top:8px">Completar con IA</button>':''}</div>`:''}
+        ${!editando&&data.mes&&recibos.some(x=>x.id===data.mes)?`<div class="banner warn" style="margin-bottom:14px">Ya hay un recibo de ${mesLargo(data.mes)}. Al guardar se reemplaza con estos datos; se conservan la marca de pagado y el PDF si no subes uno nuevo.</div>`:''}
         ${ch.length?`<div class="banner info" style="margin-bottom:14px">${ch.map(esc).join('<br>')}</div>`:(!f.length?`<div class="banner info" style="margin-bottom:14px">Las sumas del recibo cuadran.</div>`:'')}
         ${grupos.map(g=>`<fieldset><legend>${g}</legend><div class="grid2">${CAMPOS.filter(c=>c.g===g).map(c=>{const v=data[c.k];const val=v==null?'':v;return `<label class="f">${c.l}<input data-k="${c.k}" ${c.t==='num'?'type="text" inputmode="decimal"':`type="${c.t}"`} value="${esc(val)}" class="${REQUERIDOS.includes(c.k)&&(v==null||v==='')?'miss':''}" ${editando&&c.k==='mes'?'readonly':''}></label>`}).join('')}</div></fieldset>`).join('')}
         ${(data.otros||[]).length?`<p class="small muted">Otros conceptos: ${data.otros.map(o=>esc(o.label)+' '+fmtS(o.monto)).join(', ')}</p>`:''}
@@ -1787,6 +1788,7 @@ async function abrirFormAgua(data,{file=null,editando=false}={}){
       <div class="dlg-b">
         ${file?`<p class="muted small" style="margin-top:0">Leído de ${esc(file.name)}. Corrige lo que haga falta y guarda.</p>`:''}
         ${falt.length?`<div class="banner warn" style="margin-bottom:14px">Faltan: ${falt.map(k=>CAMPOS_AGUA.find(c=>c.k===k).l).join(', ')}.</div>`:''}
+        ${!editando&&data.mes&&aguaRecibos.some(x=>x.id===data.mes)?`<div class="banner warn" style="margin-bottom:14px">Ya hay un recibo de ${mesLargo(data.mes)}. Al guardar se reemplaza con estos datos; se conservan la marca de pagado y el PDF si no subes uno nuevo.</div>`:''}
         ${ch.length?`<div class="banner info" style="margin-bottom:14px">${ch.map(esc).join('<br>')}</div>`:(!falt.length?'<div class="banner info" style="margin-bottom:14px">Las sumas del recibo cuadran.</div>':'')}
         <div class="grid2">${CAMPOS_AGUA.map(c=>{const v=data[c.k];return `<label class="f">${c.l}<input data-k="${c.k}" ${c.t==='num'?'type="text" inputmode="decimal"':`type="${c.t}"`} value="${esc(v??'')}" class="${REQ_AGUA.includes(c.k)&&(v==null||v==='')?'miss':''}" ${editando&&c.k==='mes'?'readonly':''}></label>`}).join('')}</div>
         ${(data.otros||[]).length?`<p class="small muted">Otros conceptos: ${data.otros.map(o=>esc(o.label)+' '+fmtS(o.monto)).join(', ')}</p>`:''}
