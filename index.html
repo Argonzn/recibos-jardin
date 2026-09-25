@@ -13,7 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{
   --bg:#EEF1F4;--surface:#FFFFFF;--surface-2:#F6F8FA;--ink:#1D2733;--muted:#5B6775;--line:#D5DBE2;
@@ -662,6 +661,9 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
 }
 
 /* ---------- Subida de PDF ---------- */
+// Los gráficos (Chart.js, ~200 KB) se descargan solo al abrir Reportes o el gráfico de un depto, no al abrir la app.
+let chartCargado=null;
+function cargarChart(){if(!chartCargado)chartCargado=cargarScript('https:\/\/cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js').catch(e=>{chartCargado=null;throw e});return chartCargado}
 let pdfjsPromise=null;
 function cargarScript(src){return new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('No se pudo cargar '+src));document.head.appendChild(s)})}
 function cargarPdfJs(){if(!pdfjsPromise){const b='https:\/\/cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';pdfjsPromise=cargarScript(b+'pdf.min.js').then(()=>cargarScript(b+'pdf.worker.min.js')).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=b+'pdf.worker.min.js';return window.pdfjsLib})}return pdfjsPromise}
@@ -707,7 +709,7 @@ function renderReportes(){
     </table></div></div>`;
   $('#anio').onchange=e=>{renderReportes.anio=e.target.value;renderReportes()};
   const csvBtn=$('#csv');if(csvBtn)csvBtn.onclick=()=>exportarCSV(rs,sel);
-  if(!window.Chart){return}
+  if(!window.Chart){cargarChart().then(()=>{if(tabActual==='reportes')renderReportes()}).catch(()=>{});return}
   const ink=css('--ink'),muted=css('--muted'),line=css('--line');
   Chart.defaults.font.family=css('--font');Chart.defaults.color=muted;Chart.defaults.borderColor=line;
   const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true}}};
@@ -1031,6 +1033,7 @@ function abrirDepto(id){
       if(!(await confirmar('¿Eliminar esta lectura de agua?','Eliminar',true)))return;
       try{await db.doc('lecturas_agua/'+b.dataset.della).delete();toast('Lectura eliminada')}catch(e){toast('No se pudo eliminar')}
     });
+    if(ls.length&&!window.Chart)cargarChart().then(()=>{if(dlg.open&&dlg.querySelector('#dep-chart'))pintar()}).catch(()=>{});
     if(ls.length&&window.Chart){
       if(deptoChart){deptoChart.destroy();deptoChart=null}
       const muted=css('--muted'),line=css('--line');Chart.defaults.font.family=css('--font');Chart.defaults.color=muted;Chart.defaults.borderColor=line;
