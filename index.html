@@ -1206,7 +1206,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
   const ultimoMes=AG?(lecturasAgua.map(l=>l.mes).sort().pop()||ultimoMesConDatos()):ultimoMesConDatos();
   const sinLecturaCruda=existente&&existente.lecturaAnterior==null&&existente.lecturaActual==null&&consumoDe(existente)!=null;
   const data={mes:existente?.mes||opts.mes||(ls.length?siguienteMes(ls[ls.length-1].mes):ultimoMes)||'',
-    lecturaAnterior:existente?.lecturaAnterior??(ls.length?ls[ls.length-1].lecturaActual:null),
+    lecturaAnterior:existente?.lecturaAnterior??(()=>{const m=existente?.mes||opts.mes,prev=m?ls.filter(l=>l.mes<m&&l.lecturaActual!=null).pop():ls[ls.length-1];return prev?prev.lecturaActual:null})(),
     lecturaActual:existente?.lecturaActual??null,
     kwhDirecto:sinLecturaCruda?consumoDe(existente):null,
     origen:existente?.origen==='foto'?'foto':sinLecturaCruda?'directo':(existente?.origen==='directo'?'directo':'manual'),
@@ -1299,6 +1299,8 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       else if(data.lecturaActual==null){toast('Falta la lectura actual.');return}
       if((directo?data.kwhDirecto:data.lecturaActual)<0){toast('La lectura no puede ser negativa.');return}
       const id=deptoId+'_'+data.mes;
+      const previa=(!existente||existente.mes!==data.mes)?(AG?lecturasAgua:lecturas).find(l=>l.deptoId===deptoId&&l.mes===data.mes):null;
+      if(previa&&!(await confirmar('Ya hay una lectura de '+(AG?'agua':'luz')+' de '+mesLargo(data.mes)+' para '+nombre+(previa.lecturaActual!=null?' (lectura '+fmtN(previa.lecturaActual,AG?3:1)+')':'')+', con consumo de '+fmtN(consumoDe(previa),AG?2:0)+' '+unidad+'. Si guardas, se reemplaza. ¿Continuar?','Reemplazar')))return;
       const consumoNuevo=directo?data.kwhDirecto:(data.lecturaAnterior!=null?data.lecturaActual-data.lecturaAnterior:null);
       if(consumoNuevo!=null&&deptoId==='general'&&AG){
         const con=deptosConMedidor(),ms=con.map(d=>m3De(lecturaAguaDe(d.id,data.mes)));
