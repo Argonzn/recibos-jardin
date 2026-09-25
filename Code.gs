@@ -669,3 +669,26 @@ function setup() {
   if (sinClave) console.warn('Falta la contraseña de administrador: agrégala como ADMIN_PASSWORD en Configuración del proyecto → Propiedades de la secuencia de comandos.');
   ss.toast(sinClave ? 'Datos cargados. Falta definir ADMIN_PASSWORD (ver instrucciones).' : 'Listo: pestañas creadas y datos cargados.');
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Copia de respaldo semanal de la Hoja de datos en RECIBOS_JARDIN/Respaldos. Se guardan las últimas 8 copias;
+// las más antiguas van a la papelera de Drive (se pueden recuperar durante 30 días).
+const RESPALDOS_A_GUARDAR = 8;
+function respaldoSemanal() {
+  const carpeta = getFolder_(['Respaldos']);
+  const nombre = 'Respaldo datos ' + Utilities.formatDate(new Date(), 'America/Lima', 'yyyy-MM-dd HH:mm');
+  DriveApp.getFileById(SPREADSHEET_ID).makeCopy(nombre, carpeta);
+  const copias = [];
+  const it = carpeta.getFiles();
+  while (it.hasNext()) { const f = it.next(); if (f.getName().indexOf('Respaldo datos ') === 0) copias.push(f); }
+  copias.sort((a, b) => b.getDateCreated() - a.getDateCreated());
+  copias.slice(RESPALDOS_A_GUARDAR).forEach(f => f.setTrashed(true));
+  console.log('Respaldo creado: ' + nombre + ' (' + Math.min(copias.length, RESPALDOS_A_GUARDAR) + ' copias guardadas)');
+}
+/** Ejecutar UNA vez desde el editor: programa el respaldo cada lunes a las 3:00 y hace la primera copia. */
+function activarRespaldoSemanal() {
+  ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'respaldoSemanal').forEach(t => ScriptApp.deleteTrigger(t));
+  ScriptApp.newTrigger('respaldoSemanal').timeBased().everyWeeks(1).onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(3).create();
+  respaldoSemanal();
+  console.log('Respaldo semanal activado: cada lunes a las 3:00.');
+}
