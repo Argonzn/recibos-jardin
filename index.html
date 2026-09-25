@@ -234,6 +234,7 @@ body.modo-inquilino .wrap{padding-bottom:24px}
   .btn.sm{padding:9px 14px;min-height:40px;font-size:.9rem}
   .seg button{padding:11px 14px}
   .iconbtn{padding:9px 6px;min-height:36px}
+  .panel select,#dlg select{min-height:40px}
   .x{min-width:44px;min-height:44px;font-size:1.6rem}
   .qh li{grid-template-columns:auto 1fr}.qh li .btn{grid-column:1/-1;justify-content:center}
 }
@@ -1009,7 +1010,8 @@ function panelLecturasDelMes(){
   const faltan=ordenados.filter(d=>d.estado!=='desocupado'&&!lecturaDe(d.id,mes)).length+ordenados.filter(d=>tipoAgua(d)==='medidor'&&!lecturaAguaDe(d.id,mes)).length+(gen?0:1);
   return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lecturas de ${mesLargo(mes)}</h2>
       <span class="chip ${faltan?'pend':'ok'}">${faltan?faltan+' por tomar':'Completas'}</span></div>
-    <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura. <button class="iconbtn" id="cambiar-mes-lect">Otro mes</button></p>
+    <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura.</p>
+    <label class="small muted" style="display:inline-flex;gap:8px;align-items:center;margin:0 0 10px">Mes <select id="sel-mes-lect" aria-label="Mes de las lecturas">${(()=>{const hoy=mesDeLecturas(),ms=[...new Set([...lecturas.map(l=>l.mes),...lecturasAgua.map(l=>l.mes),hoy,siguienteMes(hoy)])].filter(Boolean).sort().reverse().slice(0,14);return ms.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}${m===hoy?' (este mes)':''}</option>`).join('')})()}</select></label>
     ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">📷 Tomar las ${faltan} en orden</button>`:''}
     <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
       ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
@@ -1020,7 +1022,7 @@ function conectarPanelLecturas(){
   document.querySelectorAll('[data-leer]').forEach(b=>b.onclick=()=>{const [dep,serv]=b.dataset.leer.split('|');const mes=renderDeptos.mesLect||mesDeLecturas();
     abrirLecturaForm(dep,null,serv,{mes})});
   const sq=$('#lect-secuencia');if(sq)sq.onclick=()=>iniciarSecuenciaLecturas(renderDeptos.mesLect||mesDeLecturas());
-  const cm=$('#cambiar-mes-lect');if(cm)cm.onclick=async()=>{const v=await pedirTexto('¿De qué mes? (AAAA-MM)',renderDeptos.mesLect||mesDeLecturas());if(v&&/^\d{4}-\d{2}$/.test(v.trim())){renderDeptos.mesLect=v.trim();renderDeptos()}};
+  const sm=$('#sel-mes-lect');if(sm)sm.onchange=e=>{renderDeptos.mesLect=e.target.value;renderDeptos()};
 }
 
 function abrirDepto(id){
