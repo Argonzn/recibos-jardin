@@ -731,7 +731,7 @@ function renderReportes(){
   charts.forEach(c=>c.destroy());charts=[];
   const el=$('#tab-reportes');
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
-  if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Los reportes aparecen cuando guardes tu primer recibo.</div>`;return}
+  if(!recibos.length){el.innerHTML=`<div class="panel empty"><p class="muted" style="margin:0">Los reportes aparecen cuando guardes tu primer recibo.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn primary" data-subir="luz">Subir recibo de luz</button><button class="btn" data-subir="agua">Subir recibo de agua</button></div></div>`;return}
   const anios=[...new Set(recibos.map(r=>r.id.slice(0,4)))].sort().reverse();
   const sel=renderReportes.anio&&(renderReportes.anio==='todos'||anios.includes(renderReportes.anio))?renderReportes.anio:'todos';
   const rs=recibos.filter(r=>sel==='todos'||r.id.startsWith(sel));
@@ -1608,7 +1608,7 @@ function renderCobros(){
   const el=$('#tab-cobros');if(!el)return;
   if(!deptos.length&&!datosListos){el.innerHTML=panelCargando();return}
   const meses=mesesCobro();
-  if(!meses.length){el.innerHTML='<div class="panel empty muted">Los cobros aparecen cuando haya recibos cargados.</div>';return}
+  if(!meses.length){el.innerHTML='<div class="panel empty"><p class="muted" style="margin:0">Los cobros se calculan a partir de los recibos del mes. Sube el recibo de luz o de agua para empezar.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn primary" data-subir="luz">Subir recibo de luz</button><button class="btn" data-subir="agua">Subir recibo de agua</button></div></div>';return}
   const conRecibo=meses.filter(m=>recibos.some(r=>r.id===m)||aguaRecibos.some(r=>r.id===m));
   const mes=renderCobros.mes&&meses.includes(renderCobros.mes)?renderCobros.mes:(conRecibo[conRecibo.length-1]||meses[meses.length-1]);
   const filas=cobrosDelMes(mes);const car=cargosDe(mes);
@@ -2357,7 +2357,8 @@ function renderTodo(){
   renderResumen();renderRecibos();if(tabActual==='reportes')renderReportes();if(tabActual==='deptos')renderDeptos();if(tabActual==='ruta')renderRuta();if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();
 }
 document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.onclick=()=>irA(b.dataset.tab));
-document.addEventListener('click',e=>{const v=e.target.closest('[data-ver]');if(v&&!v.closest('dialog')){abrirDetalle(v.dataset.ver);return}const p=e.target.closest('[data-pagar]');if(p&&!p.closest('dialog')){const r=recibos.find(x=>x.id===p.dataset.pagar);if(r)marcarPagado(r,!r.pagado)}});
+document.addEventListener('click',e=>{const sb=e.target.closest('[data-subir]');if(sb){if(sb.dataset.subir==='luz'){irA('recibos');$('#file').click()}else{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}return}
+  const v=e.target.closest('[data-ver]');if(v&&!v.closest('dialog')){abrirDetalle(v.dataset.ver);return}const p=e.target.closest('[data-pagar]');if(p&&!p.closest('dialog')){const r=recibos.find(x=>x.id===p.dataset.pagar);if(r)marcarPagado(r,!r.pagado)}});
 $('#btn-subir').onclick=()=>$('#file').click();
 $('#btn-manual').onclick=()=>abrirFormulario({otros:[],historial:[]});
 $('#file').onchange=e=>{const f=[...e.target.files];e.target.value='';procesar(f)};
