@@ -2364,17 +2364,21 @@ class SheetsDB{
     try{
       const all=await this._post({action:'listAll',collections:names});
       if(!datosListos){datosListos=true;marcarEstadoSync()}
-      this.ultimo={...(this.ultimo||{}),...all};
-      this._entregar(this.ultimo);
-      try{localStorage.setItem('recibos_cache',JSON.stringify(this.ultimo))}catch(e){}
+      // Si nada cambió desde el último sondeo, no se redibuja (así no se pierde lo que la persona tiene abierto o escribiendo).
+      const nuevo={...(this.ultimo||{}),...all},firma=JSON.stringify(nuevo);
+      if(firma!==this._firma||this.pendientes.length){this._firma=firma;this.ultimo=nuevo;this._entregar(this.ultimo);try{localStorage.setItem('recibos_cache',firma)}catch(e){}}
     }catch(e){names.forEach(n=>this.subs[n].forEach(s=>s.errCb&&s.errCb({code:e.code||'network'})))}
     finally{this.enVuelo=false;if(this.repetir){this.repetir=false;setTimeout(()=>this._poll(true),50)}}
   }
   // Entrega a la app los datos, con los guardados aún en camino aplicados encima (para que no "reboten").
   _entregar(all){
+    // Las secciones plegables abiertas en la pestaña actual se vuelven a abrir después de redibujar.
+    const tab=document.getElementById('tab-'+tabActual),clave=d=>{const s=d.querySelector('summary');return s?s.textContent.trim().slice(0,40):''};
+    const abiertos=tab?[...tab.querySelectorAll('details[open]')].map(clave):[];
     const vista=this.pendientes.length?JSON.parse(JSON.stringify(all)):all;
     this.pendientes.forEach(p=>SheetsDB.aplicar(vista,p));
     Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>{calcAgua.memo=null;s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))})})});
+    if(tab&&abiertos.length)tab.querySelectorAll('details').forEach(d=>{if(abiertos.includes(clave(d)))d.open=true});
   }
   static aplicar(all,p){
     const col=all[p.collection]=all[p.collection]||[];const i=col.findIndex(d=>d.id===p.id);
