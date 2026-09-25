@@ -475,7 +475,16 @@ async function borrar(r){
   if(db)await db.doc('recibos/'+r.id).delete();else{recibos=recibos.filter(x=>x.id!==r.id);renderTodo()}
   if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}
 }
-async function marcarPagado(r,v){
+// Evita que un doble toque repita una operación: mientras corre (y un momento después), se ignoran los toques
+// repetidos con la misma clave. Así "✓ Pagó" no registra dos pagos y "Marcar pagado" no se desmarca solo.
+const accionesEnCurso=new Set();
+async function unaVez(clave,fn){
+  if(accionesEnCurso.has(clave))return;
+  accionesEnCurso.add(clave);
+  try{return await fn()}finally{setTimeout(()=>accionesEnCurso.delete(clave),900)}
+}
+async function marcarPagado(r,v){return unaVez('pagar-'+r.id,()=>marcarPagadoAhora(r,v))}
+async function marcarPagadoAhora(r,v){
   const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?new Date().toISOString().slice(0,10):null;
   try{await guardar(r.id,body);toast(v?'Marcado como pagado':'Marcado como pendiente')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
 }
@@ -1392,7 +1401,8 @@ async function guardarReciboAgua(id,body){body.actualizado=new Date().toISOStrin
 async function guardarLecturaAgua(id,body,opts){body.actualizado=new Date().toISOString();await db.doc('lecturas_agua/'+id).set(body,null,opts)}
 
 // "Pagó todo" con un toque: monto = lo que debe, fecha de hoy, a tiempo según el límite. Se puede deshacer.
-async function pagoRapido(dep,mes){
+async function pagoRapido(dep,mes){return unaVez('pago-'+dep+'|'+mes,()=>pagoRapidoAhora(dep,mes))}
+async function pagoRapidoAhora(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);if(x.faltan.length){toast('Falta '+x.faltan.join(' y ')+': abre el cobro para revisarlo.');return}
   const hoy=new Date().toISOString().slice(0,10),c0=x.cobro;
@@ -1854,7 +1864,8 @@ function mensajeCobro(dep,mes){
 }
 function waUrl(tel,texto){let n=String(tel||'').replace(/\D/g,'');if(n.length===9)n='51'+n;return 'https:\/\/wa.me/'+n+'?text='+encodeURIComponent(texto)}
 function abrirEnlace(url){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}
-async function enviarCobroWhatsApp(dep,mes){
+async function enviarCobroWhatsApp(dep,mes){return unaVez('wa-'+dep+'|'+mes,()=>enviarCobroWhatsAppAhora(dep,mes))}
+async function enviarCobroWhatsAppAhora(dep,mes){
   const x=detalleCobro(dep,mes);
   if(x.faltan.length&&!(await confirmar('Falta '+x.faltan.join(' y ')+' de '+mesLargo(mes)+': el monto es provisional. ¿Enviar igual?','Enviar')))return;
   abrirEnlace(waUrl(x.d.telefono,mensajeCobro(dep,mes)));
@@ -1862,7 +1873,8 @@ async function enviarCobroWhatsApp(dep,mes){
   if(!x.d.telefono)toast('Elige el contacto en WhatsApp. Para abrir su chat directo, agrega su teléfono en la ficha del depto.',{sinDeshacer:true});
 }
 // Constancia de pago para el inquilino.
-function enviarComprobante(dep,mes){
+function enviarComprobante(dep,mes){return unaVez('comp-'+dep+'|'+mes,()=>enviarComprobanteAhora(dep,mes))}
+function enviarComprobanteAhora(dep,mes){
   const x=detalleCobro(dep,mes),c=x.cobro;if(!c||c.montoCobrado==null){toast('Todavía no hay pago registrado.',{sinDeshacer:true});return}
   const L=['*Recibos Jardín · '+tituloDepto(x.d)+'*','✅ Recibimos '+fmtS(c.montoCobrado)+' por '+mesLargo(mes)+(c.fechaCobro?' el '+fechaCorta(c.fechaCobro):'')+'.'];
   if(x.estado.cls==='ok')L.push(c.tipoPago==='demas'?x.estado.txt+'.':mesLargo(mes)+' queda pagado. ¡Gracias!');else L.push('Queda pendiente: *'+fmtS(x.falta)+'*.');
@@ -1894,7 +1906,8 @@ function abrirRecordatorios(){
   };
   pintar();if(!dlg.open)dlg.showModal();
 }
-function recordarPago(dep){const t=mensajeRecordatorio(dep);if(t)abrirEnlace(waUrl((deptos.find(x=>x.id===dep)||{}).telefono,t))}
+function recordarPago(dep){return unaVez('rec-'+dep,()=>recordarPagoAhora(dep))}
+function recordarPagoAhora(dep){const t=mensajeRecordatorio(dep);if(t)abrirEnlace(waUrl((deptos.find(x=>x.id===dep)||{}).telefono,t))}
 function abrirEnvioCobros(mes){
   const dlg=$('#dlg');
   const pintar=()=>{
@@ -1978,7 +1991,7 @@ function panelQueHacer(){
     <ul class="qh">${T.map((x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
       <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`).join('')}</ul></div>`;
 }
-function conectarQueHacer(){document.querySelectorAll('[data-qh]').forEach(b=>b.onclick=()=>{const x=(panelQueHacer.T||[])[+b.dataset.qh];if(x&&x.btn)x.btn[1]()})}
+function conectarQueHacer(){document.querySelectorAll('[data-qh]').forEach(b=>b.onclick=()=>{const x=(panelQueHacer.T||[])[+b.dataset.qh];if(x&&x.btn)unaVez('qh-'+x.t,()=>x.btn[1]())})}
 
 /* ---------- Acceso del inquilino (administración) ---------- */
 async function abrirAccesoInquilino(d){
