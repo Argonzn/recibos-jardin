@@ -598,6 +598,12 @@ function api(body) {
   lock.waitLock(20000);
   try {
     if (requiereClave_(body)) verificarClave_(body.clave);
+    // Conflicto: la app manda la versión que tenía al abrir el formulario ("esperado"); si otra persona guardó
+    // entretanto, no se pisa su cambio. esperado = '' significa que el dato no existía.
+    if (body.action === 'set' && 'esperado' in body) {
+      const actual = getDoc_(body.collection, body.id);
+      if (String((actual && actual.actualizado) || '') !== String(body.esperado || '')) throw new Error('conflicto');
+    }
     switch (body.action) {
       case 'set':        return setDoc_(body.collection, body.id, body.data);
       case 'update':     return updateDoc_(body.collection, body.id, body.data);

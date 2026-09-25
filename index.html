@@ -734,7 +734,7 @@ function calcVerif(deptoId,mes){
 function fechaLimitePago(mes){const [y,m]=mes.split('-').map(Number);let ny=y,nm=m+1;if(nm>12){nm=1;ny++}return `${ny}-${String(nm).padStart(2,'0')}-${String(config.diaCorte||12).padStart(2,'0')}`}
 function estadoPago(l){if(!l)return null;if(l.montoCobrado!=null)return{cls:'ok',txt:'Cobrado'};const d=diasHasta(fechaLimitePago(l.mes));if(d!=null&&d<0)return{cls:'late',txt:'Atrasado'};return{cls:'pend',txt:'Pendiente de cobro'}}
 async function guardarDepto(id,body){body.actualizado=new Date().toISOString();if(db){await db.doc('departamentos/'+id).set(body)}else{deptos=deptos.filter(d=>d.id!==id).concat([{id,...body}]);renderDeptos()}}
-async function guardarLectura(id,body,clave){body.actualizado=new Date().toISOString();if(db){await db.doc('lecturas/'+id).set(body,clave)}else{lecturas=lecturas.filter(l=>l.id!==id).concat([{id,...body}]);renderDeptos()}}
+async function guardarLectura(id,body,clave,opts){body.actualizado=new Date().toISOString();if(db){await db.doc('lecturas/'+id).set(body,clave,opts)}else{lecturas=lecturas.filter(l=>l.id!==id).concat([{id,...body}]);renderDeptos()}}
 async function borrarLectura(l,clave){if(db)await db.doc('lecturas/'+l.id).delete(clave);else{lecturas=lecturas.filter(x=>x.id!==l.id);renderDeptos()}}
 async function guardarConfig(body){if(db){await db.doc('config/general').set(body)}else{config={...config,...body};renderDeptos()}}
 
@@ -1193,14 +1193,15 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
         }
         const dec=AG?1000:100;
         const consumo=directo?data.kwhDirecto:((data.lecturaAnterior!=null)?Math.round((data.lecturaActual-data.lecturaAnterior)*dec)/dec:null);
+        const previa=(AG?lecturasAgua:lecturas).find(x=>x.id===id),esperado={esperado:existente&&existente.id===id?existente.actualizado:(previa?previa.actualizado:'')};
         if(AG){
           await guardarLecturaAgua(id,{deptoId,mes:data.mes,lecturaAnterior:directo?null:data.lecturaAnterior,lecturaActual:directo?null:data.lecturaActual,
-            m3:consumo,origen:data.origen,fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl});
+            m3:consumo,origen:data.origen,fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl},esperado);
         }else{
           await guardarLectura(id,{deptoId,mes:data.mes,
             lecturaAnterior:directo?null:data.lecturaAnterior,lecturaActual:directo?null:data.lecturaActual,kwh:consumo,
             montoCobrado:existente?.montoCobrado??null,fechaCobro:existente?.fechaCobro??null,historialCobro:existente?.historialCobro||[],origen:data.origen,
-            fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl});
+            fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl},null,esperado);
         }
         dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+(e.message||e.code))}
@@ -1365,10 +1366,10 @@ function detalleCobro(dep,mes,prof=0){
 }
 function cobrosDelMes(mes){return deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>detalleCobro(d.id,mes)).filter(x=>x.participa)}
 function cobrosPendientesTodos(){const out=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>{if(x.estado.cls!=='ok')out.push(x)}));return out}
-async function guardarCobro(id,body,clave){body.actualizado=new Date().toISOString();await db.doc('cobros/'+id).set(body,clave)}
+async function guardarCobro(id,body,clave,opts){body.actualizado=new Date().toISOString();await db.doc('cobros/'+id).set(body,clave,opts)}
 async function guardarCargosMes(mes,body){body.actualizado=new Date().toISOString();await db.doc('cargos/'+mes).set(body)}
 async function guardarReciboAgua(id,body){body.actualizado=new Date().toISOString();await db.doc('agua_recibos/'+id).set(body)}
-async function guardarLecturaAgua(id,body){body.actualizado=new Date().toISOString();await db.doc('lecturas_agua/'+id).set(body)}
+async function guardarLecturaAgua(id,body,opts){body.actualizado=new Date().toISOString();await db.doc('lecturas_agua/'+id).set(body,null,opts)}
 
 // "Pagó todo" con un toque: monto = lo que debe, fecha de hoy, a tiempo según el límite. Se puede deshacer.
 async function pagoRapido(dep,mes){
@@ -1378,7 +1379,7 @@ async function pagoRapido(dep,mes){
   const monto=r2((c0&&c0.tipoPago==='parcial'&&c0.montoCobrado!=null?Number(c0.montoCobrado):0)+x.falta||x.neto);
   const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha:hoy}}]);
   try{
-    await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'});
+    await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'},null,{esperado:c0?c0.actualizado:''});
     toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]});
   }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
 }
@@ -1561,7 +1562,7 @@ async function abrirCobroMes(dep,mes){
   const guardarCon=async(monto,fecha,nota)=>{
     const h=hist.concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha}}]);
     await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h,
-      pagoTarde:monto==null?null:tardeEfectivo(),tipoPago:monto==null?null:tipoEfectivo()});
+      pagoTarde:monto==null?null:tardeEfectivo(),tipoPago:monto==null?null:tipoEfectivo()},null,{esperado:c0?c0.actualizado:''});
   };
   const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
   dlg.querySelector('#cm-save').onclick=async()=>{
@@ -2209,7 +2210,6 @@ const TAREAS=[
  {g:'tu',id:'t-claudeai',p:'baja',t:'Dejar de usar la versión de claude.ai',d:()=>'Son dos bases de datos separadas: lo que se cambie allá no llega a esta app.'},
  {g:'tu',id:'t-limpieza',p:'baja',t:'Limpiar Descargas y la papelera de Drive',d:()=>'Borra el PDF de junio que es de otro suministro y vacía la papelera (Hoja vacía anterior, proyecto de diagnóstico, copias viejas).'},
  {g:'claude',id:'c-pruebas',p:'alta',t:'Guardar las pruebas automáticas dentro del proyecto',d:()=>'Hoy viven en una carpeta temporal. Moverlas a tools/pruebas/ con datos ficticios.'},
- {g:'claude',id:'c-conflictos',p:'media',t:'Avisar si dos personas editan la misma lectura',d:()=>'Hoy gana el último que guarda. Comparar la fecha de actualización antes de escribir.'},
  {g:'claude',id:'c-publicar',p:'media',t:'Un solo comando para publicar',d:()=>'Revisar el HTML, subir a Apps Script, actualizar la implementación y git push en un paso.'},
  {g:'claude',id:'c-ocr',p:'media',t:'Ajustar el lector de medidores con tus fotos',d:()=>'Depende de la prueba con fotos reales.'},
  {g:'claude',id:'c-docs',p:'baja',t:'Actualizar INSTRUCCIONES.md',d:()=>'Describir el flujo actual: GitHub Pages, código de acceso y clasp.'},
@@ -2415,6 +2415,7 @@ class SheetsDB{
       this._refrescar(payload.collection);
     }).catch(e=>{
       if(this.deshacer&&this.deshacer.payload===payload)this.deshacer=null;
+      if(String(e.message||e.code).includes('conflicto'))this._refrescar(payload.collection);
       this.pendientes=this.pendientes.filter(p=>p!==payload);marcarGuardando(this.pendientes.length);
       this._entregar(this.ultimo);
       avisarNoGuardado(e);
@@ -2427,7 +2428,7 @@ class SheetsDB{
   _refrescar(col){this._porRefrescar=[...new Set([...(this._porRefrescar||[]),col].filter(Boolean))];clearTimeout(this._kick);
     this._kick=setTimeout(()=>{const c=this._porRefrescar;this._porRefrescar=[];this._poll(true,c.length?c:null)},300)}
   doc(path){const [collection,id]=path.split('/');return{
-    set:(data,clave,opts)=>this._write({action:'set',collection,id,data,clave},opts),
+    set:(data,clave,opts)=>this._write({action:'set',collection,id,data,clave,...(opts&&'esperado' in opts?{esperado:String(opts.esperado||'')}:{})},opts),
     update:(data,clave,opts)=>this._write({action:'update',collection,id,data,clave},opts),
     delete:(clave,opts)=>this._write({action:'delete',collection,id,clave},opts),
   }}
@@ -2435,7 +2436,8 @@ class SheetsDB{
 function marcarGuardando(n){const e=$('#estado-sync');if(e)e.textContent=n?(n>1?'Guardando '+n+' cambios…':'Guardando…'):(datosListos?'✓ Guardado':'Actualizando…');clearTimeout(marcarGuardando._t);if(!n)marcarGuardando._t=setTimeout(()=>{if(e&&!db.pendientes.length)e.textContent=''},2500)}
 function avisarNoGuardado(e){
   const a=$('#aviso-guardado');a.hidden=false;
-  a.textContent='No se pudo guardar un cambio y se deshizo: '+(mensajeClave(e)||e.message||e.code||'error de conexión')+'. Vuelve a intentarlo.';
+  a.textContent=String(e.message||e.code).includes('conflicto')?'Otra persona cambió ese mismo dato hace un momento, así que tu cambio no se guardó para no borrar el suyo. Ya ves su versión: revísala y vuelve a guardar si hace falta.'
+    :'No se pudo guardar un cambio y se deshizo: '+(mensajeClave(e)||e.message||e.code||'error de conexión')+'. Vuelve a intentarlo.';
   clearTimeout(avisarNoGuardado._t);avisarNoGuardado._t=setTimeout(()=>{a.hidden=true},12000);
 }
 window.addEventListener('beforeunload',e=>{if(db&&db.pendientes&&db.pendientes.length){e.preventDefault();e.returnValue=''}});
