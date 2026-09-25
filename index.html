@@ -715,6 +715,24 @@ let config={diaCorte:12,mantenimiento:5};
 const lecturaDe=(deptoId,mes)=>lecturas.find(l=>l.deptoId===deptoId&&l.mes===mes);
 const lecturasDe=(deptoId)=>lecturas.filter(l=>l.deptoId===deptoId).sort((a,b)=>a.mes.localeCompare(b.mes));
 function ultimoMesConDatos(){const ms=[...recibos.map(r=>r.id),...lecturas.map(l=>l.mes)];return ms.sort().pop()||null}
+// Reparte un monto en céntimos según pesos, sin perder ni sobrar un céntimo (método del mayor resto).
+function repartirCentimos(total,pesos){
+  const ids=Object.keys(pesos),W=ids.reduce((s,k)=>s+pesos[k],0),T=Math.round(total*100),out={};
+  if(!W||!ids.length){ids.forEach(k=>out[k]=0);return out}
+  const raw=ids.map(k=>({k,v:T*pesos[k]/W}));let resto=T-raw.reduce((s,x)=>s+Math.floor(x.v),0);
+  raw.sort((a,b)=>(b.v-Math.floor(b.v))-(a.v-Math.floor(a.v))).forEach((x,i)=>{out[x.k]=(Math.floor(x.v)+(i<resto?1:0))/100});
+  return out;
+}
+// Luz del mes repartida al céntimo: por consumo (sin intereses) y los intereses entre sus responsables.
+function repartoLuz(mes){
+  const m=calcAgua.memo||(calcAgua.memo={}),k='luzR:'+mes;
+  if(!(k in m)){
+    const r=recibos.find(x=>x.id===mes),kw={};lecturas.filter(l=>l.mes===mes&&l.kwh!=null).forEach(l=>{kw[l.deptoId]=Number(l.kwh)});
+    const atr=r?atrasoLuzDe(r):0,resp=atr>0?responsablesLuz(mes):null,pesosAtr={};(resp?resp.ids:[]).forEach(id=>{pesosAtr[id]=1});
+    m[k]=r?{base:repartirCentimos(Number(r.totalMes)-atr,kw),atraso:repartirCentimos(atr,pesosAtr)}:null;
+  }
+  return m[k];
+}
 function sumaSubmedidores(mes){return sum(lecturas.filter(l=>l.mes===mes&&l.kwh!=null),l=>l.kwh)}
 function calcVerif(deptoId,mes){
   const l=lecturaDe(deptoId,mes),r=recibos.find(x=>x.id===mes);
@@ -725,8 +743,8 @@ function calcVerif(deptoId,mes){
   const mant=cargosDe(mes).admLuz;
   // Los intereses por atraso no se reparten por consumo: los cargan quienes aún no cancelan el mes anterior.
   const atrasoLuzTotal=atrasoLuzDe(r),respLuz=atrasoLuzTotal>0?responsablesLuz(mes):null;
-  const cargoElectricidad=pct*(r.totalMes-atrasoLuzTotal);
-  const atrasoLuz=respLuz&&respLuz.ids.includes(deptoId)?atrasoLuzTotal/respLuz.ids.length:0;
+  const rep=repartoLuz(mes),cargoElectricidad=rep.base[deptoId]??pct*(r.totalMes-atrasoLuzTotal);
+  const atrasoLuz=rep.atraso[deptoId]||0;
   const cargoCorrecto=cargoElectricidad+atrasoLuz+mant;
   const cobrado=l.montoCobrado;
   return{pct,sumaSub,mant,cargoElectricidad,atrasoLuz,atrasoLuzTotal,respLuz,cargoCorrecto,cobrado,diferencia:cobrado!=null?cobrado-cargoCorrecto:null};
@@ -1271,11 +1289,13 @@ function calcAguaCalc(mes){
     const m3=conMed?m3Leido*factor:m3SinMed;
     porDepto[d.id]={m3Leido,m3,agua:consumo*m3/s.general,atraso:0};
   });
+  const repAgua=repartirCentimos(consumo,Object.fromEntries(Object.entries(porDepto).map(([id,p])=>[id,p.m3])));
+  Object.keys(porDepto).forEach(id=>{porDepto[id].agua=repAgua[id]});
   const resp=responsablesAtraso(mes);
   // El atraso lo pagan quienes aún no cancelan el mes anterior (ver responsablesMora). Si nadie, no se cobra a ningún depto
   // (lo asume la administración) y queda como "sin responsable".
   let atrasoSinResponsable=0;
-  if(atraso>0){const ids=resp.ids.filter(id=>porDepto[id]);if(ids.length)ids.forEach(id=>{porDepto[id].atraso=atraso/ids.length});else atrasoSinResponsable=atraso}
+  if(atraso>0){const ids=resp.ids.filter(id=>porDepto[id]);if(ids.length){const ra=repartirCentimos(atraso,Object.fromEntries(ids.map(id=>[id,1])));ids.forEach(id=>{porDepto[id].atraso=ra[id]})}else atrasoSinResponsable=atraso}
   return{r,general:s.general,fuente:s.fuente,medidos:s.medidos,R:s.R,pct:s.R/s.general,nHist:hist.length,normal,tol,exceso,base,
     m3SinMed,factor,consumo,atraso,atrasoSinResponsable,precio:consumo/s.general,porDepto,resp,fueraDeLoNormal:exceso>0};
 }
