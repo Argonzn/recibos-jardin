@@ -465,10 +465,10 @@ function apiInquilino_(body, dep) {
     // De los demás solo se sabe si pagaron y si fue a tiempo (decide a quién le toca el atraso del agua), sin montos.
     if (c === 'cobros') docs = docs.map(x => x.deptoId === dep ? x : {
       id: x.id, deptoId: x.deptoId, mes: x.mes, montoCobrado: x.montoCobrado != null && x.montoCobrado !== '' ? 0 : null,
-      fechaCobro: x.fechaCobro, pagoTarde: x.pagoTarde, tipoPago: '', nota: '', historialCobro: [] });
+      fechaCobro: x.fechaCobro, pagoTarde: x.pagoTarde, tipoPago: x.tipoPago === 'parcial' ? 'parcial' : '', nota: '', historialCobro: [] });
     if (c === 'departamentos') docs = docs.map(x => x.id === dep ? x : Object.assign({}, x, { encargado: '', telefono: '' }));
     if (c === 'lecturas' || c === 'lecturas_agua') docs = docs.map(x => x.deptoId === dep ? x :
-      Object.assign({}, x, { fotoUrl: null, fotoId: null, montoCobrado: null, fechaCobro: null, historialCobro: [] }));
+      Object.assign({}, x, { fotoUrl: null, fotoId: null, montoCobrado: x.montoCobrado != null && x.montoCobrado !== '' ? 0 : null, fechaCobro: null, historialCobro: [] }));
     out[c] = docs;
   });
   return out;

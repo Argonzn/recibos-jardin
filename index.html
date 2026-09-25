@@ -704,10 +704,13 @@ function calcVerif(deptoId,mes){
   if(!sumaSub)return null;
   const pct=l.kwh/sumaSub;
   const mant=cargosDe(mes).admLuz;
-  const cargoElectricidad=pct*r.totalMes;
-  const cargoCorrecto=cargoElectricidad+mant;
+  // Los intereses por atraso no se reparten por consumo: los cargan quienes aún no cancelan el mes anterior.
+  const atrasoLuzTotal=atrasoLuzDe(r),respLuz=atrasoLuzTotal>0?responsablesLuz(mes):null;
+  const cargoElectricidad=pct*(r.totalMes-atrasoLuzTotal);
+  const atrasoLuz=respLuz&&respLuz.ids.includes(deptoId)?atrasoLuzTotal/respLuz.ids.length:0;
+  const cargoCorrecto=cargoElectricidad+atrasoLuz+mant;
   const cobrado=l.montoCobrado;
-  return{pct,sumaSub,mant,cargoElectricidad,cargoCorrecto,cobrado,diferencia:cobrado!=null?cobrado-cargoCorrecto:null};
+  return{pct,sumaSub,mant,cargoElectricidad,atrasoLuz,atrasoLuzTotal,respLuz,cargoCorrecto,cobrado,diferencia:cobrado!=null?cobrado-cargoCorrecto:null};
 }
 function fechaLimitePago(mes){const [y,m]=mes.split('-').map(Number);let ny=y,nm=m+1;if(nm>12){nm=1;ny++}return `${ny}-${String(nm).padStart(2,'0')}-${String(config.diaCorte||12).padStart(2,'0')}`}
 function estadoPago(l){if(!l)return null;if(l.montoCobrado!=null)return{cls:'ok',txt:'Cobrado'};const d=diasHasta(fechaLimitePago(l.mes));if(d!=null&&d<0)return{cls:'late',txt:'Atrasado'};return{cls:'pend',txt:'Pendiente de cobro'}}
@@ -1243,7 +1246,7 @@ function calcAguaCalc(mes){
     porDepto[d.id]={m3Leido,m3,agua:consumo*m3/s.general,atraso:0};
   });
   const resp=responsablesAtraso(mes);
-  // Solo pagan el atraso quienes pagaron fuera de fecha el mes anterior. Si nadie, no se cobra a ningún depto
+  // El atraso lo pagan quienes aún no cancelan el mes anterior (ver responsablesMora). Si nadie, no se cobra a ningún depto
   // (lo asume la administración) y queda como "sin responsable".
   let atrasoSinResponsable=0;
   if(atraso>0){const ids=resp.ids.filter(id=>porDepto[id]);if(ids.length)ids.forEach(id=>{porDepto[id].atraso=atraso/ids.length});else atrasoSinResponsable=atraso}
@@ -1253,14 +1256,34 @@ function calcAguaCalc(mes){
 // Los cargos por atraso del recibo de un mes se deben a pagar tarde el recibo anterior.
 // Automático: deptos que no pagaron, o pagaron después del corte interno, el cobro del mes anterior.
 // Manual: se guarda en el recibo como {manual:true, ids:[...]}.
+// ¿Canceló el depto ese mes? Solo cuenta el pago completo registrado (un pago parcial no).
+// En la luz también vale el cobro de solo luz de antes del módulo de agua; si no tuvo lectura de luz, no debía nada.
+function cancelo(dep,mes,servicio){
+  const c=cobroDe(dep,mes);if(c&&c.montoCobrado!=null)return c.tipoPago!=='parcial';
+  if(servicio==='luz'){const l=lecturaDe(dep,mes);return !l||l.montoCobrado!=null}
+  return false;
+}
+function pagoTardeDe(dep,mes){const c=cobroDe(dep,mes);if(!c||c.montoCobrado==null)return false;if(typeof c.pagoTarde==='boolean')return c.pagoTarde;return !!(c.fechaCobro&&c.fechaCobro>fechaLimitePago(mes))}
+// La mora de un recibo viene de no pagar a tiempo el anterior. Se reparte en partes iguales entre los deptos que todavía
+// no cancelan su cobro del mes anterior: en cuanto uno registra su pago completo, sale del reparto y los demás lo absorben.
+// Si ya todos pagaron, la cargan quienes pagaron fuera de fecha; si tampoco hay, no se cobra (lo asume la administración).
+function responsablesMora(mes,participantes,servicio){
+  const prev=mesAnterior(mes);
+  let ids=participantes.filter(id=>!cancelo(id,prev,servicio));if(ids.length)return{ids,fuente:'pendientes'};
+  ids=participantes.filter(id=>pagoTardeDe(id,prev));return{ids,fuente:ids.length?'tarde':'nadie'};
+}
 function responsablesAtraso(mes){
   const r=aguaRecibos.find(x=>x.id===mes);
   const g=r&&r.responsablesAtraso;
   if(g&&!Array.isArray(g)&&g.manual)return{ids:g.ids||[],fuente:'manual'};
-  const prev=mesAnterior(mes),lim=fechaLimitePago(prev);
-  // pagoTarde marcado en el cobro manda; si no está marcado, se decide por la fecha de cobro.
-  const ids=deptosConAgua().filter(d=>{const c=cobroDe(d.id,prev);if(!c||c.montoCobrado==null)return true;if(c.pagoTarde===true)return true;if(c.pagoTarde===false)return false;return !!(c.fechaCobro&&c.fechaCobro>lim)}).map(d=>d.id);
-  return{ids,fuente:ids.length?'auto':'nadie'};
+  return responsablesMora(mes,deptosConAgua().map(d=>d.id),'agua');
+}
+// Intereses por atraso del recibo de luz: el compensatorio va antes del IGV (lo lleva); el moratorio no.
+const atrasoLuzDe=r=>r2((Number(r.interesCompensatorio)||0)*(1+IGV_ATRASO)+(Number(r.interesMoratorio)||0));
+function responsablesLuz(mes){
+  const m=calcAgua.memo||(calcAgua.memo={}),k='luz:'+mes;
+  if(!(k in m))m[k]=responsablesMora(mes,deptos.filter(d=>{const l=lecturaDe(d.id,mes);return l&&l.kwh!=null}).map(d=>d.id),'luz');
+  return m[k];
 }
 
 /* ---------- Cobro del mes (luz + agua + administración) ---------- */
@@ -1286,7 +1309,8 @@ function detalleCobro(dep,mes,prof=0){
   const faltan=[];
   if(usaLuz&&!vl)faltan.push('recibo de luz');
   if(usaAgua&&!ca)faltan.push('recibo de agua');else if(usaAgua&&ca.incompleto)faltan.push('lecturas de agua');
-  const partes={luz:vl?r2(vl.cargoElectricidad):null,agua:pa?r2(pa.agua):null,admLuz:usaLuz?car.admLuz:0,admAgua:usaAgua?car.admAgua:0,mant:(usaLuz||usaAgua)?car.mant:0,atraso:pa?r2(pa.atraso):0};
+  const partes={luz:vl?r2(vl.cargoElectricidad):null,agua:pa?r2(pa.agua):null,admLuz:usaLuz?car.admLuz:0,admAgua:usaAgua?car.admAgua:0,mant:(usaLuz||usaAgua)?car.mant:0,atrasoAgua:pa?r2(pa.atraso):0,atrasoLuz:vl?r2(vl.atrasoLuz):0};
+  partes.atraso=r2(partes.atrasoAgua+partes.atrasoLuz);
   const total=r2((partes.luz||0)+(partes.agua||0)+partes.admLuz+partes.admAgua+partes.mant+partes.atraso);
   const aFavor=creditoEntrante(dep,mes,prof);
   const neto=r2(Math.max(0,total-aFavor)); // lo que realmente debe pagar este mes
@@ -1350,9 +1374,14 @@ function renderCobros(){
     <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
     <div class="row" style="margin-bottom:12px"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
-    ${(()=>{const a=calcAgua(mes);if(!a||a.incompleto||!a.atraso)return'';const prev=mesLargo(mesAnterior(mes));
-      return a.atrasoSinResponsable?`<div class="banner info" style="margin-bottom:12px">El recibo de agua de ${mesLargo(mes)} trae ${fmtS(a.atraso)} de mora, corte o reapertura. Nadie figura como «fuera de fecha» en ${prev}, así que no se cobra a ningún depto (lo asume la administración). Si alguien pagó ${prev} tarde, edita su cobro de ${prev} y marca «Fuera de fecha».</div>`
-        :`<p class="small muted" style="margin:0 0 10px">Atrasos: ${fmtS(a.atraso)} de mora, corte o reapertura del agua de ${mesLargo(mes)}, repartidos entre quienes pagaron ${prev} fuera de fecha.</p>`})()}
+    ${(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes),prev=mesLargo(mesAnterior(mes));
+      const ag=a&&!a.incompleto&&a.atraso?a:null,al=rl0?atrasoLuzDe(rl0):0,rl=al>0?responsablesLuz(mes):null;
+      const quien=res=>res.fuente==='pendientes'?'entre quienes aún no pagan '+prev:res.fuente==='tarde'?'entre quienes pagaron '+prev+' fuera de fecha (ya todos pagaron)':res.fuente==='manual'?'entre los deptos elegidos a mano':'';
+      const nadie=m=>m+': todos pagaron '+prev+' a tiempo, no se cobra (lo asume la administración)';
+      const L=[];
+      if(ag)L.push(ag.atrasoSinResponsable?nadie('agua '+fmtS(ag.atraso)):'agua '+fmtS(ag.atraso)+' '+quien(ag.resp));
+      if(rl)L.push(rl.ids.length?'luz '+fmtS(al)+' '+quien(rl):nadie('luz '+fmtS(al)));
+      return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales; cuando alguien registra su pago completo de ${prev}, sale del reparto.</p>`:''})()}
     <div class="scroll"><table class="tabla-cobro">
       <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
@@ -1439,7 +1468,7 @@ async function abrirCobroMes(dep,mes){
   const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
   dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
   <div class="dlg-b">
-    <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atraso?linea('Atraso del agua (por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha)',x.partes.atraso):''}
+    <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atrasoAgua?linea('Mora del agua (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoAgua):''}${x.partes.atrasoLuz?linea('Intereses de la luz (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoLuz):''}
       ${x.aFavor?`<tr><td>Total del mes</td><td>${fmtS(x.total)}</td></tr><tr><td>Saldo a favor de ${mesLargo(mesAnterior(mes))}</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
       <tr class="sum"><td>A pagar</td><td>${fmtS(x.neto)}</td></tr></tbody></table></div>
     ${x.faltan.length?`<div class="banner warn" style="margin:10px 0">Falta ${x.faltan.join(' y ')}: el total puede cambiar.</div>`:''}
@@ -1467,13 +1496,13 @@ async function abrirCobroMes(dep,mes){
   // Las dos preguntas se actualizan sin redibujar el formulario (no se pierde lo escrito).
   const pintarTipo=()=>{const t=tipoEfectivo();dlg.querySelectorAll('[data-tipo]').forEach(b=>b.classList.toggle('on',b.dataset.tipo===t));
     const m=data.monto;let txt;
-    if(t==='parcial')txt=m!=null?`Queda pendiente <strong>${fmtS(Math.max(0,x.neto-m))}</strong> de ${mesLargo(mes)}; se podrá completar después.`:'Queda pendiente la diferencia; se podrá completar después.';
+    if(t==='parcial')txt=m!=null?`Queda pendiente <strong>${fmtS(Math.max(0,x.neto-m))}</strong> de ${mesLargo(mes)}; se podrá completar después. Mientras no lo complete, le toca una parte de la mora de ${mesLargo(mesSig)}.`:'Queda pendiente la diferencia; se podrá completar después.';
     else if(t==='demas')txt=m!=null?`<strong>${fmtS(Math.max(0,m-x.neto))}</strong> quedan a favor y se descuentan del cobro de ${mesLargo(mesSig)}.`:'Lo pagado de más se descuenta del cobro del mes siguiente.';
     else txt=`${mesLargo(mes)} queda saldado${m!=null&&Math.abs(m-x.neto)>=0.5?` (diferencia de ${fmtS(m-x.neto)} con lo calculado)`:''}.`;
     dlg.querySelector('#cm-tipo-info').innerHTML=txt+(data.tipo==null?' <span class="muted">(sugerido por el monto)</span>':'')};
   const pintarTarde=()=>{const t=tardeEfectivo();
     dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
-    dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Por pagar ${mesLargo(mes)} tarde, en su cobro de <strong>${mesLargo(mesSig)}</strong> le tocará una parte de la mora, el corte y la reapertura que cobre Sedapal.`:`En su cobro de <strong>${mesLargo(mesSig)}</strong> no pagará mora, corte ni reapertura.`)
+    dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Pagó fuera de fecha. No carga la mora de <strong>${mesLargo(mesSig)}</strong> mientras haya deptos que aún no pagan ${mesLargo(mes)}; si al final todos pagan, la mora se reparte entre quienes pagaron tarde.`:`Pagó a tiempo: en <strong>${mesLargo(mesSig)}</strong> no le toca mora ni reconexión.`)
       +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
   inMonto.oninput=()=>{data.monto=num(inMonto.value);pintarTipo()};
   dlg.querySelector('#cm-total').onclick=()=>{inMonto.value=x.neto;data.monto=x.neto;pintarTipo()};
@@ -1562,7 +1591,7 @@ function abrirDetalleAgua(mes){
         ${deps.map(d=>{const p=aa.porDepto[d.id];return p?`<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`:''}).join('')}
       </tbody><tfoot><tr><td>Total</td><td>${fmtN(aa.medidos,2)}</td><td>${fmtN(aa.general,2)}</td><td>${fmtS(aa.consumo)}</td><td>${aa.atraso?fmtS(aa.atraso):'—'}</td></tr></tfoot></table></div>`}
       ${atrasoDe(r)>0&&aa&&!aa.incompleto?`<h3 style="margin-top:16px">¿Quién paga el atraso?</h3>
-        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='auto'?'Automático: quienes no pagaron, o pagaron después del '+fechaCorta(fechaLimitePago(mesAnterior(mes)))+', el cobro de '+mesLargo(mesAnterior(mes))+'.':'Nadie figura con pago fuera de fecha en '+mesLargo(mesAnterior(mes))+': el atraso de '+fmtS(aa.atraso)+' no se cobra a ningún depto (lo asume la administración). Si alguien pagó tarde, márcalo en su cobro de '+mesLargo(mesAnterior(mes))+' o aquí abajo.'}</p>
+        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='pendientes'?'Automático: los deptos que aún no registran su pago completo de '+mesLargo(mesAnterior(mes))+'. Cuando uno paga, sale del reparto.':aa.resp.fuente==='tarde'?'Automático: ya todos pagaron '+mesLargo(mesAnterior(mes))+', así que lo cargan quienes pagaron fuera de fecha.':'Todos pagaron '+mesLargo(mesAnterior(mes))+' a tiempo: el atraso de '+fmtS(aa.atraso)+' no se cobra a ningún depto (lo asume la administración). Puedes elegir responsables aquí abajo.'}</p>
         <div class="list">${deps.map(d=>`<label class="row small" style="gap:8px"><input type="checkbox" data-resp="${d.id}" ${aa.resp.ids.includes(d.id)?'checked':''}> ${esc(nombreDepto(d))}</label>`).join('')}</div>
         <div class="row" style="margin-top:8px"><button class="btn sm" id="resp-guardar">Guardar responsables</button>${aa.resp.fuente==='manual'?'<button class="iconbtn" id="resp-auto">Volver a automático</button>':''}</div>`:''}
     </div>
@@ -1745,7 +1774,8 @@ function mensajeCobro(dep,mes){
   if(x.partes.agua!=null)L.push('💧 Agua: '+fmtN(p.m3,2)+' m³ = '+fmtS(x.partes.agua)+(tipoAgua(x.d)==='sin_medidor'?' (estimado)':''));
   const adm=x.partes.admLuz+x.partes.admAgua;if(adm)L.push('Administración: '+fmtS(adm));
   if(x.partes.mant)L.push('Mantenimiento: '+fmtS(x.partes.mant));
-  if(x.partes.atraso)L.push('Atraso del agua (pago fuera de fecha en '+mesLargo(mesAnterior(mes))+'): '+fmtS(x.partes.atraso));
+  if(x.partes.atrasoAgua)L.push('Mora del agua (atraso de '+mesLargo(mesAnterior(mes))+'): '+fmtS(x.partes.atrasoAgua));
+  if(x.partes.atrasoLuz)L.push('Intereses de la luz (atraso de '+mesLargo(mesAnterior(mes))+'): '+fmtS(x.partes.atrasoLuz));
   if(x.aFavor)L.push('Saldo a favor del mes anterior: − '+fmtS(x.aFavor));
   if(x.estado.cls==='ok'){L.push('*Total: '+fmtS(x.neto)+'* ✅ Pagado. ¡Gracias!')}
   else{if(x.cobrado!=null)L.push('Ya pagaste: '+fmtS(x.cobrado));L.push('*Total a pagar: '+fmtS(x.falta)+'*');L.push('Fecha límite: '+fechaCorta(fechaLimitePago(mes)))}
@@ -1870,7 +1900,7 @@ function renderInquilino(){
       ${fila('💡 Luz',l?`${l.lecturaAnterior!=null?fmtN(l.lecturaAnterior,1)+' → '+fmtN(l.lecturaActual,1)+' = ':''}${fmtN(l.kwh,2)} kWh${v?' · '+fmtN(v.pct*100,2)+'% del consumo medido del edificio':''}`:'',x.partes.luz)}
       ${fila('💧 Agua',p?(tipoAgua(d)==='sin_medidor'?'Consumo estimado: '+fmtN(p.m3,2)+' m³':`${la?fmtN(la.lecturaAnterior,3)+' → '+fmtN(la.lecturaActual,3)+' = '+fmtN(p.m3Leido,2)+' m³ medidos; ':''}${fmtN(p.m3,2)} m³ con tu parte del agua común`):'',x.partes.agua)}
       ${fila('Administración de luz','',x.partes.admLuz||null)}${fila('Administración de agua','',x.partes.admAgua||null)}${fila('Mantenimiento','',x.partes.mant||null)}
-      ${fila('Atraso del agua','Por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha',x.partes.atraso||null)}
+      ${fila('Mora del agua','Se reparte entre quienes aún no pagan '+mesLargo(mesAnterior(mes)),x.partes.atrasoAgua||null)}${fila('Intereses de la luz','Se reparte entre quienes aún no pagan '+mesLargo(mesAnterior(mes)),x.partes.atrasoLuz||null)}
       ${x.aFavor?`<tr><td>Saldo a favor del mes anterior</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
       <tr class="sum"><td>Total del mes</td><td>${fmtS(x.neto)}</td></tr>
       ${x.cobrado!=null?`<tr><td>Pagado</td><td>${fmtS(x.cobrado)}</td></tr>`:''}
@@ -1882,7 +1912,7 @@ function renderInquilino(){
       ${ra&&ra.pdfId?`<button class="btn sm" data-inq-pdf="agua">Recibo de agua del edificio</button>`:''}
     </div>
     <details style="margin-top:14px"><summary class="small"><strong>¿Cómo se calcula?</strong></summary>
-      <p class="small muted">La luz del edificio se reparte según el consumo de tu medidor comparado con la suma de todos los medidores internos. El agua se reparte según tu medidor; el agua que no marca ningún medidor interno (áreas comunes, diferencias de lectura) se reparte en proporción al consumo de cada uno. A eso se suman la administración y, si pagaste tarde el mes anterior, una parte de la mora o reconexión que cobró Sedapal.</p></details>
+      <p class="small muted">La luz del edificio se reparte según el consumo de tu medidor comparado con la suma de todos los medidores internos. El agua se reparte según tu medidor; el agua que no marca ningún medidor interno (áreas comunes, diferencias de lectura) se reparte en proporción al consumo de cada uno. A eso se suma la administración. Si Sedapal o Luz del Sur cobran mora, intereses o reconexión por un atraso, se reparte en partes iguales entre quienes aún no han pagado el mes anterior.</p></details>
   </div>
   <div class="panel"><h2>Historial</h2><div class="scroll"><table><thead><tr><th>Mes</th><th>Total</th><th>Pagado</th><th>Estado</th></tr></thead><tbody>
     ${meses.map(m=>{const y=detalleCobro(dep,m);return `<tr><td>${mesLargo(m)}</td><td>${fmtS(y.neto)}</td><td>${y.pagado?fmtS(y.pagado):'—'}</td><td><span class="chip sm ${y.estado.cls}">${y.estado.txt}</span></td></tr>`}).join('')}
