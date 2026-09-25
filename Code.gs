@@ -201,6 +201,12 @@ function findRowIndex_(sh, id) {
   return -1;
 }
 
+// Versión de los datos: cambia con cada escritura. La app la usa para no descargar todo si nada cambió.
+function versionDatos_() { return PropertiesService.getScriptProperties().getProperty('VERSION_DATOS') || '0'; }
+function subirVersion_() { PropertiesService.getScriptProperties().setProperty('VERSION_DATOS', String(Date.now()) + '.' + Math.floor(Math.random() * 1000)); }
+// Edición manual en la Hoja (solo si el script está vinculado a ella): también cuenta como cambio.
+function onEdit() { try { subirVersion_(); } catch (e) {} }
+
 function setDoc_(collection, id, data) {
   const sh = getSheet_(collection);
   const headers = SHEETS[collection];
@@ -210,6 +216,7 @@ function setDoc_(collection, id, data) {
   if (idx === -1) idx = sh.getLastRow() + 1; // no se usa appendRow: convierte textos como "2026-02" en fechas
   formatoTextoFila_(sh, collection, idx);
   sh.getRange(idx, 1, 1, headers.length).setValues([rowArr]);
+  subirVersion_();
   return full;
 }
 
@@ -222,13 +229,14 @@ function updateDoc_(collection, id, patch) {
   const merged = Object.assign({}, current, patch, { id: id });
   formatoTextoFila_(sh, collection, idx);
   sh.getRange(idx, 1, 1, headers.length).setValues([objToRow_(headers, merged)]);
+  subirVersion_();
   return merged;
 }
 
 function deleteDoc_(collection, id) {
   const sh = getSheet_(collection);
   const idx = findRowIndex_(sh, id);
-  if (idx > -1) sh.deleteRow(idx);
+  if (idx > -1) { sh.deleteRow(idx); subirVersion_(); }
   return { deleted: true };
 }
 
@@ -458,6 +466,8 @@ function exigirToken_(token) {
 function apiInquilino_(body, dep) {
   if (body.action === 'ping') return { ok: true, rol: 'inquilino', depto: dep };
   if (body.action !== 'listAll') throw new Error('solo_lectura');
+  const v = versionDatos_();
+  if (body.version && body.version === v) return { _sinCambios: true, _version: v };
   const permitidas = ['recibos', 'departamentos', 'lecturas', 'config', 'agua_recibos', 'lecturas_agua', 'cobros', 'cargos'];
   const out = {};
   (body.collections || []).filter(c => permitidas.indexOf(c) > -1).forEach(c => {
@@ -471,6 +481,7 @@ function apiInquilino_(body, dep) {
       Object.assign({}, x, { fotoUrl: null, fotoId: null, montoCobrado: x.montoCobrado != null && x.montoCobrado !== '' ? 0 : null, fechaCobro: null, historialCobro: [] }));
     out[c] = docs;
   });
+  out._version = v;
   return out;
 }
 
@@ -582,8 +593,11 @@ function api(body) {
     case 'codigoInquilino': return codigoInquilino_(body.depto, body.op);
     case 'list':    return listCollection_(body.collection);
     case 'listAll': {
+      const v = versionDatos_();
+      if (body.version && body.version === v) return { _sinCambios: true, _version: v };
       const out = {};
       (body.collections || []).forEach(c => { out[c] = listCollection_(c); });
+      out._version = v;
       return out;
     }
     case 'verificarClave': verificarClave_(body.clave); return { ok: true };

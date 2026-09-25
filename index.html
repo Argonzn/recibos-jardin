@@ -2432,8 +2432,16 @@ class SheetsDB{
     if(this.enVuelo){this.repetir=true;return}
     const names=(soloEstas&&this.ultimo?soloEstas:Object.keys(this.subs)).filter(n=>this.subs[n]);if(!names.length)return;
     this.enVuelo=true;
+    // Consulta completa (todas las colecciones): manda la versión que ya tiene; si nada cambió, el servidor responde sin datos.
+    // Cada 6 consultas (~1 min) se pide todo igual, por si alguien editó la Hoja a mano.
+    const completa=!soloEstas||!this.ultimo;
+    this.nConsultas=(this.nConsultas||0)+1;
+    const conVersion=completa&&this.version&&this.ultimo&&this.nConsultas%6!==0;
     try{
-      const all=await this._post({action:'listAll',collections:names});
+      const all=await this._post({action:'listAll',collections:names,...(conVersion?{version:this.version}:{})});
+      const version=all&&all._version;if(all){delete all._version}
+      if(completa&&version)this.version=version;
+      if(all&&all._sinCambios){if(!datosListos){datosListos=true;marcarEstadoSync()}const ad=$('#aviso-db');if(ad&&ad.dataset.conexion){ad.hidden=true;delete ad.dataset.conexion}return}
       if(!datosListos){datosListos=true;marcarEstadoSync()}
       const ad=$('#aviso-db');if(ad&&ad.dataset.conexion){ad.hidden=true;delete ad.dataset.conexion}
       // Si nada cambió desde el último sondeo, no se redibuja (así no se pierde lo que la persona tiene abierto o escribiendo).
