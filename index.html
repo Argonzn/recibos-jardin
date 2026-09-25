@@ -245,6 +245,10 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .avance{margin:12px 0 4px;display:grid;gap:6px}
 .avance .barra{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.avance .barra i{display:block;height:100%;background:var(--green)}
 .info-mes{margin:0 0 12px}.info-mes summary{cursor:pointer;color:var(--muted);padding:6px 0}
+.pend-depto{border-bottom:1px solid var(--line);padding:2px 0}.pend-depto:last-child{border-bottom:0}
+.pend-depto>summary{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;cursor:pointer;list-style:none;padding:8px 0}
+.pend-depto>summary::-webkit-details-marker{display:none}.pend-depto.atrasado .pend-total{color:var(--red)}
+.pend-total{font-weight:800;text-align:right}
 .cobro-cards{display:none}
 .cobro-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);display:grid;gap:6px}
 .cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
@@ -427,7 +431,8 @@ function toast(msg,opts={}){
   const t=$('#toast');t.innerHTML='';const s=document.createElement('span');s.textContent=msg;t.appendChild(s);
   const u=!opts.sinDeshacer&&db&&db.deshacer&&!db.deshacer.ofrecido&&Date.now()-db.deshacer.t<4000?db.deshacer:null;
   if(u){u.ofrecido=true;const b=document.createElement('button');b.type='button';b.textContent='Deshacer';b.onclick=()=>{t.hidden=true;deshacerUltimo(u)};t.appendChild(b)}
-  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,u?7000:3200)}
+  if(opts.accion){const b=document.createElement('button');b.type='button';b.textContent=opts.accion[0];b.onclick=()=>{t.hidden=true;opts.accion[1]()};t.appendChild(b)}
+  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,u||opts.accion?7000:3200)}
 
 /* Confirmación y prompt propios: window.confirm/prompt quedan bloqueados dentro del iframe del artefacto publicado. */
 function confirmar(mensaje,textoOk='Confirmar',danger=false){
@@ -1367,7 +1372,7 @@ async function pagoRapido(dep,mes){
   const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha:hoy}}]);
   try{
     await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'});
-    toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado');
+    toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]});
   }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
 }
 
@@ -1427,11 +1432,15 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   </div>
   <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<span class="chip ${pend.some(p=>p.estado.cls==='late')?'late':'pend'}">${pend.length}</span>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
-    <div class="stack" style="gap:0">${pend.slice().reverse().map(p=>`<div class="pago-row ${p.estado.cls==='late'?'atrasado':''}">
-      <div><strong>${tituloDepto(p.d)}</strong>${p.d.encargado?' · '+esc(p.d.encargado):''}<div class="muted small">${mesLargo(p.mes)}</div></div>
-      <div class="small">${fmtS(p.falta)}${p.legado!=null?'<div class="muted small">ya pagó '+fmtS(p.legado)+' de luz</div>':''}</div>
-      <div class="small"><span class="chip sm ${p.estado.cls}">${p.estado.txt}</span><div class="muted small">Límite: ${fechaCorta(fechaLimitePago(p.mes))}</div></div>
-      ${acciones(p,p.mes)}</div>`).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
+    <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details class="pend-depto ${late?'atrasado':''}"><summary>
+      <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''}: ${ps.map(p=>mesCorto(p.mes)).join(', ')}</div></div>
+      <div class="pend-total">${fmtS(sum(ps,p=>p.falta))}${late?'<div class="small">vencido</div>':''}</div>
+      <button class="btn sm" data-recordar="${id}">📲 Recordar</button></summary>
+      <div class="stack" style="gap:0;margin-top:6px">${ps.slice().reverse().map(p=>`<div class="pago-row ${p.estado.cls==='late'?'atrasado':''}">
+        <div>${mesLargo(p.mes)}<div class="muted small">Límite: ${fechaCorta(fechaLimitePago(p.mes))}</div></div>
+        <div class="small">${fmtS(p.falta)}${p.legado!=null?'<div class="muted small">ya pagó '+fmtS(p.legado)+' de luz</div>':''}</div>
+        <div class="small"><span class="chip sm ${p.estado.cls}">${p.estado.txt}</span></div>
+        ${acciones(p,p.mes)}</div>`).join('')}</div></details>`}).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
   </div>
   <div class="panel"><h2>Valores por defecto</h2>
     <p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
@@ -1446,6 +1455,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
   el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
+  el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
   el.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>cambiarValorConfig(b.dataset.cfg));
 }
@@ -1550,7 +1560,7 @@ async function abrirCobroMes(dep,mes){
     if(monto==null){toast('Ingresa el monto recibido.');return}
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado')}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
+    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
   };
   dlg.showModal();
 }
@@ -1820,6 +1830,25 @@ async function enviarCobroWhatsApp(dep,mes){
   marcarEnviado(dep,mes);
   if(!x.d.telefono)toast('Elige el contacto en WhatsApp. Para abrir su chat directo, agrega su teléfono en la ficha del depto.',{sinDeshacer:true});
 }
+// Constancia de pago para el inquilino.
+function enviarComprobante(dep,mes){
+  const x=detalleCobro(dep,mes),c=x.cobro;if(!c||c.montoCobrado==null){toast('Todavía no hay pago registrado.',{sinDeshacer:true});return}
+  const L=['*Recibos Jardín · '+tituloDepto(x.d)+'*','✅ Recibimos '+fmtS(c.montoCobrado)+' por '+mesLargo(mes)+(c.fechaCobro?' el '+fechaCorta(c.fechaCobro):'')+'.'];
+  if(x.estado.cls==='ok')L.push(c.tipoPago==='demas'?x.estado.txt+'.':mesLargo(mes)+' queda pagado. ¡Gracias!');else L.push('Queda pendiente: *'+fmtS(x.falta)+'*.');
+  const deuda=cobrosPendientesTodos().filter(p=>p.d.id===dep&&p.mes!==mes);if(deuda.length)L.push('Otros meses pendientes: '+fmtS(sum(deuda,p=>p.falta))+'.');
+  abrirEnlace(waUrl(x.d.telefono,L.join('\n')));
+}
+// Recordatorio con todo lo que debe un depto (todos los meses pendientes).
+function mensajeRecordatorio(dep){
+  const d=deptos.find(x=>x.id===dep),ps=cobrosPendientesTodos().filter(p=>p.d.id===dep);if(!ps.length)return null;
+  const L=['*Recibos Jardín · '+tituloDepto(d)+'*','Hola'+(d.encargado?' '+d.encargado:'')+', te recordamos lo pendiente:'];
+  ps.forEach(p=>L.push('• '+mesLargo(p.mes)+': '+fmtS(p.falta)+(p.estado.cls==='late'?' (vencido)':'')));
+  L.push('*Total: '+fmtS(sum(ps,p=>p.falta))+'*');
+  const lim=ps.filter(p=>p.estado.cls!=='late').map(p=>fechaLimitePago(p.mes)).sort()[0];if(lim)L.push('Fecha límite más próxima: '+fechaCorta(lim)+'.');
+  L.push('Si ya pagaste, avísanos para registrarlo. ¡Gracias!');
+  return L.join('\n');
+}
+function recordarPago(dep){const t=mensajeRecordatorio(dep);if(t)abrirEnlace(waUrl((deptos.find(x=>x.id===dep)||{}).telefono,t))}
 function abrirEnvioCobros(mes){
   const dlg=$('#dlg');
   const pintar=()=>{
