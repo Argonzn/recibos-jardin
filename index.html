@@ -1222,6 +1222,8 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     dlg.querySelectorAll('[data-origen]').forEach(b=>b.onclick=()=>{data.origen=b.dataset.origen;pintar()});
     const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value);pintar()};
     const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);data.antManual=true;pintar()};
+    // Enter (o «Ir» en el celular) en la lectura actual o en el consumo guarda sin buscar el botón.
+    [['#f-act','lecturaActual'],['#f-kwh','kwhDirecto']].forEach(([s,k])=>{const i=dlg.querySelector(s);if(i)i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();data[k]=num(i.value);dlg.querySelector('#f-save').click()}}});
     const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value);pintar()};
     const bCam=dlg.querySelector('#f-camara'),bGal=dlg.querySelector('#f-galeria');
     if(bCam)bCam.onclick=()=>dlg.querySelector('#f-foto-cam').click();
@@ -1651,6 +1653,7 @@ async function abrirCobroMes(dep,mes){
     dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Pagó fuera de fecha. No carga la mora de <strong>${mesLargo(mesSig)}</strong> mientras haya deptos que aún no pagan ${mesLargo(mes)}; si al final todos pagan, la mora se reparte entre quienes pagaron tarde.`:`Pagó a tiempo: en <strong>${mesLargo(mesSig)}</strong> no le toca mora ni reconexión.`)
       +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
   inMonto.oninput=()=>{data.monto=num(inMonto.value);pintarTipo()};
+  inMonto.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();dlg.querySelector('#cm-save').click()}}; // Enter (o «Ir» en el celular) guarda
   dlg.querySelector('#cm-total').onclick=()=>{inMonto.value=x.neto;data.monto=x.neto;pintarTipo()};
   dlg.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{data.tipo=b.dataset.tipo;pintarTipo()});
   dlg.querySelectorAll('[data-tarde]').forEach(b=>b.onclick=()=>{data.tarde=b.dataset.tarde==='si';pintarTarde()});
