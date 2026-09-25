@@ -926,7 +926,7 @@ function abrirAsignarSlot(slot){
   const [piso,lado]=slot.split('-').map(Number);
   const su=sinUbicar();
   const dlg=$('#dlg');
-  dlg.innerHTML=`<div class="dlg-h"><h2>Piso ${piso}, unidad ${lado}</h2><button class="x" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>Piso ${piso}, unidad ${lado}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     ${su.length?`<p class="muted small" style="margin-top:0">Elige un departamento sin ubicar:</p><div class="slotlist">${su.map(d=>`<button data-pick="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div>`:'<p class="muted small" style="margin-top:0">No hay departamentos sin ubicar.</p>'}
     <p class="muted small" style="margin-top:16px">o</p>
@@ -945,7 +945,7 @@ function abrirUbicar(deptoId){
   const d=deptos.find(x=>x.id===deptoId);
   const libres=[];PISOS.forEach(p=>LADOS.forEach(l=>{if(!deptoEnSlot(p,l))libres.push([p,l])}));
   const dlg=$('#dlg');
-  dlg.innerHTML=`<div class="dlg-h"><h2>Ubicar ${tituloDepto(d)}</h2><button class="x" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>Ubicar ${tituloDepto(d)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">${libres.length?`<div class="slotlist">${libres.map(([p,l])=>`<button data-pos="${p}-${l}">Piso ${p}, unidad ${l}</button>`).join('')}</div>`:'<p class="muted small">No hay unidades libres en el plano.</p>'}</div>
   <div class="dlg-f"><button class="btn" data-close>Cancelar</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
@@ -1129,7 +1129,7 @@ async function abrirCobro(l,deptoId){
   const pintar=()=>{
     const diff=(v&&data.monto!=null)?data.monto-v.cargoCorrecto:null;
     const nCambios=Array.isArray(l.historialCobro)?l.historialCobro.length:0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${l.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${l.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       ${v?`<div class="banner info" style="margin-bottom:14px">Cargo correcto (lo que debe pagar): <strong>${fmtS(v.cargoCorrecto)}</strong><br><span class="small">Electricidad ${fmtS(v.cargoElectricidad)} (${fmtN(v.pct*100,2)}% de ${fmtN(v.sumaSub)} kWh medidos, sobre ${fmtS(recibos.find(x=>x.id===l.mes).totalMes)} del mes) + mantenimiento ${fmtS(v.mant)}.</span></div>`
         :`<div class="banner warn" style="margin-bottom:14px">Todavía no se puede calcular el cargo correcto porque falta el recibo del edificio de ${mesLargo(l.mes)}.</div>`}
@@ -1165,7 +1165,7 @@ function abrirHistorialCobro(l,d){
   const dlg=$('#dlg');
   const pintar=()=>{
     const h=Array.isArray(l.historialCobro)?l.historialCobro:[];
-    dlg.innerHTML=`<div class="dlg-h"><h2>Historial de cobro — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>Historial de cobro — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       ${h.length?h.slice().reverse().map(c=>`<div class="lect-row" style="grid-template-columns:1fr">
         <div>
@@ -1219,7 +1219,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     const directo=data.origen==='directo';
     const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
     const sospechosa=!directo&&kwh!=null&&kwh<0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       <label class="f" style="margin-bottom:12px">Mes<input type="month" id="f-mes" value="${data.mes||''}"></label>
       <div class="seg" style="margin-bottom:14px">
@@ -1746,7 +1746,7 @@ async function abrirCobroMes(dep,mes){
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
   const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
-  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}${x.d.encargado?' · '+esc(x.d.encargado):''}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}${x.d.encargado?' · '+esc(x.d.encargado):''}, ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atrasoAgua?linea('Mora del agua (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoAgua):''}${x.partes.atrasoLuz?linea('Intereses de la luz (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoLuz):''}
       ${x.aFavor?`<tr><td>Total del mes</td><td>${fmtS(x.total)}</td></tr><tr><td>Saldo a favor de ${mesLargo(mesAnterior(mes))}</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
