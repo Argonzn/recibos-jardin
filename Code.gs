@@ -21,7 +21,7 @@ const SHEETS = {
   lecturas: ['id','deptoId','mes','lecturaAnterior','lecturaActual','kwh','montoCobrado','fechaCobro',
     'origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   // mantenimiento = administración de luz (S/ por depto). admAgua y mantExtra se agregaron con el módulo de agua.
-  config: ['id','diaCorte','mantenimiento','actualizado','admAgua','mantExtra','baseSinMedidor'],
+  config: ['id','diaCorte','mantenimiento','actualizado','admAgua','mantExtra','baseSinMedidor','telefonoAdmin'],
   tareas: ['id','hecho','fecha','actualizado'], // casillas de la hoja de ruta, compartidas entre dispositivos
   // Agua (Sedapal): un recibo por mes facturado. atraso = mora + (cierre + reapertura) con IGV.
   agua_recibos: ['id','recibo','suministro','emision','vencimiento','periodoInicio','periodoFin','lecturaAnterior',
@@ -45,7 +45,7 @@ const TEXT_COLS = {
     'corte','vencimiento','fechaPago','pdfUrl','pdfId','pdfNombre','otrosJSON','actualizado'],
   departamentos: ['id','encargado','estado','actualizado','agua','telefono'],
   lecturas: ['id','deptoId','mes','fechaCobro','origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
-  config: ['id','actualizado'],
+  config: ['id','actualizado','telefonoAdmin'],
   tareas: ['id','fecha','actualizado'],
   agua_recibos: ['id','recibo','suministro','emision','vencimiento','periodoInicio','periodoFin','fechaPago',
     'pdfUrl','pdfId','pdfNombre','responsablesAtrasoJSON','otrosJSON','actualizado'],

@@ -240,6 +240,7 @@ body.modo-inquilino .wrap{padding-bottom:24px}
 .inq-card{text-align:center}.inq-card .row{text-align:left}
 .inq-monto{font-size:3rem;font-weight:800;font-stretch:72%;line-height:1.1;margin:4px 0 6px}
 .inq-btn{width:100%;justify-content:center;margin-top:18px}
+.inq-acciones{margin-top:10px}.inq-acciones .btn{flex:1;justify-content:center}
 table.detail td:last-child{white-space:nowrap}
 tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .avance{margin:12px 0 4px;display:grid;gap:6px}
@@ -1453,6 +1454,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
     <div class="list">
       <div class="row" style="justify-content:space-between"><span>Administración de luz (por depto con luz)</span><span><strong>${fmtS(config.mantenimiento??5)}</strong> <button class="iconbtn" data-cfg="mantenimiento">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Administración de agua (por depto con agua)</span><span><strong>${fmtS(config.admAgua??5)}</strong> <button class="iconbtn" data-cfg="admAgua">Cambiar</button></span></div>
+      <div class="row" style="justify-content:space-between"><span>WhatsApp de la administración<div class="small muted">Los inquilinos te escriben aquí desde su vista</div></span><span><strong>${config.telefonoAdmin?esc(config.telefonoAdmin):'—'}</strong> <button class="iconbtn" id="btn-tel-admin">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
       ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
     </div></div>`;
@@ -1461,6 +1463,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
   el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
+  const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
   el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
   el.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>cambiarValorConfig(b.dataset.cfg));
@@ -1912,7 +1915,7 @@ function consumosAltos(mes){
 function tareasDelMes(){
   const mes=mesDeLecturas(),hoy=new Date().toISOString().slice(0,10),T=[];
   const pend=pendientesLectura(mes);
-  T.push({ok:!pend.length,t:'Tomar las lecturas de '+mesLargo(mes),d:pend.length?'Faltan '+pend.length+': '+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
+  T.push({ok:!pend.length,t:'Tomar las lecturas de '+mesLargo(mes),d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
   const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
   T.push({ok:!!rl,t:'Subir el recibo de luz de '+mesLargo(mes),d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
   T.push({ok:!!ra,t:'Subir el recibo de agua de '+mesLargo(mes),d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
@@ -1927,7 +1930,7 @@ function tareasDelMes(){
   const altos=consumosAltos(mes);
   if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:['Ver deptos',()=>irA('deptos')]});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
-  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:ant.length+' · '+fmtS(sum(ant,p=>p.falta)),btn:['Ver',()=>irA('cobros')]});
+  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:fmtS(sum(ant,p=>p.falta))+' de '+(n=>n+' depto'+(n>1?'s':''))(new Set(ant.map(p=>p.d.id)).size)+'. En Cobros puedes enviarles un recordatorio.',btn:['Ver',()=>irA('cobros')]});
   return{mes,T};
 }
 function panelQueHacer(){
@@ -1982,6 +1985,7 @@ function renderInquilino(){
     <div class="muted small">${ok?(x.cobro&&x.cobro.fechaCobro?'El '+fechaCorta(x.cobro.fechaCobro):''):'Hasta el <strong>'+fechaCorta(fechaLimitePago(mes))+'</strong>'}${x.faltan.length?' · monto provisional':''}</div>
     ${resumen?`<p class="small" style="margin:14px 0 0">${resumen}</p>`:''}
     <button class="btn primary inq-btn" id="inq-detalle">Ver detalle del cobro</button>
+    ${config.telefonoAdmin?`<div class="row inq-acciones">${ok?'':'<button class="btn" id="inq-pague">✅ Avisar que pagué</button>'}<button class="btn" id="inq-consulta">💬 Consultar</button></div>`:''}
   </div>
   ${deudas.length?`<div class="banner alert">Además debes <strong>${fmtS(sum(deudas,y=>y.falta))}</strong> de ${deudas.length>2?deudas.length+' meses anteriores':deudas.map(y=>mesLargo(y.mes)).join(' y ')}. <button class="iconbtn" id="inq-ver-deudas" style="color:inherit">Ver</button></div>`:''}
   <div class="row" style="justify-content:space-between">
@@ -1992,6 +1996,9 @@ function renderInquilino(){
   $('#inq-historial').onclick=()=>abrirHistorialInquilino(dep,meses);
   const vd=$('#inq-ver-deudas');if(vd)vd.onclick=()=>abrirHistorialInquilino(dep,meses);
   $('#inq-salir').onclick=()=>cerrarSesion();
+  const nombre=tituloDepto(d)+(d.encargado?' ('+d.encargado+')':'');
+  const pq=$('#inq-pague');if(pq)pq.onclick=()=>abrirEnlace(waUrl(config.telefonoAdmin,'Hola, soy del '+nombre+'. Te aviso que pagué el cobro de '+mesLargo(mes)+' ('+fmtS(x.falta)+'). Adjunto la constancia.'));
+  const cq=$('#inq-consulta');if(cq)cq.onclick=()=>abrirEnlace(waUrl(config.telefonoAdmin,'Hola, soy del '+nombre+'. Tengo una consulta sobre mi cobro de '+mesLargo(mes)+': '));
 }
 // Ventana con todo el detalle de un mes: desglose, lecturas, fotos, recibos del edificio y cómo se calcula.
 function abrirDetalleInquilino(dep,mes){
