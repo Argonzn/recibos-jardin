@@ -322,6 +322,9 @@ const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','
 const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
 // Convierte lo escrito (o leído de un PDF) en número. Acepta coma o punto decimal: "12,5" y "12.5" → 12.5;
 // con ambos, el último es el decimal ("1,328.90" y "1.328,90" → 1328.9). Ignora "S/", espacios y letras.
+// Fecha de hoy en la hora local (Lima). toISOString usa la hora universal: después de las 7 p. m. daría el día siguiente
+// y un pago del día límite contaría como tarde.
+function hoyLocal(dias=0){const d=new Date(Date.now()+dias*864e5);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function num(s){
   if(s==null||s==='')return null;
   if(typeof s==='number')return isNaN(s)?null:s;
@@ -508,7 +511,7 @@ async function unaVez(clave,fn){
 }
 async function marcarPagado(r,v){return unaVez('pagar-'+r.id,()=>marcarPagadoAhora(r,v))}
 async function marcarPagadoAhora(r,v){
-  const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?new Date().toISOString().slice(0,10):null;
+  const body={...r};delete body.id;body.pagado=v;body.fechaPago=v?hoyLocal():null;
   try{await guardar(r.id,body);toast(v?'Marcado como pagado':'Marcado como pendiente')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}
 }
 
@@ -1079,7 +1082,7 @@ async function abrirCobro(l,deptoId){
   await esperarDatos();
   const d=deptos.find(x=>x.id===deptoId);
   const v=calcVerif(deptoId,l.mes);
-  const data={monto:l.montoCobrado??null,fecha:l.fechaCobro||new Date().toISOString().slice(0,10)};
+  const data={monto:l.montoCobrado??null,fecha:l.fechaCobro||hoyLocal()};
   const dlg=$('#dlg');
   const pintar=()=>{
     const diff=(v&&data.monto!=null)?data.monto-v.cargoCorrecto:null;
@@ -1439,7 +1442,7 @@ async function pagoRapido(dep,mes){return unaVez('pago-'+dep+'|'+mes,()=>pagoRap
 async function pagoRapidoAhora(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);if(x.faltan.length){toast('Falta '+x.faltan.join(' y ')+': abre el cobro para revisarlo.');return}
-  const hoy=new Date().toISOString().slice(0,10),c0=x.cobro;
+  const hoy=hoyLocal(),c0=x.cobro;
   const monto=r2((c0&&c0.tipoPago==='parcial'&&c0.montoCobrado!=null?Number(c0.montoCobrado):0)+x.falta||x.neto);
   const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha:hoy}}]);
   try{
@@ -1570,7 +1573,7 @@ async function abrirCargosMes(mes){
 async function abrirCobroMes(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);const c0=x.cobro;
-  const data={monto:c0&&c0.montoCobrado!=null?Number(c0.montoCobrado):null,fecha:(c0&&c0.fechaCobro)||new Date().toISOString().slice(0,10),nota:(c0&&c0.nota)||'',
+  const data={monto:c0&&c0.montoCobrado!=null?Number(c0.montoCobrado):null,fecha:(c0&&c0.fechaCobro)||hoyLocal(),nota:(c0&&c0.nota)||'',
     tarde:c0&&typeof c0.pagoTarde==='boolean'?c0.pagoTarde:null, // null = se sugiere por la fecha
     tipo:c0&&['completo','parcial','demas'].includes(c0.tipoPago)?c0.tipoPago:null}; // null = se sugiere por el monto
   const lim=fechaLimitePago(mes),mesSig=siguienteMes(mes);
@@ -1635,7 +1638,7 @@ async function abrirCobroMes(dep,mes){
     if(monto==null){toast('Ingresa el monto recibido.');return}
     if(monto<0){toast('El monto no puede ser negativo.');return}
     if(x.neto>0&&monto>Math.max(x.neto*3,x.neto+300)&&!(await confirmar('Registraste '+fmtS(monto)+' y lo que debe este mes es '+fmtS(x.neto)+'. ¿Es correcto?','Sí, es correcto')))return;
-    if(fecha&&fecha>new Date(Date.now()+864e5).toISOString().slice(0,10)&&!(await confirmar('La fecha de cobro ('+fechaCorta(fecha)+') es futura. ¿Guardar igual?','Guardar igual')))return;
+    if(fecha&&fecha>hoyLocal(1)&&!(await confirmar('La fecha de cobro ('+fechaCorta(fecha)+') es futura. ¿Guardar igual?','Guardar igual')))return;
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
     try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
@@ -1716,7 +1719,7 @@ function abrirDetalleAgua(mes){
       <button class="btn" id="ag-editar">Editar</button><button class="btn primary" id="ag-pagar">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button></div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     dlg.querySelector('#ag-editar').onclick=()=>{dlg.close();abrirFormAgua({...r},{editando:true})};
-    dlg.querySelector('#ag-pagar').onclick=async()=>{const body={...r};delete body.id;body.pagado=!r.pagado;body.fechaPago=body.pagado?new Date().toISOString().slice(0,10):null;try{await guardarReciboAgua(mes,body);r.pagado=body.pagado;toast(body.pagado?'Marcado como pagado':'Marcado como pendiente');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
+    dlg.querySelector('#ag-pagar').onclick=async()=>{const body={...r};delete body.id;body.pagado=!r.pagado;body.fechaPago=body.pagado?hoyLocal():null;try{await guardarReciboAgua(mes,body);r.pagado=body.pagado;toast(body.pagado?'Marcado como pagado':'Marcado como pendiente');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
     dlg.querySelector('#ag-borrar').onclick=async()=>{if(!(await confirmar('¿Eliminar el recibo de agua de '+mesLargo(mes)+'? También se borra su PDF.','Eliminar',true)))return;try{await db.doc('agua_recibos/'+mes).delete();if(r.pdfId&&assets){try{await assets.delete(r.pdfId)}catch(e){}}dlg.close();toast('Recibo eliminado')}catch(e){toast('No se pudo eliminar: '+mensajeError(e))}};
     const rg=dlg.querySelector('#resp-guardar');if(rg)rg.onclick=async()=>{const ids=[...dlg.querySelectorAll('[data-resp]:checked')].map(c=>c.dataset.resp);const body={...r};delete body.id;body.responsablesAtraso={manual:true,ids};try{await guardarReciboAgua(mes,body);r.responsablesAtraso=body.responsablesAtraso;toast('Responsables guardados');pintar()}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
     const ra=dlg.querySelector('#resp-auto');if(ra)ra.onclick=async()=>{const body={...r};delete body.id;body.responsablesAtraso=[];try{await guardarReciboAgua(mes,body);r.responsablesAtraso=[];toast('Responsables automáticos');pintar()}catch(e){toast('No se pudo guardar')}};
@@ -1930,7 +1933,7 @@ function mensajeRecordatorio(dep){
   return L.join('\n');
 }
 function abrirRecordatorios(){
-  const dlg=$('#dlg'),hoy=new Date().toISOString().slice(0,10),enviados={};
+  const dlg=$('#dlg'),hoy=hoyLocal(),enviados={};
   const pintar=()=>{
     const pend=cobrosPendientesTodos(),ids=[...new Set(pend.map(p=>p.d.id))];
     dlg.innerHTML=`<div class="dlg-h"><h2>Recordar pagos pendientes</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
@@ -2001,7 +2004,7 @@ function consumosAltos(mes){
 
 /* ---------- Resumen: qué hacer este mes ---------- */
 function tareasDelMes(){
-  const mes=mesDeLecturas(),hoy=new Date().toISOString().slice(0,10),T=[];
+  const mes=mesDeLecturas(),hoy=hoyLocal(),T=[];
   const pend=pendientesLectura(mes);
   T.push({ok:!pend.length,t:'Tomar las lecturas de '+mesLargo(mes),d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
   const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
@@ -2396,7 +2399,7 @@ function pintarTareas(){
   $('#ruta-conteo').textContent=hechas+' de '+TAREAS.length+' hechas';
   el.querySelectorAll('[data-tarea]').forEach(c=>c.onchange=async()=>{
     const id=c.dataset.tarea,v=c.checked;tareasHechas[id]=v;c.closest('.tarea').classList.toggle('hecha',v);
-    try{await db.doc('tareas/'+id).set({hecho:v,fecha:v?new Date().toISOString().slice(0,10):null,actualizado:new Date().toISOString()})}
+    try{await db.doc('tareas/'+id).set({hecho:v,fecha:v?hoyLocal():null,actualizado:new Date().toISOString()})}
     catch(e){tareasHechas[id]=!v;c.checked=!v;c.closest('.tarea').classList.toggle('hecha',!v);toast('No se pudo guardar: '+mensajeError(e))}
   });
 }
