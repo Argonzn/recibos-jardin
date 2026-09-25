@@ -241,6 +241,7 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--b
     </nav>
   </header>
   <div id="aviso-db" class="banner warn" hidden style="margin-bottom:16px">Esta vista no puede guardar datos. Los cambios que hagas se perderán al cerrar la página.</div>
+  <div id="aviso-guardado" class="banner alert" hidden role="alert" style="margin-bottom:16px"></div>
 
   <section id="tab-resumen" class="stack"></section>
   <section id="tab-recibos" class="stack" hidden>
@@ -1920,28 +1921,44 @@ function mostrarLogin(aviso=''){
 function sesionCaducada(){tokenAcceso=null;lsSet('recibos_token',null);mostrarLogin('El código de acceso cambió o la sesión se cerró. Escríbelo de nuevo.')}
 
 class SheetsDB{
-  constructor(base){this.base=base;this.subs={};this.timer=null}
+  constructor(base){this.base=base;this.subs={};this.timer=null;this.ultimo=null;this.enVuelo=false;this.repetir=false;this.cola=Promise.resolve();this.pendientes=[]}
   async _post(payload){
     try{return await llamarApi(this.base,{...payload,token:tokenAcceso})}
     catch(e){if(String(e.message).includes('no_autorizado'))sesionCaducada();throw e}
   }
-  // Un solo sondeo para todas las colecciones suscritas (1 llamada cada 7 s en vez de 4); se pausa con la pestaña oculta.
-  async _poll(forzar){
+  // Un solo sondeo a la vez para todas las colecciones (o solo las indicadas). Si ya hay uno en curso, se agenda otro
+  // al terminar: así las consultas nunca se amontonan en el servidor ni hacen esperar a los guardados.
+  async _poll(forzar,soloEstas){
     if(document.hidden&&!forzar)return;
-    const names=Object.keys(this.subs);if(!names.length)return;
+    if(this.enVuelo){this.repetir=true;return}
+    const names=(soloEstas&&this.ultimo?soloEstas:Object.keys(this.subs)).filter(n=>this.subs[n]);if(!names.length)return;
+    this.enVuelo=true;
     try{
       const all=await this._post({action:'listAll',collections:names});
       if(!datosListos){datosListos=true;marcarEstadoSync()}
-      this._entregar(all);
-      try{localStorage.setItem('recibos_cache',JSON.stringify(all))}catch(e){}
+      this.ultimo={...(this.ultimo||{}),...all};
+      this._entregar(this.ultimo);
+      try{localStorage.setItem('recibos_cache',JSON.stringify(this.ultimo))}catch(e){}
     }catch(e){names.forEach(n=>this.subs[n].forEach(s=>s.errCb&&s.errCb({code:e.code||'network'})))}
+    finally{this.enVuelo=false;if(this.repetir){this.repetir=false;setTimeout(()=>this._poll(true),50)}}
   }
-  _entregar(all){Object.keys(this.subs).forEach(n=>{const docs=all[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))})}
+  // Entrega a la app los datos, con los guardados aún en camino aplicados encima (para que no "reboten").
+  _entregar(all){
+    const vista=this.pendientes.length?JSON.parse(JSON.stringify(all)):all;
+    this.pendientes.forEach(p=>SheetsDB.aplicar(vista,p));
+    Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))});
+  }
+  static aplicar(all,p){
+    const col=all[p.collection]=all[p.collection]||[];const i=col.findIndex(d=>d.id===p.id);
+    if(p.action==='delete'){if(i>=0)col.splice(i,1)}
+    else if(p.action==='set'){const d={...p.data,id:p.id};if(i>=0)col[i]=d;else col.push(d)}
+    else if(p.action==='update'&&i>=0)col[i]={...col[i],...p.data,id:p.id};
+  }
   // Al abrir: muestra al instante la última copia guardada en este dispositivo mientras llegan los datos frescos.
-  mostrarCopiaLocal(){try{const c=JSON.parse(lsGet('recibos_cache')||'null');if(c)this._entregar(c)}catch(e){}}
+  mostrarCopiaLocal(){try{const c=JSON.parse(lsGet('recibos_cache')||'null');if(c){this.ultimo=c;this._entregar(c)}}catch(e){}}
   _schedule(){
     clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),0);
-    if(!this.timer){this.timer=setInterval(()=>this._poll(),7000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)this._poll()})}
+    if(!this.timer){this.timer=setInterval(()=>this._poll(),10000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)this._poll()})}
   }
   collection(name){
     return{onSnapshot:(cb,errCb)=>{
@@ -1949,16 +1966,40 @@ class SheetsDB{
       return()=>{this.subs[name]=this.subs[name].filter(x=>x!==s);if(!this.subs[name].length)delete this.subs[name]};
     }};
   }
-  // Tras escribir se refresca enseguida (como hacía onSnapshot en claude.ai); varias escrituras seguidas se agrupan en un solo refresco.
+  // Guardado optimista: el cambio se ve al instante y se envía en segundo plano, en orden. Si el servidor lo rechaza,
+  // se deshace y se avisa. Las operaciones con contraseña de administrador sí esperan la respuesta.
   async _write(payload){
     if(!datosListos)throw new Error('Todavía se están cargando los datos. Intenta de nuevo en unos segundos.');
-    const r=await this._post(payload);clearTimeout(this._kick);this._kick=setTimeout(()=>this._poll(true),150);return r}
+    const simple=['set','update','delete'].includes(payload.action)&&!payload.clave&&this.ultimo;
+    if(!simple){const r=await this._post(payload);this._refrescar(payload.collection);return r}
+    this.pendientes.push(payload);this._entregar(this.ultimo);marcarGuardando(this.pendientes.length);
+    this.cola=this.cola.then(()=>this._post(payload)).then(()=>{
+      SheetsDB.aplicar(this.ultimo,payload);
+      this.pendientes=this.pendientes.filter(p=>p!==payload);marcarGuardando(this.pendientes.length);
+      this._refrescar(payload.collection);
+    }).catch(e=>{
+      this.pendientes=this.pendientes.filter(p=>p!==payload);marcarGuardando(this.pendientes.length);
+      this._entregar(this.ultimo);
+      avisarNoGuardado(e);
+    });
+    return{id:payload.id,enCamino:true};
+  }
+  // Tras guardar, solo se recarga la colección que cambió (varias seguidas se agrupan).
+  _refrescar(col){this._porRefrescar=[...new Set([...(this._porRefrescar||[]),col].filter(Boolean))];clearTimeout(this._kick);
+    this._kick=setTimeout(()=>{const c=this._porRefrescar;this._porRefrescar=[];this._poll(true,c.length?c:null)},300)}
   doc(path){const [collection,id]=path.split('/');return{
     set:(data,clave)=>this._write({action:'set',collection,id,data,clave}),
     update:(data,clave)=>this._write({action:'update',collection,id,data,clave}),
     delete:(clave)=>this._write({action:'delete',collection,id,clave}),
   }}
 }
+function marcarGuardando(n){const e=$('#estado-sync');if(e)e.textContent=n?(n>1?'Guardando '+n+' cambios…':'Guardando…'):(datosListos?'✓ Guardado':'Actualizando…');clearTimeout(marcarGuardando._t);if(!n)marcarGuardando._t=setTimeout(()=>{if(e&&!db.pendientes.length)e.textContent=''},2500)}
+function avisarNoGuardado(e){
+  const a=$('#aviso-guardado');a.hidden=false;
+  a.textContent='No se pudo guardar un cambio y se deshizo: '+(mensajeClave(e)||e.message||e.code||'error de conexión')+'. Vuelve a intentarlo.';
+  clearTimeout(avisarNoGuardado._t);avisarNoGuardado._t=setTimeout(()=>{a.hidden=true},12000);
+}
+window.addEventListener('beforeunload',e=>{if(db&&db.pendientes&&db.pendientes.length){e.preventDefault();e.returnValue=''}});
 function crearAssets(db){return{
   // opts.carpeta: subcarpetas dentro de RECIBOS_JARDIN, p. ej. ['Fotos medidores','Depto 3']; opts.nombre: nombre del archivo en Drive.
   upload:async(file,opts)=>{const base64=await fileToBase64(file);const r=await db._post({action:'upload',base64,mimeType:opts?.type||file.type,filename:opts?.nombre||file.name,carpeta:opts?.carpeta||[]});return{id:r.id,url:r.url}},

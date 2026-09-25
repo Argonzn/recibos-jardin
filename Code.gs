@@ -65,8 +65,11 @@ function formatTextCols_(sh, name) {
 // ID de la Hoja de datos. Vacío = la Hoja a la que está vinculado el script.
 const SPREADSHEET_ID = '1ZaOjqCeQz3IbXuEhmw0CPrFrRsO8IMCUDZXlCKGlgxs'; // "RECIBOS_JARDIN — Datos"
 
+// Se abre UNA vez por ejecución: abrir la Hoja es de lo más lento que hace el script.
+let ssCache_ = null;
 function getSs_() {
-  return SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ssCache_) ssCache_ = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  return ssCache_;
 }
 
 const hojasRevisadas_ = {}; // por ejecución: evita revisar encabezados en cada llamada
@@ -91,8 +94,11 @@ function getSheet_(name) {
 // sin tocar los datos. Solo se permite agregar al final: el orden de las columnas existentes no cambia.
 function asegurarEncabezados_(sh, name) {
   const headers = SHEETS[name];
+  // Ya revisada en las últimas 6 h con esta misma cantidad de columnas: no se vuelve a consultar la Hoja.
+  const cache = CacheService.getScriptCache(), clave = 'enc_' + name;
+  if (cache.get(clave) === String(headers.length)) return;
   const actuales = sh.getLastColumn();
-  if (actuales >= headers.length) return;
+  if (actuales >= headers.length) { cache.put(clave, String(headers.length), 21600); return; }
   const faltan = headers.slice(actuales);
   sh.getRange(1, actuales + 1, 1, faltan.length).setValues([faltan]);
   faltan.forEach((col, i) => {
