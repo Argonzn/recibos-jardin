@@ -219,6 +219,24 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--b
 .tabla-cobro td:first-child{white-space:normal;min-width:120px}
 #dlg select,.panel select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
 @media (max-width:640px){nav.tabs button{font-size:.74rem;padding:8px 1px}}
+.toast{display:flex;align-items:center;gap:14px}
+.toast button{border:0;background:none;color:var(--amber);font-weight:700;cursor:pointer;padding:6px 2px;text-decoration:underline;font-size:.95rem}
+.qh{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.qh li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.qh li.hecho{opacity:.62;padding:6px 12px}.qh li.hecho strong{text-decoration:line-through;font-weight:600}.qh li.hecho .small{display:none}
+.qh li.urgente{border-color:var(--red);background:var(--red-soft)}
+.qh-ico{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;border:2px solid var(--line)}
+.qh li.hecho .qh-ico{background:var(--green-soft);color:var(--green);border-color:transparent}
+.qh li.urgente .qh-ico{background:var(--red);color:#fff;border-color:transparent}
+.menu-titulo{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;padding:4px 16px 2px}
+body.modo-inquilino .wrap{padding-bottom:24px}
+@media (max-width:640px){
+  .btn{padding:11px 16px;min-height:44px}
+  .btn.sm{padding:9px 14px;min-height:40px;font-size:.9rem}
+  .seg button{padding:11px 14px}
+  .iconbtn{padding:9px 6px}
+  .qh li{grid-template-columns:auto 1fr}.qh li .btn{grid-column:1/-1;justify-content:center}
+}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -264,6 +282,7 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--b
   <section id="tab-cobros" class="stack" hidden></section>
   <section id="tab-reportes" class="stack" hidden></section>
   <section id="tab-ruta" class="stack" hidden></section>
+  <section id="tab-inquilino" class="stack" hidden></section>
 </div>
 
 <dialog id="dlg"></dialog>
@@ -390,7 +409,12 @@ function esperarDatos(){
   return new Promise(ok=>{const t=setInterval(()=>{if(datosListos){clearInterval(t);ok()}},150)});
 }
 
-function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3200)}
+// Tras un guardado, el aviso ofrece "Deshacer" durante unos segundos.
+function toast(msg,opts={}){
+  const t=$('#toast');t.innerHTML='';const s=document.createElement('span');s.textContent=msg;t.appendChild(s);
+  const u=!opts.sinDeshacer&&db&&db.deshacer&&!db.deshacer.ofrecido&&Date.now()-db.deshacer.t<4000?db.deshacer:null;
+  if(u){u.ofrecido=true;const b=document.createElement('button');b.type='button';b.textContent='Deshacer';b.onclick=()=>{t.hidden=true;deshacerUltimo(u)};t.appendChild(b)}
+  t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,u?7000:3200)}
 
 /* Confirmación y prompt propios: window.confirm/prompt quedan bloqueados dentro del iframe del artefacto publicado. */
 function confirmar(mensaje,textoOk='Confirmar',danger=false){
@@ -458,7 +482,7 @@ function renderResumen(){
   const prev=recibos.length>1?recibos[recibos.length-2]:null;
   const delta=(a,b,suf)=>{if(a==null||b==null||!b)return'';const p=(a-b)/b*100;return `${p>0?'+':''}${fmtN(p,1)}% ${suf}`};
   const intTot=sum(recibos,intereses);
-  el.innerHTML=`${banners}
+  el.innerHTML=`${panelQueHacer()}${banners}
   <div class="panel hero">
     <div class="meter">
       <div class="meter-label">Lectura del medidor al ${fechaCorta(r.fechaLectura)}</div>
@@ -490,6 +514,7 @@ function renderResumen(){
   </div>
   ${resumenAguaYCobros()}
   ${pend.length>1?`<div class="banner warn">Hay ${pend.length} recibos sin marcar como pagados: ${pend.map(x=>mesLargo(x.id)).join(', ')}.</div>`:''}`;
+  conectarQueHacer();
 }
 
 /* ---------- Lista ---------- */
@@ -705,7 +730,7 @@ function miniUnidad(d,mesRef){
     <div class="n">${tituloDepto(d)}</div>
     <div class="enc">${esc(d.encargado||'Sin encargado')}</div>
     <div class="chips">
-      <span class="chip sm ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Desocupado':'Activo'}</span>
+      <span class="chip sm ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
       ${pago&&d.estado!=='desocupado'?`<span class="chip sm ${pago.cls}">${pago.txt}</span>`:''}
       ${falta?`<span class="chip sm miss">Falta luz</span>`:''}${faltaAgua?`<span class="chip sm miss">Falta agua</span>`:''}
     </div>
@@ -864,6 +889,7 @@ function panelLecturasDelMes(){
   return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lecturas de ${mesLargo(mes)}</h2>
       <span class="chip ${faltan?'pend':'ok'}">${faltan?faltan+' por tomar':'Completas'}</span></div>
     <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura. <button class="iconbtn" id="cambiar-mes-lect">Otro mes</button></p>
+    ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">📷 Tomar las ${faltan} en orden</button>`:''}
     <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
       ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
       <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">✓ ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
@@ -871,7 +897,8 @@ function panelLecturasDelMes(){
 }
 function conectarPanelLecturas(){
   document.querySelectorAll('[data-leer]').forEach(b=>b.onclick=()=>{const [dep,serv]=b.dataset.leer.split('|');const mes=renderDeptos.mesLect||mesDeLecturas();
-    abrirLecturaForm(dep,null,serv).then(()=>{const f=$('#f-mes');if(f&&f.value!==mes){f.value=mes;f.dispatchEvent(new Event('change'))}})});
+    abrirLecturaForm(dep,null,serv,{mes})});
+  const sq=$('#lect-secuencia');if(sq)sq.onclick=()=>iniciarSecuenciaLecturas(renderDeptos.mesLect||mesDeLecturas());
   const cm=$('#cambiar-mes-lect');if(cm)cm.onclick=async()=>{const v=await pedirTexto('¿De qué mes? (AAAA-MM)',renderDeptos.mesLect||mesDeLecturas());if(v&&/^\d{4}-\d{2}$/.test(v.trim())){renderDeptos.mesLect=v.trim();renderDeptos()}};
 }
 
@@ -882,10 +909,12 @@ function abrirDepto(id){
     const ls=lecturasDe(id);const la=lecturasAguaDe(id);const ta=tipoAgua(d);
     dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
-      <label class="f" style="margin-bottom:14px">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
+      <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
+      <label class="f">Celular (WhatsApp)<input id="edit-telefono" type="tel" inputmode="tel" value="${esc(d.telefono||'')}" placeholder="987654321"></label></div>
       <div class="row" style="margin-bottom:14px">
         ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
         <button class="btn" id="btn-ver-cobros">Ver cobros</button>
+        <button class="btn" id="btn-acceso-inq">🔑 Acceso del inquilino</button>
       </div>
       <div class="row" style="margin-bottom:16px">
         ${d.estado!=='desocupado'?'<button class="btn primary" id="add-lectura-top">📷 Lectura de luz</button>':''}
@@ -894,7 +923,7 @@ function abrirDepto(id){
 
       <h3>Luz</h3>
       <div class="row" style="margin-bottom:12px">
-        <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz / desocupado':'Con luz'}</span>
+        <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
         <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>      </div>
       ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
       ${ls.length?ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
@@ -918,6 +947,8 @@ function abrirDepto(id){
     </div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
+    dlg.querySelector('#edit-telefono').onchange=async e=>{const v=e.target.value.replace(/[^\d+ ]/g,'').trim();try{await guardarDepto(id,{...d,telefono:v});d.telefono=v;toast('Celular guardado')}catch(err){toast('No se pudo guardar')}};
+    dlg.querySelector('#btn-acceso-inq').onclick=()=>abrirAccesoInquilino(d);
     dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar()}catch(e){toast('No se pudo actualizar')}};
     dlg.querySelector('#tipo-agua').onchange=async e=>{const v=e.target.value;try{await guardarDepto(id,{...d,agua:v});d.agua=v;pintar()}catch(err){toast('No se pudo actualizar')}};
     const bu=dlg.querySelector('#btn-ubicar-aqui');if(bu)bu.onclick=()=>{dlg.close();abrirUbicar(id)};
@@ -1035,7 +1066,7 @@ function abrirHistorialCobro(l,d){
 }
 
 // servicio: 'luz' (kWh, pestaña lecturas) o 'agua' (m³, pestaña lecturas_agua). deptoId 'general' = medidor general de agua.
-async function abrirLecturaForm(deptoId,existente=null,servicio='luz'){
+async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
   await esperarDatos(); // la lectura anterior se toma del historial del departamento
   const AG=servicio==='agua';
   const d=deptoId==='general'?{id:'general',numero:null,encargado:''}:deptos.find(x=>x.id===deptoId);
@@ -1045,7 +1076,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz'){
   const consumoDe=l=>AG?m3De(l):l.kwh;
   const ultimoMes=AG?(lecturasAgua.map(l=>l.mes).sort().pop()||ultimoMesConDatos()):ultimoMesConDatos();
   const sinLecturaCruda=existente&&existente.lecturaAnterior==null&&existente.lecturaActual==null&&consumoDe(existente)!=null;
-  const data={mes:existente?.mes||(ls.length?siguienteMes(ls[ls.length-1].mes):ultimoMes)||'',
+  const data={mes:existente?.mes||opts.mes||(ls.length?siguienteMes(ls[ls.length-1].mes):ultimoMes)||'',
     lecturaAnterior:existente?.lecturaAnterior??(ls.length?ls[ls.length-1].lecturaActual:null),
     lecturaActual:existente?.lecturaActual??null,
     kwhDirecto:sinLecturaCruda?consumoDe(existente):null,
@@ -1056,7 +1087,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz'){
     const directo=data.origen==='directo';
     const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
     const sospechosa=!directo&&kwh!=null&&kwh<0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" data-close>×</button></div>
     <div class="dlg-b">
       <label class="f" style="margin-bottom:12px">Mes<input type="month" id="f-mes" value="${data.mes||''}"></label>
       <div class="seg" style="margin-bottom:14px">
@@ -1087,9 +1118,10 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz'){
       `}
       <p class="muted small" style="margin-top:14px">${AG?'Los m³ del medidor de agua tienen 3 decimales (litros). ':''}El cobro del mes se registra en la pestaña Cobros.</p>
     </div>
-    <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="f-save">Guardar lectura</button></div>`;
+    <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value};
+    const sl=dlg.querySelector('#f-saltar');if(sl)sl.onclick=()=>{dlg.close();opts.siguiente()};
     dlg.querySelectorAll('[data-origen]').forEach(b=>b.onclick=()=>{data.origen=b.dataset.origen;pintar()});
     const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value);pintar()};
     const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);pintar()};
@@ -1142,7 +1174,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz'){
             montoCobrado:existente?.montoCobrado??null,fechaCobro:existente?.fechaCobro??null,historialCobro:existente?.historialCobro||[],origen:data.origen,
             fotoId:directo?null:data.fotoId,fotoUrl:directo?null:data.fotoUrl});
         }
-        dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();
+        dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+(e.message||e.code))}
     };
   };
@@ -1187,7 +1219,9 @@ function sinMedirAgua(mes){
   if(general==null||general<=0)return{incompleto:true,faltan:[],sinRecibo:true};
   return{general,fuente:propio!=null?'propia':'recibo',medidos,R:general-medidos};
 }
-function calcAgua(mes){
+// Memorizado por mes: los cobros lo consultan muchas veces por pantalla. Se limpia cada vez que llegan datos.
+function calcAgua(mes){const m=calcAgua.memo||(calcAgua.memo={});if(!(mes in m))m[mes]=calcAguaCalc(mes);return m[mes]}
+function calcAguaCalc(mes){
   const r=aguaRecibos.find(x=>x.id===mes);if(!r)return null;
   const s=sinMedirAgua(mes);
   if(s.incompleto)return{r,incompleto:true,faltan:s.faltan||[]};
@@ -1236,7 +1270,14 @@ function cargosDe(mes){
   return{admLuz:v(c&&c.admLuz,Number(config.mantenimiento??5)),admAgua:v(c&&c.admAgua,Number(config.admAgua??5)),mant:v(c&&c.mant,Number(config.mantExtra??0)),base:v(c&&c.base,Number(config.baseSinMedidor??7)),propio:!!c};
 }
 function mesesCobro(){return[...new Set([...recibos.map(r=>r.id),...aguaRecibos.map(r=>r.id),...lecturas.map(l=>l.mes)])].sort()}
-function detalleCobro(dep,mes){
+// Saldo a favor: si un mes se pagó de más (tipoPago 'demas'), el exceso se descuenta del mes siguiente (en cadena).
+function creditoEntrante(dep,mes,prof=0){
+  if(prof>24)return 0;
+  const prev=mesAnterior(mes),c=cobroDe(dep,prev);
+  if(!c||c.tipoPago!=='demas'||c.montoCobrado==null)return 0;
+  return r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto));
+}
+function detalleCobro(dep,mes,prof=0){
   const d=deptos.find(x=>x.id===dep);const car=cargosDe(mes);
   const lz=lecturaDe(dep,mes);const usaLuz=!!lz;
   const pm=primerMesAgua();const usaAgua=tipoAgua(d)!=='no'&&pm&&mes>=pm;
@@ -1247,16 +1288,23 @@ function detalleCobro(dep,mes){
   if(usaAgua&&!ca)faltan.push('recibo de agua');else if(usaAgua&&ca.incompleto)faltan.push('lecturas de agua');
   const partes={luz:vl?r2(vl.cargoElectricidad):null,agua:pa?r2(pa.agua):null,admLuz:usaLuz?car.admLuz:0,admAgua:usaAgua?car.admAgua:0,mant:(usaLuz||usaAgua)?car.mant:0,atraso:pa?r2(pa.atraso):0};
   const total=r2((partes.luz||0)+(partes.agua||0)+partes.admLuz+partes.admAgua+partes.mant+partes.atraso);
+  const aFavor=creditoEntrante(dep,mes,prof);
+  const neto=r2(Math.max(0,total-aFavor)); // lo que realmente debe pagar este mes
   const c=cobroDe(dep,mes);
   const cobrado=c&&c.montoCobrado!=null?Number(c.montoCobrado):null;
   const legado=cobrado==null&&lz&&lz.montoCobrado!=null?Number(lz.montoCobrado):null; // cobro de solo luz registrado antes del módulo de agua
+  const tarde=c&&c.pagoTarde===true?' · fuera de fecha':'';
   let estado;
-  if(cobrado!=null)estado={cls:'ok',txt:c.pagoTarde===true?'Cobrado · fuera de fecha':'Cobrado'};
-  else if(legado!=null)estado={cls:'pend',txt:usaAgua?'Solo luz cobrada':'Cobrado (luz)'};
+  if(cobrado!=null&&c.tipoPago==='parcial')estado={cls:'pend',txt:'Pago parcial'+tarde};
+  else if(cobrado!=null&&c.tipoPago==='demas')estado={cls:'ok',txt:'Cobrado · '+fmtS(Math.max(0,cobrado-neto))+' a favor'+tarde};
+  else if(cobrado!=null)estado={cls:'ok',txt:'Cobrado'+tarde};
+  else if(legado!=null)estado=usaAgua?{cls:'pend',txt:'Solo luz cobrada'}:{cls:'ok',txt:'Cobrado'};
+  else if(aFavor>0&&neto===0&&!faltan.length)estado={cls:'ok',txt:'Cubierto con saldo a favor'};
   else{const dh=diasHasta(fechaLimitePago(mes));estado=dh!=null&&dh<0?{cls:'late',txt:'Atrasado'}:{cls:'pend',txt:'Pendiente'}}
-  if(legado!=null&&!usaAgua)estado={cls:'ok',txt:'Cobrado'};
   const pagado=cobrado??legado??0;
-  return{d,mes,partes,total,faltan,cobro:c,cobrado,legado,pagado,falta:estado.cls==='ok'?0:r2(Math.max(0,total-pagado)),diferencia:cobrado!=null?r2(cobrado-total):null,estado,participa:usaLuz||usaAgua};
+  return{d,mes,partes,total,aFavor,neto,faltan,cobro:c,cobrado,legado,pagado,
+    falta:estado.cls==='ok'?0:r2(Math.max(0,neto-pagado)),
+    diferencia:cobrado!=null&&c.tipoPago!=='parcial'&&c.tipoPago!=='demas'?r2(cobrado-neto):null,estado,participa:usaLuz||usaAgua};
 }
 function cobrosDelMes(mes){return deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>detalleCobro(d.id,mes)).filter(x=>x.participa)}
 function cobrosPendientesTodos(){const out=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>{if(x.estado.cls!=='ok')out.push(x)}));return out}
@@ -1264,6 +1312,19 @@ async function guardarCobro(id,body,clave){body.actualizado=new Date().toISOStri
 async function guardarCargosMes(mes,body){body.actualizado=new Date().toISOString();await db.doc('cargos/'+mes).set(body)}
 async function guardarReciboAgua(id,body){body.actualizado=new Date().toISOString();await db.doc('agua_recibos/'+id).set(body)}
 async function guardarLecturaAgua(id,body){body.actualizado=new Date().toISOString();await db.doc('lecturas_agua/'+id).set(body)}
+
+// "Pagó todo" con un toque: monto = lo que debe, fecha de hoy, a tiempo según el límite. Se puede deshacer.
+async function pagoRapido(dep,mes){
+  await esperarDatos();
+  const x=detalleCobro(dep,mes);if(x.faltan.length){toast('Falta '+x.faltan.join(' y ')+': abre el cobro para revisarlo.');return}
+  const hoy=new Date().toISOString().slice(0,10),c0=x.cobro;
+  const monto=r2((c0&&c0.tipoPago==='parcial'&&c0.montoCobrado!=null?Number(c0.montoCobrado):0)+x.falta||x.neto);
+  const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha:hoy}}]);
+  try{
+    await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'});
+    toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado');
+  }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+}
 
 function renderCobros(){
   const el=$('#tab-cobros');if(!el)return;
@@ -1273,31 +1334,38 @@ function renderCobros(){
   const conRecibo=meses.filter(m=>recibos.some(r=>r.id===m)||aguaRecibos.some(r=>r.id===m));
   const mes=renderCobros.mes&&meses.includes(renderCobros.mes)?renderCobros.mes:(conRecibo[conRecibo.length-1]||meses[meses.length-1]);
   const filas=cobrosDelMes(mes);const car=cargosDe(mes);
-  const esperado=r2(sum(filas,x=>x.total)),cobrado=r2(sum(filas,x=>x.pagado)),nOk=filas.filter(x=>x.estado.cls==='ok').length;
+  const esperado=r2(sum(filas,x=>x.neto)),cobrado=r2(sum(filas,x=>x.pagado)),nOk=filas.filter(x=>x.estado.cls==='ok').length;
   const faltanDatos=[...new Set(filas.flatMap(x=>x.faltan))];
   const celda=v=>v==null?'<span class="muted">—</span>':fmtS(v);
   const pend=cobrosPendientesTodos();
+  const enviados=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
+  const acciones=(x,m)=>`<div class="row" style="gap:6px;flex-wrap:nowrap">
+    ${x.estado.cls!=='ok'&&!x.faltan.length?`<button class="btn sm primary" data-pago-rapido="${x.d.id}|${m}" title="Registrar el pago completo con fecha de hoy">✓ Pagó</button>`:''}
+    <button class="btn sm" data-cobrar-mes="${x.d.id}|${m}">${x.cobrado!=null?'Editar':'Detalle'}</button>
+    <button class="btn sm" data-wa="${x.d.id}|${m}" title="Enviar el cobro por WhatsApp" aria-label="Enviar por WhatsApp">📲</button></div>`;
   el.innerHTML=`<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
     <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
+    <div class="row" style="margin-bottom:12px"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${(()=>{const a=calcAgua(mes);if(!a||a.incompleto||!a.atraso)return'';const prev=mesLargo(mesAnterior(mes));
       return a.atrasoSinResponsable?`<div class="banner info" style="margin-bottom:12px">El recibo de agua de ${mesLargo(mes)} trae ${fmtS(a.atraso)} de mora, corte o reapertura. Nadie figura como «fuera de fecha» en ${prev}, así que no se cobra a ningún depto (lo asume la administración). Si alguien pagó ${prev} tarde, edita su cobro de ${prev} y marca «Fuera de fecha».</div>`
         :`<p class="small muted" style="margin:0 0 10px">Atrasos: ${fmtS(a.atraso)} de mora, corte o reapertura del agua de ${mesLargo(mes)}, repartidos entre quienes pagaron ${prev} fuera de fecha.</p>`})()}
     <div class="scroll"><table class="tabla-cobro">
-      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>Total</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
         <td><strong>${tituloDepto(x.d)}</strong><div class="muted small">${esc(x.d.encargado||'')}</div></td>
-        <td>${x.lecturaLuz===false?'':celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td>${x.partes.admLuz?fmtS(x.partes.admLuz):'—'}</td><td>${x.partes.admAgua?fmtS(x.partes.admAgua):'—'}</td><td>${fmtS(x.partes.mant)}</td>
-        <td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td><td><strong>${fmtS(x.total)}</strong>${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td>
-        <td>${x.cobrado!=null?fmtS(x.cobrado)+(x.diferencia&&Math.abs(x.diferencia)>=0.5?`<div class="small ${x.diferencia>0?'diff-pos':'diff-neg'}">${x.diferencia>0?'+':''}${fmtS(x.diferencia)}</div>`:''):x.legado!=null?fmtS(x.legado)+'<div class="small muted">solo luz</div>':'—'}</td>
-        <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></td>
-        <td><button class="btn sm ${x.estado.cls==='ok'?'':'primary'}" data-cobrar-mes="${x.d.id}|${mes}">${x.cobrado!=null?'Editar':'Registrar'}</button></td></tr>`).join('')}</tbody>
+        <td>${celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td>${x.partes.admLuz?fmtS(x.partes.admLuz):'—'}</td><td>${x.partes.admAgua?fmtS(x.partes.admAgua):'—'}</td><td>${fmtS(x.partes.mant)}</td>
+        <td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td>
+        <td><strong>${fmtS(x.neto)}</strong>${x.aFavor?`<div class="small muted">${fmtS(x.total)} − ${fmtS(x.aFavor)} a favor</div>`:''}${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td>
+        <td>${x.cobrado!=null?fmtS(x.cobrado)+(x.diferencia&&Math.abs(x.diferencia)>=0.5?`<div class="small ${x.diferencia>0?'diff-pos':'diff-neg'}">${x.diferencia>0?'+':''}${fmtS(x.diferencia)}</div>`:'')+(x.estado.txt.startsWith('Pago parcial')?`<div class="small diff-neg">falta ${fmtS(x.falta)}</div>`:''):x.legado!=null?fmtS(x.legado)+'<div class="small muted">solo luz</div>':'—'}</td>
+        <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${enviadoCobro(x.d.id,mes)?'<div class="small muted">📲 enviado</div>':''}</td>
+        <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz))}</td><td>${fmtS(sum(filas,x=>x.partes.admAgua))}</td><td>${fmtS(sum(filas,x=>x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
-    <p class="muted small" style="margin:10px 0 0">Luz: % de cada depto sobre sus sub-medidores × total del mes. Agua: ver el detalle del recibo en la pestaña Agua. «Cobrado» en verde/rojo muestra la diferencia con lo calculado.</p>
+    <p class="muted small" style="margin:10px 0 0">«✓ Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
   <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<span class="chip ${pend.some(p=>p.estado.cls==='late')?'late':'pend'}">${pend.length}</span>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
@@ -1305,7 +1373,7 @@ function renderCobros(){
       <div><strong>${tituloDepto(p.d)}</strong>${p.d.encargado?' · '+esc(p.d.encargado):''}<div class="muted small">${mesLargo(p.mes)}</div></div>
       <div class="small">${fmtS(p.falta)}${p.legado!=null?'<div class="muted small">ya pagó '+fmtS(p.legado)+' de luz</div>':''}</div>
       <div class="small"><span class="chip sm ${p.estado.cls}">${p.estado.txt}</span><div class="muted small">Límite: ${fechaCorta(fechaLimitePago(p.mes))}</div></div>
-      <button class="btn primary sm" data-cobrar-mes="${p.d.id}|${p.mes}">Registrar cobro</button></div>`).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
+      ${acciones(p,p.mes)}</div>`).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
   </div>
   <div class="panel"><h2>Valores por defecto</h2>
     <p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
@@ -1317,7 +1385,10 @@ function renderCobros(){
     </div></div>`;
   $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
+  $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
+  el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
+  el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
   el.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>cambiarValorConfig(b.dataset.cfg));
 }
 const ETIQUETA_CFG={mantenimiento:'Administración de luz por depto al mes (S/)',admAgua:'Administración de agua por depto al mes (S/)',mantExtra:'Mantenimiento por depto al mes (S/)',baseSinMedidor:'Consumo base de agua de los deptos sin medidor (m³ al mes)'};
@@ -1357,54 +1428,73 @@ async function abrirCobroMes(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);const c0=x.cobro;
   const data={monto:c0&&c0.montoCobrado!=null?Number(c0.montoCobrado):null,fecha:(c0&&c0.fechaCobro)||new Date().toISOString().slice(0,10),nota:(c0&&c0.nota)||'',
-    tarde:c0&&typeof c0.pagoTarde==='boolean'?c0.pagoTarde:null}; // null = se sugiere por la fecha
-  const lim=fechaLimitePago(mes),mesAgua=siguienteMes(mes);
+    tarde:c0&&typeof c0.pagoTarde==='boolean'?c0.pagoTarde:null, // null = se sugiere por la fecha
+    tipo:c0&&['completo','parcial','demas'].includes(c0.tipoPago)?c0.tipoPago:null}; // null = se sugiere por el monto
+  const lim=fechaLimitePago(mes),mesSig=siguienteMes(mes);
   const tardeEfectivo=()=>data.tarde!=null?data.tarde:!!(data.fecha&&data.fecha>lim);
+  const tipoSugerido=()=>{const m=data.monto;if(m==null)return'completo';if(m<x.neto-0.5)return'parcial';if(m>x.neto+0.5)return'demas';return'completo'};
+  const tipoEfectivo=()=>data.tipo||tipoSugerido();
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
-  const pintar=()=>{
-    const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
-    dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
-    <div class="dlg-b">
-      <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atraso?linea('Atraso del agua (por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha)',x.partes.atraso):''}
-        <tr class="sum"><td>Total a pagar</td><td>${fmtS(x.total)}</td></tr></tbody></table></div>
-      ${x.faltan.length?`<div class="banner warn" style="margin:10px 0">Falta ${x.faltan.join(' y ')}: el total puede cambiar.</div>`:''}
-      ${x.legado!=null?`<div class="banner info" style="margin:10px 0">Antes se registró ${fmtS(x.legado)} solo por la luz. Escribe el total cobrado del mes (luz + agua + administración).</div>`:''}
-      <label class="f" style="margin-top:12px">Monto cobrado (S/)<input type="text" inputmode="decimal" id="cm-monto" value="${data.monto??''}" placeholder="${x.total}"></label>
-      <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Usar el total (${fmtS(x.total)})</button></div>
-      <label class="f" style="margin-top:10px">Fecha de cobro<input type="date" id="cm-fecha" value="${data.fecha}"></label>
-      <div style="margin-top:12px">
-        <div class="small muted" style="margin-bottom:6px">¿Pagó a tiempo? Fecha límite: <strong>${fechaCorta(lim)}</strong></div>
-        <div class="seg" role="group" aria-label="¿Pagó a tiempo?"><button type="button" data-tarde="no">✓ A tiempo</button><button type="button" data-tarde="si">⏰ Fuera de fecha</button></div>
-        <p class="small" id="cm-tarde-info" style="margin:6px 0 0"></p>
-      </div>
-      <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
-      <p class="muted small" style="margin-top:12px">Cada cambio queda en el historial${hist.length?` (${hist.length} cambio${hist.length>1?'s':''})`:''}.</p>
+  const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
+  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}, ${mesLargo(mes)}</h2><button class="x" data-close>×</button></div>
+  <div class="dlg-b">
+    <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atraso?linea('Atraso del agua (por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha)',x.partes.atraso):''}
+      ${x.aFavor?`<tr><td>Total del mes</td><td>${fmtS(x.total)}</td></tr><tr><td>Saldo a favor de ${mesLargo(mesAnterior(mes))}</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
+      <tr class="sum"><td>A pagar</td><td>${fmtS(x.neto)}</td></tr></tbody></table></div>
+    ${x.faltan.length?`<div class="banner warn" style="margin:10px 0">Falta ${x.faltan.join(' y ')}: el total puede cambiar.</div>`:''}
+    ${x.legado!=null?`<div class="banner info" style="margin:10px 0">Antes se registró ${fmtS(x.legado)} solo por la luz. Escribe el total cobrado del mes (luz + agua + administración).</div>`:''}
+    <label class="f" style="margin-top:12px">Monto recibido (S/)<input type="text" inputmode="decimal" id="cm-monto" value="${data.monto??''}" placeholder="${x.neto}"></label>
+    <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Usar lo que debe (${fmtS(x.neto)})</button></div>
+    <div style="margin-top:12px">
+      <div class="small muted" style="margin-bottom:6px">¿Cuánto pagó?</div>
+      <div class="seg" role="group" aria-label="Tipo de pago"><button type="button" data-tipo="completo">Completo</button><button type="button" data-tipo="parcial">Una parte</button><button type="button" data-tipo="demas">De más</button></div>
+      <p class="small" id="cm-tipo-info" style="margin:6px 0 0"></p>
     </div>
-    <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
-    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-    dlg.querySelector('#cm-total').onclick=()=>{dlg.querySelector('#cm-monto').value=x.total};
-    // A tiempo / fuera de fecha: se sugiere por la fecha hasta que se elige a mano. Se actualiza sin redibujar el formulario.
-    const pintarTarde=()=>{const t=tardeEfectivo();
-      dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
-      dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Por pagar ${mesLargo(mes)} tarde, en su cobro de <strong>${mesLargo(mesAgua)}</strong> le tocará una parte de la mora, el corte y la reapertura que cobre Sedapal.`:`En su cobro de <strong>${mesLargo(mesAgua)}</strong> no pagará mora, corte ni reapertura.`)
-        +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
-    dlg.querySelectorAll('[data-tarde]').forEach(b=>b.onclick=()=>{data.tarde=b.dataset.tarde==='si';pintarTarde()});
-    dlg.querySelector('#cm-fecha').oninput=e=>{data.fecha=e.target.value;pintarTarde()};
-    pintarTarde();
-    const guardarCon=async(monto,fecha,nota)=>{
-      const h=hist.concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha}}]);
-      await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h,pagoTarde:monto==null?null:tardeEfectivo()});
-    };
-    const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
-    dlg.querySelector('#cm-save').onclick=async()=>{
-      const monto=num(dlg.querySelector('#cm-monto').value),fecha=dlg.querySelector('#cm-fecha').value||null,nota=dlg.querySelector('#cm-nota').value.trim();
-      if(monto==null){toast('Ingresa el monto cobrado.');return}
-      const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-      try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado')}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
-    };
+    <label class="f" style="margin-top:12px">Fecha de cobro<input type="date" id="cm-fecha" value="${data.fecha}"></label>
+    <div style="margin-top:12px">
+      <div class="small muted" style="margin-bottom:6px">¿Pagó a tiempo? Fecha límite: <strong>${fechaCorta(lim)}</strong></div>
+      <div class="seg" role="group" aria-label="¿Pagó a tiempo?"><button type="button" data-tarde="no">✓ A tiempo</button><button type="button" data-tarde="si">⏰ Fuera de fecha</button></div>
+      <p class="small" id="cm-tarde-info" style="margin:6px 0 0"></p>
+    </div>
+    <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
+    <p class="muted small" style="margin-top:12px">Cada cambio queda en el historial${hist.length?` (${hist.length} cambio${hist.length>1?'s':''})`:''}.</p>
+  </div>
+  <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>📲 WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelector('[data-wa-dlg]').onclick=()=>enviarCobroWhatsApp(dep,mes);
+  const inMonto=dlg.querySelector('#cm-monto');
+  // Las dos preguntas se actualizan sin redibujar el formulario (no se pierde lo escrito).
+  const pintarTipo=()=>{const t=tipoEfectivo();dlg.querySelectorAll('[data-tipo]').forEach(b=>b.classList.toggle('on',b.dataset.tipo===t));
+    const m=data.monto;let txt;
+    if(t==='parcial')txt=m!=null?`Queda pendiente <strong>${fmtS(Math.max(0,x.neto-m))}</strong> de ${mesLargo(mes)}; se podrá completar después.`:'Queda pendiente la diferencia; se podrá completar después.';
+    else if(t==='demas')txt=m!=null?`<strong>${fmtS(Math.max(0,m-x.neto))}</strong> quedan a favor y se descuentan del cobro de ${mesLargo(mesSig)}.`:'Lo pagado de más se descuenta del cobro del mes siguiente.';
+    else txt=`${mesLargo(mes)} queda saldado${m!=null&&Math.abs(m-x.neto)>=0.5?` (diferencia de ${fmtS(m-x.neto)} con lo calculado)`:''}.`;
+    dlg.querySelector('#cm-tipo-info').innerHTML=txt+(data.tipo==null?' <span class="muted">(sugerido por el monto)</span>':'')};
+  const pintarTarde=()=>{const t=tardeEfectivo();
+    dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
+    dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Por pagar ${mesLargo(mes)} tarde, en su cobro de <strong>${mesLargo(mesSig)}</strong> le tocará una parte de la mora, el corte y la reapertura que cobre Sedapal.`:`En su cobro de <strong>${mesLargo(mesSig)}</strong> no pagará mora, corte ni reapertura.`)
+      +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
+  inMonto.oninput=()=>{data.monto=num(inMonto.value);pintarTipo()};
+  dlg.querySelector('#cm-total').onclick=()=>{inMonto.value=x.neto;data.monto=x.neto;pintarTipo()};
+  dlg.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{data.tipo=b.dataset.tipo;pintarTipo()});
+  dlg.querySelectorAll('[data-tarde]').forEach(b=>b.onclick=()=>{data.tarde=b.dataset.tarde==='si';pintarTarde()});
+  dlg.querySelector('#cm-fecha').oninput=e=>{data.fecha=e.target.value;pintarTarde()};
+  pintarTipo();pintarTarde();
+  const guardarCon=async(monto,fecha,nota)=>{
+    const h=hist.concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha}}]);
+    await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h,
+      pagoTarde:monto==null?null:tardeEfectivo(),tipoPago:monto==null?null:tipoEfectivo()});
   };
-  pintar();dlg.showModal();
+  const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
+  dlg.querySelector('#cm-save').onclick=async()=>{
+    const monto=num(inMonto.value),fecha=dlg.querySelector('#cm-fecha').value||null,nota=dlg.querySelector('#cm-nota').value.trim();
+    if(monto==null){toast('Ingresa el monto recibido.');return}
+    data.monto=monto;
+    const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
+    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado')}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+(e.message||e.code))}
+  };
+  dlg.showModal();
 }
 
 /* ---------- Pestaña Agua ---------- */
@@ -1628,11 +1718,187 @@ function resumenAguaYCobros(){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-veragua]');if(b&&!b.closest('dialog')&&!b.closest('#tab-agua'))abrirDetalleAgua(b.dataset.veragua)});
 
+/* ---------- Deshacer el último guardado ---------- */
+// Se ofrece en el aviso que aparece tras guardar. Los cobros no se borran: se "vacían" con una entrada en su historial
+// (borrar un cobro con pagos pide contraseña de administrador).
+function deshacerUltimo(u=db&&db.deshacer){
+  if(!u)return;if(db.deshacer===u)db.deshacer=null;
+  const p=u.payload,previo=u.previo,ahora=new Date().toISOString();
+  const entrada=d=>({cuando:ahora,deshecho:true,anterior:{monto:d&&d.montoCobrado!=null?d.montoCobrado:null,fecha:d?d.fechaCobro??null:null},nuevo:{monto:previo&&previo.montoCobrado!=null?previo.montoCobrado:null,fecha:previo?previo.fechaCobro??null:null}});
+  let rev;
+  if(previo){const data={...previo};delete data.id;
+    const h=p.data&&Array.isArray(p.data.historialCobro)?p.data.historialCobro:null;if(h)data.historialCobro=h.concat([entrada(p.data)]);
+    rev={action:'set',collection:p.collection,id:p.id,data}}
+  else if(p.collection==='cobros')rev={action:'set',collection:'cobros',id:p.id,data:{...p.data,montoCobrado:null,fechaCobro:null,pagoTarde:null,tipoPago:null,historialCobro:(p.data.historialCobro||[]).concat([entrada(p.data)])}};
+  else rev={action:'delete',collection:p.collection,id:p.id};
+  db._write(rev,{sinDeshacer:true}).then(()=>toast('Cambio deshecho',{sinDeshacer:true})).catch(e=>toast('No se pudo deshacer: '+(e.message||e.code),{sinDeshacer:true}));
+}
+
+/* ---------- Cobro por WhatsApp ---------- */
+const APP_PUBLICA='https:\/\/argonzn.github.io/recibos-jardin/';
+const enviadoCobro=(dep,mes)=>!!tareasHechas['envio_'+mes+'_'+dep];
+function marcarEnviado(dep,mes){db.doc('tareas/envio_'+mes+'_'+dep).set({hecho:true},null,{sinDeshacer:true}).catch(()=>{})}
+function mensajeCobro(dep,mes){
+  const x=detalleCobro(dep,mes);const a=calcAgua(mes);const p=a&&!a.incompleto?a.porDepto[dep]:null;const l=lecturaDe(dep,mes);
+  const L=['*Recibos Jardín · '+tituloDepto(x.d)+' · '+mesLargo(mes)+'*'];
+  if(x.partes.luz!=null)L.push('💡 Luz: '+fmtN(l.kwh,2)+' kWh = '+fmtS(x.partes.luz));
+  if(x.partes.agua!=null)L.push('💧 Agua: '+fmtN(p.m3,2)+' m³ = '+fmtS(x.partes.agua)+(tipoAgua(x.d)==='sin_medidor'?' (estimado)':''));
+  const adm=x.partes.admLuz+x.partes.admAgua;if(adm)L.push('Administración: '+fmtS(adm));
+  if(x.partes.mant)L.push('Mantenimiento: '+fmtS(x.partes.mant));
+  if(x.partes.atraso)L.push('Atraso del agua (pago fuera de fecha en '+mesLargo(mesAnterior(mes))+'): '+fmtS(x.partes.atraso));
+  if(x.aFavor)L.push('Saldo a favor del mes anterior: − '+fmtS(x.aFavor));
+  if(x.estado.cls==='ok'){L.push('*Total: '+fmtS(x.neto)+'* ✅ Pagado. ¡Gracias!')}
+  else{if(x.cobrado!=null)L.push('Ya pagaste: '+fmtS(x.cobrado));L.push('*Total a pagar: '+fmtS(x.falta)+'*');L.push('Fecha límite: '+fechaCorta(fechaLimitePago(mes)))}
+  if(x.faltan.length)L.push('_(Monto provisional: falta '+x.faltan.join(' y ')+')_');
+  return L.join('\n');
+}
+function waUrl(tel,texto){let n=String(tel||'').replace(/\D/g,'');if(n.length===9)n='51'+n;return 'https:\/\/wa.me/'+n+'?text='+encodeURIComponent(texto)}
+function abrirEnlace(url){const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove()}
+async function enviarCobroWhatsApp(dep,mes){
+  const x=detalleCobro(dep,mes);
+  if(x.faltan.length&&!(await confirmar('Falta '+x.faltan.join(' y ')+' de '+mesLargo(mes)+': el monto es provisional. ¿Enviar igual?','Enviar')))return;
+  abrirEnlace(waUrl(x.d.telefono,mensajeCobro(dep,mes)));
+  marcarEnviado(dep,mes);
+  if(!x.d.telefono)toast('Elige el contacto en WhatsApp. Para abrir su chat directo, agrega su teléfono en la ficha del depto.',{sinDeshacer:true});
+}
+function abrirEnvioCobros(mes){
+  const dlg=$('#dlg');
+  const pintar=()=>{
+    const filas=cobrosDelMes(mes);
+    dlg.innerHTML=`<div class="dlg-h"><h2>Enviar cobros de ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b"><p class="muted small" style="margin-top:0">Toca «Enviar» en cada uno: se abre WhatsApp con el mensaje listo. Revisa y envía.</p>
+      <div class="stack" style="gap:0">${filas.map(x=>`<div class="pago-row"><div><strong>${esc(nombreDepto(x.d))}</strong><div class="muted small">${x.d.telefono?esc(x.d.telefono):'sin teléfono'}</div></div>
+        <div class="small">${fmtS(x.estado.cls==='ok'?x.neto:x.falta)}<div class="muted small">${x.estado.txt}</div></div>
+        <div class="small">${enviadoCobro(x.d.id,mes)?'<span class="chip sm ok">✓ Enviado</span>':''}</div>
+        <button class="btn sm ${enviadoCobro(x.d.id,mes)?'':'primary'}" data-env="${x.d.id}">${enviadoCobro(x.d.id,mes)?'Reenviar':'📲 Enviar'}</button></div>`).join('')}</div></div>
+    <div class="dlg-f"><button class="btn primary" data-close>Listo</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    dlg.querySelectorAll('[data-env]').forEach(b=>b.onclick=async()=>{await enviarCobroWhatsApp(b.dataset.env,mes);setTimeout(pintar,200)});
+  };
+  pintar();if(!dlg.open)dlg.showModal();
+}
+
+/* ---------- Lecturas del día 12 en secuencia ---------- */
+function pendientesLectura(mes){
+  const out=[],ord=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0));
+  ord.forEach(d=>{
+    if(d.estado!=='desocupado'&&!lecturaDe(d.id,mes))out.push({dep:d.id,serv:'luz',txt:tituloDepto(d)+' luz'});
+    if(tipoAgua(d)==='medidor'&&!lecturaAguaDe(d.id,mes))out.push({dep:d.id,serv:'agua',txt:tituloDepto(d)+' agua'});
+  });
+  if(deptosConMedidor().length&&!lecturaAguaDe('general',mes))out.push({dep:'general',serv:'agua',txt:'medidor general'});
+  return out;
+}
+function iniciarSecuenciaLecturas(mes){
+  const cola=pendientesLectura(mes);
+  if(!cola.length){toast('Las lecturas de '+mesLargo(mes)+' ya están completas.',{sinDeshacer:true});return}
+  const paso=i=>{
+    if(i>=cola.length){toast('Listo: lecturas de '+mesLargo(mes)+' completas',{sinDeshacer:true});return}
+    const it=cola[i];abrirLecturaForm(it.dep,null,it.serv,{mes,progreso:(i+1)+' de '+cola.length,siguiente:()=>paso(i+1)});
+  };
+  paso(0);
+}
+
+/* ---------- Resumen: qué hacer este mes ---------- */
+function tareasDelMes(){
+  const mes=mesDeLecturas(),hoy=new Date().toISOString().slice(0,10),T=[];
+  const pend=pendientesLectura(mes);
+  T.push({ok:!pend.length,t:'Tomar las lecturas de '+mesLargo(mes),d:pend.length?'Faltan '+pend.length+': '+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
+  const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
+  T.push({ok:!!rl,t:'Subir el recibo de luz de '+mesLargo(mes),d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
+  T.push({ok:!!ra,t:'Subir el recibo de agua de '+mesLargo(mes),d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
+  const filas=cobrosDelMes(mes),listo=rl&&ra&&filas.length&&!filas.some(x=>x.faltan.length);
+  const env=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
+  T.push({ok:listo&&env===filas.length,t:'Enviar los cobros de '+mesLargo(mes),d:!listo?'Se habilita cuando estén los recibos y las lecturas':env+' de '+filas.length+' enviados por WhatsApp',btn:listo&&env<filas.length?['📲 Enviar',()=>abrirEnvioCobros(mes)]:null});
+  const nOk=filas.filter(x=>x.estado.cls==='ok').length;
+  T.push({ok:filas.length&&nOk===filas.length,t:'Cobrar '+mesLargo(mes),d:nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta))+' · límite '+fechaCorta(fechaLimitePago(mes)),btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
+  if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
+  if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
+    btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+(e.message||e.code)))}]})}
+  const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
+  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:ant.length+' · '+fmtS(sum(ant,p=>p.falta)),btn:['Ver',()=>irA('cobros')]});
+  return{mes,T};
+}
+function panelQueHacer(){
+  if(!datosListos&&!recibos.length)return'';
+  const {mes,T}=tareasDelMes();panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
+  return `<div class="panel que-hacer"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Qué hacer este mes</h2><span class="chip ${hechas===T.length?'ok':'pend'}">${hechas} de ${T.length}</span></div>
+    <p class="muted small" style="margin:4px 0 10px">${mesLargo(mes)}</p>
+    <ul class="qh">${T.map((x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
+      <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`).join('')}</ul></div>`;
+}
+function conectarQueHacer(){document.querySelectorAll('[data-qh]').forEach(b=>b.onclick=()=>{const x=(panelQueHacer.T||[])[+b.dataset.qh];if(x&&x.btn)x.btn[1]()})}
+
+/* ---------- Acceso del inquilino (administración) ---------- */
+async function abrirAccesoInquilino(d){
+  const dlg=$('#dlg');
+  const pintar=(cod,cargando)=>{
+    dlg.innerHTML=`<div class="dlg-h"><h2>Acceso del inquilino — ${tituloDepto(d)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b"><p style="margin-top:0">Con un código propio, el inquilino entra a la app y ve <strong>solo su cuenta</strong>: lo que debe cada mes, cómo se calculó, sus pagos y las fotos de sus medidores. No puede cambiar nada ni ver los montos de los demás.</p>
+      ${cargando?'<p class="muted">Consultando…</p>':cod?`<div class="banner info" style="text-align:center"><div class="small muted">Código de acceso</div><div style="font-size:2rem;font-weight:800;letter-spacing:.2em">${esc(cod)}</div></div>`:'<p class="muted">Este depto todavía no tiene acceso.</p>'}
+      <p class="muted small">Si cambias el código, el anterior deja de funcionar al instante.</p></div>
+    <div class="dlg-f">${cod?'<button class="btn danger" id="ai-quitar" style="margin-right:auto">Quitar acceso</button>':''}${cod?'<button class="btn" id="ai-nuevo">Cambiar código</button><button class="btn primary" id="ai-wa">📲 Enviar por WhatsApp</button>':'<button class="btn primary" id="ai-nuevo">Crear código</button>'}</div>`;
+    dlg.querySelector('[data-close]').onclick=()=>dlg.close();
+    const op=async o=>{try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:o});pintar(r.codigo)}catch(e){toast('No se pudo: '+(e.message||e.code))}};
+    const n=dlg.querySelector('#ai-nuevo');if(n)n.onclick=()=>op('generar');
+    const q=dlg.querySelector('#ai-quitar');if(q)q.onclick=async()=>{if(await confirmar('¿Quitar el acceso del inquilino de '+tituloDepto(d)+'?','Quitar',true))op('quitar')};
+    const w=dlg.querySelector('#ai-wa');if(w)w.onclick=()=>abrirEnlace(waUrl(d.telefono,'Hola'+(d.encargado?' '+d.encargado:'')+'. Aquí puedes ver tus cobros de luz y agua del depto '+(d.numero??'')+', cómo se calculan y tus pagos:\n'+APP_PUBLICA+'\nTu código de acceso es: *'+cod+'*'));
+  };
+  pintar(null,true);if(!dlg.open)dlg.showModal();
+  try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:'ver'});pintar(r.codigo)}catch(e){pintar(null);toast('No se pudo consultar: '+(e.message||e.code))}
+}
+
+/* ---------- Vista del inquilino ---------- */
+const esInquilino=()=>lsGet('recibos_rol')==='inquilino';
+function renderInquilino(){
+  const el=$('#tab-inquilino');if(!el)return;
+  const dep=lsGet('recibos_depto'),d=deptos.find(x=>x.id===dep);
+  if(!d){el.innerHTML=datosListos?'<div class="panel">No se encontró tu departamento. Cierra sesión y vuelve a entrar.</div>':panelCargando();return}
+  $('#subtitulo').textContent=tituloDepto(d)+(d.encargado?' · '+d.encargado:'');
+  const meses=mesesCobro().filter(m=>detalleCobro(dep,m).participa).reverse();
+  if(!meses.length){el.innerHTML='<div class="panel empty muted">Todavía no hay cobros.</div>';return}
+  const mes=renderInquilino.mes&&meses.includes(renderInquilino.mes)?renderInquilino.mes:meses[0];
+  const x=detalleCobro(dep,mes),a=calcAgua(mes),p=a&&!a.incompleto?a.porDepto[dep]:null,l=lecturaDe(dep,mes),la=lecturaAguaDe(dep,mes),v=calcVerif(dep,mes);
+  const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
+  const fila=(t,det,val)=>val==null?'':`<tr><td>${t}${det?`<div class="small muted">${det}</div>`:''}</td><td>${fmtS(val)}</td></tr>`;
+  el.innerHTML=`<div class="panel">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Mi cuenta</h2>
+      <select id="sel-mes-inq" aria-label="Mes">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
+    <div class="row" style="justify-content:space-between;margin-top:14px"><span class="muted">${x.estado.cls==='ok'?'Total de '+mesLargo(mes):'Por pagar'}</span><span class="chip ${x.estado.cls}">${x.estado.txt}</span></div>
+    <div class="amount" style="font-size:2.4rem;font-weight:800;font-stretch:72%;margin:4px 0">${fmtS(x.estado.cls==='ok'?x.neto:x.falta)}</div>
+    <div class="muted small">${x.estado.cls==='ok'?(x.cobro&&x.cobro.fechaCobro?'Pagado el '+fechaCorta(x.cobro.fechaCobro):'Pagado'):'Fecha límite: '+fechaCorta(fechaLimitePago(mes))}${x.faltan.length?' · monto provisional (falta '+x.faltan.join(' y ')+')':''}</div>
+    <div class="scroll" style="margin-top:14px"><table class="detail"><tbody>
+      ${fila('💡 Luz',l?`${l.lecturaAnterior!=null?fmtN(l.lecturaAnterior,1)+' → '+fmtN(l.lecturaActual,1)+' = ':''}${fmtN(l.kwh,2)} kWh${v?' · '+fmtN(v.pct*100,2)+'% del consumo medido del edificio':''}`:'',x.partes.luz)}
+      ${fila('💧 Agua',p?(tipoAgua(d)==='sin_medidor'?'Consumo estimado: '+fmtN(p.m3,2)+' m³':`${la?fmtN(la.lecturaAnterior,3)+' → '+fmtN(la.lecturaActual,3)+' = '+fmtN(p.m3Leido,2)+' m³ medidos; ':''}${fmtN(p.m3,2)} m³ con tu parte del agua común`):'',x.partes.agua)}
+      ${fila('Administración de luz','',x.partes.admLuz||null)}${fila('Administración de agua','',x.partes.admAgua||null)}${fila('Mantenimiento','',x.partes.mant||null)}
+      ${fila('Atraso del agua','Por pagar '+mesLargo(mesAnterior(mes))+' fuera de fecha',x.partes.atraso||null)}
+      ${x.aFavor?`<tr><td>Saldo a favor del mes anterior</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
+      <tr class="sum"><td>Total del mes</td><td>${fmtS(x.neto)}</td></tr>
+      ${x.cobrado!=null?`<tr><td>Pagado</td><td>${fmtS(x.cobrado)}</td></tr>`:''}
+    </tbody></table></div>
+    <div class="row" style="margin-top:12px">
+      ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 Foto medidor de luz</a>`:''}
+      ${la&&la.fotoUrl?`<a class="btn sm" href="${esc(la.fotoUrl)}" target="_blank" rel="noopener">📷 Foto medidor de agua</a>`:''}
+      ${rl&&rl.pdfId?`<button class="btn sm" data-inq-pdf="luz">Recibo de luz del edificio</button>`:''}
+      ${ra&&ra.pdfId?`<button class="btn sm" data-inq-pdf="agua">Recibo de agua del edificio</button>`:''}
+    </div>
+    <details style="margin-top:14px"><summary class="small"><strong>¿Cómo se calcula?</strong></summary>
+      <p class="small muted">La luz del edificio se reparte según el consumo de tu medidor comparado con la suma de todos los medidores internos. El agua se reparte según tu medidor; el agua que no marca ningún medidor interno (áreas comunes, diferencias de lectura) se reparte en proporción al consumo de cada uno. A eso se suman la administración y, si pagaste tarde el mes anterior, una parte de la mora o reconexión que cobró Sedapal.</p></details>
+  </div>
+  <div class="panel"><h2>Historial</h2><div class="scroll"><table><thead><tr><th>Mes</th><th>Total</th><th>Pagado</th><th>Estado</th></tr></thead><tbody>
+    ${meses.map(m=>{const y=detalleCobro(dep,m);return `<tr><td>${mesLargo(m)}</td><td>${fmtS(y.neto)}</td><td>${y.pagado?fmtS(y.pagado):'—'}</td><td><span class="chip sm ${y.estado.cls}">${y.estado.txt}</span></td></tr>`}).join('')}
+  </tbody></table></div></div>
+  <div class="panel"><div class="row" style="justify-content:space-between"><span class="small muted">¿Dudas sobre tu cobro? Escribe a la administración.</span><button class="btn" id="inq-salir">Cerrar sesión</button></div></div>`;
+  $('#sel-mes-inq').onchange=e=>{renderInquilino.mes=e.target.value;renderInquilino()};
+  $('#inq-salir').onclick=()=>cerrarSesion();
+  el.querySelectorAll('[data-inq-pdf]').forEach(b=>b.onclick=()=>abrirVisorPdf(b.dataset.inqPdf==='luz'?rl:ra));
+}
+
 /* ---------- Navegación ---------- */
 const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes','ruta'];
 function irA(tab){tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"]`));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0)}
 window.irA=irA;
 function renderTodo(){
+  if(esInquilino()){renderInquilino();return}
   const r=recibos[recibos.length-1];
   $('#subtitulo').textContent='Luz del Sur'+(r&&r.suministro?' '+r.suministro:'')+' · Sedapal'+(aguaRecibos[0]&&aguaRecibos[0].suministro?' '+aguaRecibos[0].suministro:'');
   renderResumen();renderRecibos();if(tabActual==='reportes')renderReportes();if(tabActual==='deptos')renderDeptos();if(tabActual==='ruta')renderRuta();if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();
@@ -1704,10 +1970,12 @@ function abrirMenu(){
       item('deptos','Departamentos','Lecturas y fotos de luz y agua')+
       item('cobros','Cobros','Total del mes por depto y pagos')+
       item('reportes','Reportes','Gráficos y totales de luz')+
-      item('ruta','Hoja de ruta','Pendientes, diagramas y recursos')+
       '<div class="menu-sep"></div>'+
+      '<div class="menu-titulo">Administración</div>'+
+      '<button data-accion="enviar">Enviar cobros por WhatsApp<small>Mensaje del mes listo para cada depto</small></button>'+
       '<button data-accion="recordatorio">Recordatorio de lecturas<small>'+esc(rec)+'</small></button>'+
       '<button data-accion="vincular">Buscar PDF en Drive<small>Vincula los PDF de luz y de agua dejados en Drive</small></button>'+
+      item('ruta','Hoja de ruta','Pendientes, diagramas y recursos')+
       '<button data-accion="salir">Cerrar sesión<small>Borra el acceso y la copia de este dispositivo</small></button>'+
     '</nav>'+
     '<div class="menu-pie">'+(datosListos?'Datos al día':'Actualizando datos…')+'</div>';
@@ -1715,6 +1983,7 @@ function abrirMenu(){
   c.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{c.close();irA(b.dataset.ir)});
   c.querySelector('[data-accion="recordatorio"]').onclick=()=>{c.close();abrirRecordatorio()};
   c.querySelector('[data-accion="vincular"]').onclick=()=>{c.close();buscarPdfsDrive()};
+  c.querySelector('[data-accion="enviar"]').onclick=()=>{c.close();abrirEnvioCobros(mesDeLecturas())};
   c.querySelector('[data-accion="salir"]').onclick=()=>{c.close();cerrarSesion()};
   c.addEventListener('click',e=>{if(e.target===c)c.close()}); // tocar fuera cierra
   c.showModal();
@@ -1786,7 +2055,6 @@ const TAREAS=[
  {g:'claude',id:'c-docs',p:'baja',t:'Actualizar INSTRUCCIONES.md',d:()=>'Describir el flujo actual: GitHub Pages, código de acceso y clasp.'},
  {g:'idea',id:'i-vence',p:'baja',t:'Aviso antes del vencimiento y del corte del recibo',d:()=>'Evento o correo 3 días antes si el recibo sigue pendiente.'},
  {g:'idea',id:'i-correo',p:'baja',t:'Importar el recibo desde el correo de Luz del Sur',d:()=>'Buscar el correo mensual, guardar el PDF en Drive y crear el recibo para revisarlo.'},
- {g:'idea',id:'i-whatsapp',p:'baja',t:'Enviar a cada encargado su cobro del mes',d:()=>'Mensaje con kWh, monto y detalle, listo para compartir por WhatsApp.'},
 ];
 const GRUPOS=[['tu','Te toca a ti','Acciones con tu cuenta o decisiones tuyas'],['claude','Mejoras técnicas','Las hace Claude cuando se lo pidas'],['idea','Ideas para después','Funciones nuevas cuando lo básico esté estable']];
 const QUIEN={tu:'<span class="chip tu">Tú</span>',claude:'<span class="chip claude">Claude</span>',idea:'<span class="chip">Idea</span>'};
@@ -1899,8 +2167,8 @@ function mensajeLogin(e){const m=String(e&&(e.message||e.code)||'');
 function mostrarLogin(aviso=''){
   const c=$('#dlgLogin');if(c.open)return;
   c.innerHTML=`<form class="dlg-b" style="padding:26px 22px" id="login-form">
-    <h2 style="margin:0 0 4px">Recibos de luz</h2>
-    <p class="muted small" style="margin:0 0 16px">${esc(aviso||'Escribe el código de acceso. Se recordará en este dispositivo.')}</p>
+    <h2 style="margin:0 0 4px">Recibos Jardín</h2>
+    <p class="muted small" style="margin:0 0 16px">${esc(aviso||'Escribe tu código de acceso: el de administración o el de tu departamento. Se recordará en este dispositivo.')}</p>
     <label class="f">Código de acceso<input id="login-codigo" type="password" autocomplete="current-password" required></label>
     <p class="small" id="login-error" style="color:var(--red);min-height:1.5em;margin:8px 0 0"></p>
     <button class="btn primary" type="submit" style="width:100%;justify-content:center;margin-top:6px">Entrar</button>
@@ -1912,7 +2180,10 @@ function mostrarLogin(aviso=''){
     btn.disabled=true;btn.textContent='Entrando…';err.textContent='';
     try{
       const r=await llamarApi(APPS_SCRIPT_URL,{action:'login',codigo:c.querySelector('#login-codigo').value});
-      tokenAcceso=r.token;lsSet('recibos_token',tokenAcceso);c.close();
+      // Si cambia quién entra (administración o un depto), se borra la copia local y se recarga la vista.
+      const antes=(lsGet('recibos_rol')||'admin')+'|'+(lsGet('recibos_depto')||''),ahora=(r.rol||'admin')+'|'+(r.depto||'');
+      tokenAcceso=r.token;lsSet('recibos_token',tokenAcceso);lsSet('recibos_rol',r.rol||'admin');lsSet('recibos_depto',r.depto||null);c.close();
+      if(antes!==ahora){lsSet('recibos_cache',null);if(db){location.reload();return}}
       if(db)db._poll(true);else conectar();
     }catch(ex){err.textContent=mensajeLogin(ex);btn.disabled=false;btn.textContent='Entrar'}
   };
@@ -1946,7 +2217,7 @@ class SheetsDB{
   _entregar(all){
     const vista=this.pendientes.length?JSON.parse(JSON.stringify(all)):all;
     this.pendientes.forEach(p=>SheetsDB.aplicar(vista,p));
-    Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))}))});
+    Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>{calcAgua.memo=null;s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))})})});
   }
   static aplicar(all,p){
     const col=all[p.collection]=all[p.collection]||[];const i=col.findIndex(d=>d.id===p.id);
@@ -1968,29 +2239,33 @@ class SheetsDB{
   }
   // Guardado optimista: el cambio se ve al instante y se envía en segundo plano, en orden. Si el servidor lo rechaza,
   // se deshace y se avisa. Las operaciones con contraseña de administrador sí esperan la respuesta.
-  async _write(payload){
+  async _write(payload,opts={}){
     if(!datosListos)throw new Error('Todavía se están cargando los datos. Intenta de nuevo en unos segundos.');
     const simple=['set','update','delete'].includes(payload.action)&&!payload.clave&&this.ultimo;
-    if(!simple){const r=await this._post(payload);this._refrescar(payload.collection);return r}
+    if(!simple){this.deshacer=null;const r=await this._post(payload);this._refrescar(payload.collection);return r}
+    if(!opts.sinDeshacer){const prev=this._vistaCol(payload.collection).find(d=>d.id===payload.id);this.deshacer={payload,previo:prev?JSON.parse(JSON.stringify(prev)):null,t:Date.now()}}
     this.pendientes.push(payload);this._entregar(this.ultimo);marcarGuardando(this.pendientes.length);
     this.cola=this.cola.then(()=>this._post(payload)).then(()=>{
       SheetsDB.aplicar(this.ultimo,payload);
       this.pendientes=this.pendientes.filter(p=>p!==payload);marcarGuardando(this.pendientes.length);
       this._refrescar(payload.collection);
     }).catch(e=>{
+      if(this.deshacer&&this.deshacer.payload===payload)this.deshacer=null;
       this.pendientes=this.pendientes.filter(p=>p!==payload);marcarGuardando(this.pendientes.length);
       this._entregar(this.ultimo);
       avisarNoGuardado(e);
     });
     return{id:payload.id,enCamino:true};
   }
+  // Cómo se ve ahora una colección, con los guardados en camino aplicados (para saber qué había antes de un cambio).
+  _vistaCol(c){const v={[c]:JSON.parse(JSON.stringify((this.ultimo&&this.ultimo[c])||[]))};this.pendientes.filter(p=>p.collection===c).forEach(p=>SheetsDB.aplicar(v,p));return v[c]}
   // Tras guardar, solo se recarga la colección que cambió (varias seguidas se agrupan).
   _refrescar(col){this._porRefrescar=[...new Set([...(this._porRefrescar||[]),col].filter(Boolean))];clearTimeout(this._kick);
     this._kick=setTimeout(()=>{const c=this._porRefrescar;this._porRefrescar=[];this._poll(true,c.length?c:null)},300)}
   doc(path){const [collection,id]=path.split('/');return{
-    set:(data,clave)=>this._write({action:'set',collection,id,data,clave}),
-    update:(data,clave)=>this._write({action:'update',collection,id,data,clave}),
-    delete:(clave)=>this._write({action:'delete',collection,id,clave}),
+    set:(data,clave,opts)=>this._write({action:'set',collection,id,data,clave},opts),
+    update:(data,clave,opts)=>this._write({action:'update',collection,id,data,clave},opts),
+    delete:(clave,opts)=>this._write({action:'delete',collection,id,clave},opts),
   }}
 }
 function marcarGuardando(n){const e=$('#estado-sync');if(e)e.textContent=n?(n>1?'Guardando '+n+' cambios…':'Guardando…'):(datosListos?'✓ Guardado':'Actualizando…');clearTimeout(marcarGuardando._t);if(!n)marcarGuardando._t=setTimeout(()=>{if(e&&!db.pendientes.length)e.textContent=''},2500)}
@@ -2065,23 +2340,25 @@ async function conectar(){
   if(!tokenAcceso){mostrarLogin();return}
   db=new SheetsDB(APPS_SCRIPT_URL);assets=crearAssets(db);downloads=crearDownloads();sample=crearSampleOCR();
   $('#aviso-db').hidden=true;
+  if(esInquilino()){tabActual='inquilino';$('nav.tabs').hidden=true;PESTANAS.forEach(t=>$('#tab-'+t).hidden=true);$('#tab-inquilino').hidden=false;document.body.classList.add('modo-inquilino')}
+  const reVista=()=>{if(tabActual==='resumen')renderResumen();if(tabActual==='inquilino')renderInquilino()};
   db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').textContent='No se pudo conectar con la Hoja de cálculo ('+(err.code||'error')+'). Revisa tu conexión a internet; la app reintenta sola cada pocos segundos.'});
-  db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
-  db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos()});
+  db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
+  db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();reVista()});
   db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos();reAgua()});
-  const reAgua=()=>{if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();if(tabActual==='resumen')renderResumen()};
+  const reAgua=()=>{if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();reVista()};
   db.collection('agua_recibos').onSnapshot(snap=>{aguaRecibos=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua()});
   db.collection('lecturas_agua').onSnapshot(snap=>{lecturasAgua=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
   db.collection('cobros').onSnapshot(snap=>{cobros=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
   db.collection('cargos').onSnapshot(snap=>{cargosMes=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua()});
-  db.collection('tareas').onSnapshot(snap=>{tareasHechas={};snap.docs.forEach(x=>{tareasHechas[x.id]=!!x.data().hecho});if(tabActual==='ruta')renderRuta()});
+  if(!esInquilino())db.collection('tareas').onSnapshot(snap=>{tareasHechas={};snap.docs.forEach(x=>{tareasHechas[x.id]=!!x.data().hecho});if(tabActual==='ruta')renderRuta();if(tabActual==='cobros')renderCobros();reVista()});
   renderTodo();db.mostrarCopiaLocal();marcarEstadoSync();
   if(tabActual==='reportes')renderReportes();
 }
 conectar();
 async function cerrarSesion(){
   if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
-  lsSet('recibos_token',null);lsSet('recibos_cache',null);location.reload();
+  ['recibos_token','recibos_cache','recibos_rol','recibos_depto'].forEach(k=>lsSet(k,null));location.reload();
 }
 function marcarEstadoSync(){const e=$('#estado-sync');if(e)e.textContent=datosListos?'':'Actualizando…'}
 // App instalable (GitHub Pages): registra el service worker que guarda la interfaz para abrir más rápido.

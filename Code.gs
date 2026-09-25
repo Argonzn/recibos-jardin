@@ -17,7 +17,7 @@ const SHEETS = {
     'interesMoratorio','totalMes','ajusteAnterior','ajusteActual','deudaVencida','pagado','fechaPago',
     'pdfUrl','pdfId','pdfNombre','otrosJSON','actualizado'],
   // agua: 'medidor' | 'sin_medidor' | 'no'. Las columnas nuevas van al final (ver asegurarEncabezados_).
-  departamentos: ['id','numero','encargado','estado','piso','lado','actualizado','agua'],
+  departamentos: ['id','numero','encargado','estado','piso','lado','actualizado','agua','telefono'],
   lecturas: ['id','deptoId','mes','lecturaAnterior','lecturaActual','kwh','montoCobrado','fechaCobro',
     'origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   // mantenimiento = administración de luz (S/ por depto). admAgua y mantExtra se agregaron con el módulo de agua.
@@ -35,7 +35,7 @@ const SHEETS = {
   // Cobro único por depto y mes (luz + agua + administración + mantenimiento + atrasos).
   // pagoTarde: true = pagó fuera de fecha (le toca parte de la mora/corte/reapertura del agua del mes siguiente),
   // false = a tiempo, vacío = se decide por la fecha de cobro.
-  cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado','pagoTarde'],
+  cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado','pagoTarde','tipoPago'],
 };
 
 // Columnas que deben guardarse como texto plano. Sin esto Sheets convierte "2025-12" o
@@ -43,7 +43,7 @@ const SHEETS = {
 const TEXT_COLS = {
   recibos: ['id','recibo','suministro','titular','tarifa','fechaLectura','fechaLecturaAnterior','emision',
     'corte','vencimiento','fechaPago','pdfUrl','pdfId','pdfNombre','otrosJSON','actualizado'],
-  departamentos: ['id','encargado','estado','actualizado','agua'],
+  departamentos: ['id','encargado','estado','actualizado','agua','telefono'],
   lecturas: ['id','deptoId','mes','fechaCobro','origen','fotoUrl','fotoId','historialCobroJSON','actualizado'],
   config: ['id','actualizado'],
   tareas: ['id','fecha','actualizado'],
@@ -51,7 +51,7 @@ const TEXT_COLS = {
     'pdfUrl','pdfId','pdfNombre','responsablesAtrasoJSON','otrosJSON','actualizado'],
   lecturas_agua: ['id','deptoId','mes','origen','fotoUrl','fotoId','actualizado'],
   cargos: ['id','actualizado'],
-  cobros: ['id','deptoId','mes','fechaCobro','nota','historialCobroJSON','actualizado'],
+  cobros: ['id','deptoId','mes','fechaCobro','nota','historialCobroJSON','actualizado','tipoPago'],
 };
 
 function formatTextCols_(sh, name) {
@@ -409,29 +409,85 @@ function deleteFile_(fileId) {
  * La interfaz vive en GitHub Pages y llama a esta API sin sesión de Google, así que toda petición
  * debe traer un token. El token es HMAC(ACCESS_CODE): no revela el código y, si cambias ACCESS_CODE
  * en Propiedades de la secuencia de comandos, todos los tokens anteriores dejan de valer. */
+function firmaHex_(texto, clave) {
+  return Utilities.computeHmacSha256Signature(texto, clave).map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+}
 function tokenEsperado_() {
   const codigo = PropertiesService.getScriptProperties().getProperty('ACCESS_CODE') || '';
   if (!codigo) throw new Error('sin_codigo_acceso');
-  const firma = Utilities.computeHmacSha256Signature('recibos-jardin-v1', codigo);
-  return firma.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+  return firmaHex_('recibos-jardin-v1', codigo);
 }
+
+/* Acceso de inquilino: cada depto puede tener su propio código (Propiedad COD_INQ_<depto>). Su token solo permite
+ * LEER, y el servidor filtra los datos: ve sus cobros y sus fotos, no los montos ni nombres de los demás. */
+function codigosInquilino_() {
+  const todas = PropertiesService.getScriptProperties().getProperties(), out = {};
+  Object.keys(todas).forEach(k => { if (k.indexOf('COD_INQ_') === 0) out[k.slice(8)] = todas[k]; });
+  return out;
+}
+const tokenInquilino_ = (dep, codigo) => 'inq.' + dep + '.' + firmaHex_('recibos-jardin-inq|' + dep, codigo);
 
 function login_(codigo) {
   const cache = CacheService.getScriptCache();
   const fallos = Number(cache.get('fallos_login') || 0);
   if (fallos >= 10) throw new Error('demasiados_intentos'); // 10 intentos fallidos → bloqueo de 10 minutos
+  const c = String(codigo || '');
   const real = PropertiesService.getScriptProperties().getProperty('ACCESS_CODE') || '';
+  if (real && c === real) { cache.remove('fallos_login'); return { token: tokenEsperado_(), rol: 'admin' }; }
+  const inq = codigosInquilino_();
+  const dep = Object.keys(inq).find(d => inq[d] && inq[d] === c.toUpperCase().trim());
+  if (dep) { cache.remove('fallos_login'); return { token: tokenInquilino_(dep, inq[dep]), rol: 'inquilino', depto: dep }; }
   if (!real) throw new Error('sin_codigo_acceso');
-  if (String(codigo || '') !== real) {
-    cache.put('fallos_login', String(fallos + 1), 600);
-    throw new Error('codigo_incorrecto');
-  }
-  cache.remove('fallos_login');
-  return { token: tokenEsperado_() };
+  cache.put('fallos_login', String(fallos + 1), 600);
+  throw new Error('codigo_incorrecto');
 }
 
+// Devuelve quién llama: {rol:'admin'} o {rol:'inquilino', depto}.
 function exigirToken_(token) {
-  if (!token || String(token) !== tokenEsperado_()) throw new Error('no_autorizado');
+  const t = String(token || '');
+  if (t.indexOf('inq.') === 0) {
+    const dep = t.split('.')[1];
+    const codigo = PropertiesService.getScriptProperties().getProperty('COD_INQ_' + dep);
+    if (codigo && t === tokenInquilino_(dep, codigo)) return { rol: 'inquilino', depto: dep };
+    throw new Error('no_autorizado');
+  }
+  if (!t || t !== tokenEsperado_()) throw new Error('no_autorizado');
+  return { rol: 'admin' };
+}
+
+function apiInquilino_(body, dep) {
+  if (body.action === 'ping') return { ok: true, rol: 'inquilino', depto: dep };
+  if (body.action !== 'listAll') throw new Error('solo_lectura');
+  const permitidas = ['recibos', 'departamentos', 'lecturas', 'config', 'agua_recibos', 'lecturas_agua', 'cobros', 'cargos'];
+  const out = {};
+  (body.collections || []).filter(c => permitidas.indexOf(c) > -1).forEach(c => {
+    let docs = listCollection_(c);
+    // De los demás solo se sabe si pagaron y si fue a tiempo (decide a quién le toca el atraso del agua), sin montos.
+    if (c === 'cobros') docs = docs.map(x => x.deptoId === dep ? x : {
+      id: x.id, deptoId: x.deptoId, mes: x.mes, montoCobrado: x.montoCobrado != null && x.montoCobrado !== '' ? 0 : null,
+      fechaCobro: x.fechaCobro, pagoTarde: x.pagoTarde, tipoPago: '', nota: '', historialCobro: [] });
+    if (c === 'departamentos') docs = docs.map(x => x.id === dep ? x : Object.assign({}, x, { encargado: '', telefono: '' }));
+    if (c === 'lecturas' || c === 'lecturas_agua') docs = docs.map(x => x.deptoId === dep ? x :
+      Object.assign({}, x, { fotoUrl: null, fotoId: null, montoCobrado: null, fechaCobro: null, historialCobro: [] }));
+    out[c] = docs;
+  });
+  return out;
+}
+
+// Administración de los códigos de inquilino (solo el administrador).
+function codigoInquilino_(dep, op) {
+  if (!/^dep_[\w]+$/.test(String(dep || ''))) throw new Error('depto_invalido');
+  const p = PropertiesService.getScriptProperties(), k = 'COD_INQ_' + dep;
+  if (op === 'quitar') { p.deleteProperty(k); return { codigo: null }; }
+  if (op === 'generar') {
+    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para que no se confundan
+    let codigo = '';
+    const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + dep + Date.now());
+    for (let i = 0; i < 6; i++) codigo += letras[(bytes[i] & 0xff) % letras.length];
+    p.setProperty(k, codigo);
+    return { codigo: codigo };
+  }
+  return { codigo: p.getProperty(k) };
 }
 
 /* ---------- Contraseña de administrador ----------
@@ -518,10 +574,12 @@ function repararDesfase_() {
 /** Punto de entrada único: lo usan google.script.run (desde index.html) y doGet/doPost. */
 function api(body) {
   if (body.action === 'login') return login_(body.codigo);
-  exigirToken_(body.token);
+  const quien = exigirToken_(body.token);
   repararTextosUnaVez_();
+  if (quien.rol === 'inquilino') return apiInquilino_(body, quien.depto);
   switch (body.action) {
-    case 'ping':    return { ok: true };
+    case 'ping':    return { ok: true, rol: 'admin' };
+    case 'codigoInquilino': return codigoInquilino_(body.depto, body.op);
     case 'list':    return listCollection_(body.collection);
     case 'listAll': {
       const out = {};
