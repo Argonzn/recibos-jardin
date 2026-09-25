@@ -1619,7 +1619,8 @@ function renderCobros(){
   const meses=mesesCobro();
   if(!meses.length){el.innerHTML='<div class="panel empty"><p class="muted" style="margin:0">Los cobros se calculan a partir de los recibos del mes. Sube el recibo de luz o de agua para empezar.</p><div class="row" style="justify-content:center;margin-top:12px"><button class="btn primary" data-subir="luz">Subir recibo de luz</button><button class="btn" data-subir="agua">Subir recibo de agua</button></div></div>';return}
   const conRecibo=meses.filter(m=>recibos.some(r=>r.id===m)||aguaRecibos.some(r=>r.id===m));
-  const mes=renderCobros.mes&&meses.includes(renderCobros.mes)?renderCobros.mes:(conRecibo[conRecibo.length-1]||meses[meses.length-1]);
+  const mesActual=conRecibo[conRecibo.length-1]||meses[meses.length-1];
+  const mes=renderCobros.mes&&meses.includes(renderCobros.mes)?renderCobros.mes:mesActual;
   const filas=cobrosDelMes(mes);const car=cargosDe(mes);
   const esperado=r2(sum(filas,x=>x.neto)),cobrado=r2(sum(filas,x=>x.pagado)),nOk=filas.filter(x=>x.estado.cls==='ok').length;
   const faltanDatos=[...new Set(filas.flatMap(x=>x.faltan))];
@@ -1635,6 +1636,7 @@ function renderCobros(){
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <div class="avance"><div class="row" style="justify-content:space-between"><span><strong>${fmtS(cobrado)}</strong> <span class="muted">de ${fmtS(esperado)} cobrados</span></span><span class="small muted">${nOk} de ${filas.length} deptos</span></div><div class="barra"><i style="width:${esperado?Math.min(100,Math.round(cobrado/esperado*100)):0}%"></i></div><div class="small muted">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}</div></div>
     <div class="row" style="margin:12px 0"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ CSV</button><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
+    ${mes!==mesActual?`<div class="banner info" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Estás viendo <strong>${mesLargo(mes)}</strong>, no el mes actual.</span><button class="btn sm" id="cobro-mes-actual">Ir a ${mesLargo(mesActual)}</button></div>`:''}
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
     ${(()=>{const aa=calcAgua(mes);return aa&&!aa.incompleto&&aa.inconsistente&&!mesCerrado(mes)?`<div class="banner alert" style="margin-bottom:12px">El medidor general de agua marca ${fmtN(aa.general,2)} m³ y la suma de los medidores internos da ${fmtN(aa.medidos,2)} m³: no puede ser menor. Revisa las lecturas de agua de ${mesLargo(mes)} antes de cobrar; el reparto de este mes no es confiable.</div>`:''})()}
@@ -1689,6 +1691,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
       ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
     </div></div>`;
+  const cma=$('#cobro-mes-actual');if(cma)cma.onclick=()=>{renderCobros.mes=null;try{sessionStorage.removeItem('recibos_mes_cobro')}catch(er){}renderCobros()};
   $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;try{sessionStorage.setItem('recibos_mes_cobro',e.target.value)}catch(er){}renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
   $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
