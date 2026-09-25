@@ -1687,7 +1687,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
       ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
     </div></div>`;
-  $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;renderCobros()};
+  $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;try{sessionStorage.setItem('recibos_mes_cobro',e.target.value)}catch(er){}renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
   $('#btn-enviar-todos').onclick=()=>abrirEnvioCobros(mes);
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
@@ -2334,7 +2334,7 @@ function abrirHistorialInquilino(dep,meses){
 
 /* ---------- Navegación ---------- */
 const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes','ruta'];
-function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)history.pushState({tab},'');tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"]`));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0)}
+function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)history.pushState({tab},'');tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"]`));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0);try{sessionStorage.setItem('recibos_tab',tab)}catch(e){}}
 window.irA=irA;
 // Botón «atrás» del celular: cierra la ventana abierta o vuelve a la pestaña anterior, en vez de salir de la app.
 const historialActivo=!(typeof google!=='undefined'&&google.script&&google.script.run)&&!!(window.history&&history.pushState);
@@ -2833,6 +2833,9 @@ async function conectar(){
   db=new SheetsDB(APPS_SCRIPT_URL);assets=crearAssets(db);downloads=crearDownloads();sample=crearSampleOCR();
   $('#aviso-db').hidden=true;
   if(esInquilino()){tabActual='inquilino';$('nav.tabs').hidden=true;PESTANAS.forEach(t=>$('#tab-'+t).hidden=true);$('#tab-inquilino').hidden=false;document.body.classList.add('modo-inquilino')}
+  else{let t=null,m=null;try{t=sessionStorage.getItem('recibos_tab');m=sessionStorage.getItem('recibos_mes_cobro')}catch(e){}
+    if(m&&/^\d{4}-\d{2}$/.test(m))renderCobros.mes=m;
+    if(t&&t!=='resumen'&&t!=='inquilino'&&PESTANAS.includes(t))irA(t)}
   const reVista=()=>{if(tabActual==='resumen')renderResumen();if(tabActual==='inquilino')renderInquilino()};
   db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').dataset.conexion='1';$('#aviso-db').textContent='No se pudo conectar con los datos ('+mensajeError(err)+'). Mientras tanto ves la última copia guardada en este dispositivo; la app reintenta sola.'});
   db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
