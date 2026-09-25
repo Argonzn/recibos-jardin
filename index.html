@@ -1474,6 +1474,85 @@ async function guardarLecturaAgua(id,body,opts){body.actualizado=new Date().toIS
 
 // "Pagó todo" con un toque: monto = lo que debe, fecha de hoy, a tiempo según el límite. Se puede deshacer.
 async function pagoRapido(dep,mes){return unaVez('pago-'+dep+'|'+mes,()=>pagoRapidoAhora(dep,mes))}
+// Reparte un monto entre los meses pendientes de un depto, del más antiguo al más reciente, con las reglas de siempre:
+// mes cubierto = pago completo; el que no alcanza = pago parcial; lo que sobra queda a favor (pago "de más" en el último mes).
+function planPago(dep,monto){
+  const ps=cobrosPendientesTodos().filter(p=>p.d.id===dep&&!p.faltan.length).sort((a,b)=>a.mes.localeCompare(b.mes));
+  let resto=r2(monto||0);const plan=[];
+  for(const p of ps){
+    if(resto<=0)break;
+    const ya=p.cobro&&p.cobro.montoCobrado!=null&&p.cobro.tipoPago==='parcial'?Number(p.cobro.montoCobrado):0;
+    const aplica=r2(Math.min(resto,p.falta));resto=r2(resto-aplica);
+    plan.push({p,ya,aplica,completo:aplica>=p.falta-0.005});
+  }
+  return{plan,resto,ps,incompletos:cobrosPendientesTodos().filter(p=>p.d.id===dep&&p.faltan.length)};
+}
+async function abrirPagoDepto(dep){
+  await esperarDatos();
+  const d=deptos.find(x=>x.id===dep),dlg=$('#dlg');
+  const base=planPago(dep,0),debe=r2(sum(base.ps,p=>p.falta));
+  if(!base.ps.length){toast(tituloDepto(d)+' no tiene meses pendientes con datos completos.',{sinDeshacer:true});return}
+  const data={monto:null,fecha:hoyLocal()};
+  dlg.innerHTML=`<div class="dlg-h"><h2>💵 Registrar pago — ${esc(nombreDepto(d))}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  <div class="dlg-b">
+    <div class="banner info" style="margin-bottom:12px">Debe <strong>${fmtS(debe)}</strong> en ${base.ps.length} mes${base.ps.length>1?'es':''}: ${base.ps.map(p=>mesCorto(p.mes)+' '+fmtS(p.falta)).join(' · ')}</div>
+    ${base.incompletos.length?`<p class="small muted">No incluye ${base.incompletos.map(p=>mesLargo(p.mes)).join(', ')} (faltan datos de ese mes).</p>`:''}
+    <label class="f">Monto que entregó (S/)<input type="text" inputmode="decimal" id="pd-monto" placeholder="${debe}"></label>
+    <div class="row" style="margin-top:6px"><button class="iconbtn" id="pd-todo">Pagó todo (${fmtS(debe)})</button></div>
+    <label class="f" style="margin-top:12px">Fecha del pago<input type="date" id="pd-fecha" value="${data.fecha}"></label>
+    <div id="pd-plan" style="margin-top:14px"></div>
+  </div>
+  <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="pd-save">Registrar pago</button></div>`;
+  const inM=dlg.querySelector('#pd-monto'),inF=dlg.querySelector('#pd-fecha');
+  const pintar=()=>{
+    const {plan,resto}=planPago(dep,data.monto),el=dlg.querySelector('#pd-plan');
+    if(!data.monto){el.innerHTML='<p class="small muted">Escribe el monto: aquí verás a qué meses se aplica.</p>';return}
+    const ultimo=plan[plan.length-1];
+    el.innerHTML='<div class="small muted" style="margin-bottom:6px">Se aplicará así:</div><div class="stack" style="gap:0">'+plan.map(x=>`<div class="pago-row"><div><strong>${mesLargo(x.p.mes)}</strong><div class="small muted">${x.p.estado.cls==='late'?'vencido':'límite '+fechaCorta(fechaLimitePago(x.p.mes))}${data.fecha>fechaLimitePago(x.p.mes)?' · fuera de fecha':''}</div></div><div>${fmtS(x.aplica)}</div><div class="small">${x.completo?'<span class="chip sm ok">queda pagado</span>':'<span class="chip sm pend">parcial: falta '+fmtS(r2(x.p.falta-x.aplica))+'</span>'}</div></div>`).join('')+'</div>'
+      +(resto>0?`<div class="banner info" style="margin-top:10px">Sobran <strong>${fmtS(resto)}</strong>: quedan a favor y se descuentan del cobro de ${mesLargo(siguienteMes(ultimo.p.mes))}.${plan.length>1?' Puede variar unos céntimos: al quedar pagados los meses atrasados se recalcula la mora de los siguientes.':''}</div>`:'')
+      +(plan.length<base.ps.length&&!resto?`<p class="small muted" style="margin-top:8px">Después de este pago seguirá debiendo ${fmtS(r2(debe-data.monto))}.</p>`:'');
+  };
+  inM.oninput=()=>{data.monto=num(inM.value);pintar()};
+  inM.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();dlg.querySelector('#pd-save').click()}};
+  inF.oninput=()=>{data.fecha=inF.value||hoyLocal();pintar()};
+  dlg.querySelector('#pd-todo').onclick=()=>{inM.value=debe;data.monto=debe;pintar()};
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelector('#pd-save').onclick=()=>unaVez('pago-depto-'+dep,async()=>{
+    const monto=num(inM.value);
+    if(!monto||monto<=0){toast('Ingresa el monto que entregó.',{sinDeshacer:true});return}
+    if(monto>Math.max(debe*3,debe+300)&&!(await confirmar('Registraste '+fmtS(monto)+' y debe '+fmtS(debe)+'. ¿Es correcto?','Sí, es correcto')))return;
+    const {plan,resto}=planPago(dep,monto),ahora=new Date().toISOString(),fecha=data.fecha||hoyLocal(),previos=[];
+    const btn=dlg.querySelector('#pd-save');btn.disabled=true;btn.textContent='Guardando…';
+    try{
+      for(let i=0;i<plan.length;i++){
+        const x=plan[i],c0=x.p.cobro,extra=i===plan.length-1?resto:0,montoMes=r2(x.ya+x.aplica+extra);
+        const tipo=extra>0?'demas':x.completo?'completo':'parcial';
+        const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:ahora,anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto:montoMes,fecha}}]);
+        const body={deptoId:dep,mes:x.p.mes,montoCobrado:montoMes,fechaCobro:fecha,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:fecha>fechaLimitePago(x.p.mes),tipoPago:tipo};
+        previos.push({id:dep+'_'+x.p.mes,previo:c0?JSON.parse(JSON.stringify(c0)):null,nuevo:body});
+        await guardarCobro(dep+'_'+x.p.mes,body,null,{esperado:c0?c0.actualizado:'',sinDeshacer:true});
+      }
+      dlg.close();
+      toast(fmtS(monto)+' registrado: '+plan.filter(x=>x.completo).length+' mes(es) pagado(s)'+(plan.some(x=>!x.completo)?', 1 parcial':'')+(resto>0?', '+fmtS(resto)+' a favor':''),{sinDeshacer:true,accion:['Deshacer',()=>deshacerPagoDepto(previos)]});
+    }catch(e){btn.disabled=false;btn.textContent='Registrar pago';toast('No se pudo guardar: '+mensajeError(e))}
+  });
+  pintar();if(!dlg.open)dlg.showModal();setTimeout(()=>inM.focus(),50);
+}
+// Revierte todos los meses de un pago repartido (queda en el historial de cada mes).
+async function deshacerPagoDepto(previos){
+  const ahora=new Date().toISOString();
+  try{
+    for(const x of previos){
+      const entrada={cuando:ahora,deshecho:true,anterior:{monto:x.nuevo.montoCobrado,fecha:x.nuevo.fechaCobro},nuevo:{monto:x.previo?x.previo.montoCobrado??null:null,fecha:x.previo?x.previo.fechaCobro??null:null}};
+      const hist=x.nuevo.historialCobro.concat([entrada]);
+      let data;
+      if(x.previo){data={...x.previo};delete data.id;data.historialCobro=hist}
+      else data={...x.nuevo,montoCobrado:null,fechaCobro:null,pagoTarde:null,tipoPago:null,historialCobro:hist};
+      await db._write({action:'set',collection:'cobros',id:x.id,data},{sinDeshacer:true});
+    }
+    toast('Pago deshecho',{sinDeshacer:true});
+  }catch(e){toast('No se pudo deshacer: '+mensajeError(e),{sinDeshacer:true})}
+}
 async function pagoRapidoAhora(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);if(x.faltan.length){toast('Falta '+x.faltan.join(' y ')+': abre el cobro para revisarlo.');return}
@@ -1546,7 +1625,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
     <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details class="pend-depto ${late?'atrasado':''}"><summary>
       <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''}: ${ps.map(p=>mesCorto(p.mes)).join(', ')}</div></div>
       <div class="pend-total">${fmtS(sum(ps,p=>p.falta))}${late?'<div class="small">vencido</div>':''}</div>
-      <button class="btn sm" data-recordar="${id}">📲 Recordar</button></summary>
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" data-pago-depto="${id}">💵 Pago</button><button class="btn sm" data-recordar="${id}">📲 Recordar</button></div></summary>
       <div class="stack" style="gap:0;margin-top:6px">${ps.slice().reverse().map(p=>`<div class="pago-row ${p.estado.cls==='late'?'atrasado':''}">
         <div>${mesLargo(p.mes)}<div class="muted small">Límite: ${fechaCorta(fechaLimitePago(p.mes))}</div></div>
         <div class="small">${fmtS(p.falta)}${p.legado!=null?'<div class="muted small">ya pagó '+fmtS(p.legado)+' de luz</div>':''}</div>
@@ -1570,6 +1649,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
   const cc=$('#btn-csv-cobros');if(cc)cc.onclick=()=>exportarCobrosCSV();
   const rt=$('#btn-recordar-todos');if(rt)rt.onclick=()=>abrirRecordatorios();
+  el.querySelectorAll('[data-pago-depto]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();abrirPagoDepto(b.dataset.pagoDepto)});
   el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
   el.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>cambiarValorConfig(b.dataset.cfg));
