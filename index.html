@@ -706,6 +706,27 @@ async function procesar(files){
 
 /* ---------- Reportes ---------- */
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+// Cobranza desde que se calcula con el sistema (meses cerrados aparte): por depto y por mes.
+function panelCobranza(){
+  const meses=mesesCobro().filter(m=>!mesCerrado(m));if(!meses.length||!deptos.length)return'';
+  const mesSig=siguienteMes(meses[meses.length-1]);
+  const porDepto=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>{
+    const xs=meses.map(m=>detalleCobro(d.id,m)).filter(x=>x.participa);
+    return{d,fact:r2(sum(xs,x=>x.total)),cob:r2(sum(xs,x=>x.pagado)),pend:r2(sum(xs.filter(x=>x.estado.cls!=='ok'),x=>x.falta)),favor:creditoEntrante(d.id,mesSig)};
+  }).filter(f=>f.fact>0);
+  const porMes=meses.map(m=>{const xs=cobrosDelMes(m);return{m,fact:r2(sum(xs,x=>x.neto)),cob:r2(sum(xs,x=>x.pagado)),pend:r2(sum(xs.filter(x=>x.estado.cls!=='ok'),x=>x.falta)),inc:xs.some(x=>x.faltan.length)}});
+  const T=k=>fmtS(sum(porDepto,f=>f[k]));
+  const pct=(a,b)=>b>0?Math.round(a/b*100)+'%':'—';
+  return `<div class="panel"><h2>Cobranza desde ${mesLargo(meses[0])}</h2>
+    <p class="muted small" style="margin:0 0 10px">Lo que se cobró de lo calculado para cada depto. Los meses anteriores están cerrados con lo que se pagó.</p>
+    <div class="scroll"><table><thead><tr><th>Depto</th><th>Calculado</th><th>Cobrado</th><th>Pendiente</th><th>A favor</th></tr></thead><tbody>
+    ${porDepto.map(f=>`<tr><td>${esc(nombreDepto(f.d))}</td><td>${fmtS(f.fact)}</td><td>${fmtS(f.cob)} <span class="muted small">${pct(f.cob,f.fact)}</span></td><td>${f.pend?'<strong>'+fmtS(f.pend)+'</strong>':'—'}</td><td>${f.favor?fmtS(f.favor):'—'}</td></tr>`).join('')}
+    </tbody><tfoot><tr><td>Total</td><td>${T('fact')}</td><td>${T('cob')}</td><td>${T('pend')}</td><td>${T('favor')}</td></tr></tfoot></table></div>
+    <h3 style="margin-top:16px">Por mes</h3>
+    <div class="scroll"><table><thead><tr><th>Mes</th><th>A cobrar</th><th>Cobrado</th><th>Pendiente</th></tr></thead><tbody>
+    ${porMes.slice().reverse().map(x=>`<tr><td>${mesLargo(x.m)}${x.inc?' <span class="muted small">(incompleto)</span>':''}</td><td>${fmtS(x.fact)}</td><td>${fmtS(x.cob)} <span class="muted small">${pct(x.cob,x.fact)}</span></td><td>${x.pend?fmtS(x.pend):'—'}</td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
 function renderReportes(){
   charts.forEach(c=>c.destroy());charts=[];
   const el=$('#tab-reportes');
@@ -734,6 +755,7 @@ function renderReportes(){
       <tfoot><tr><td>Total</td><td>${fmtN(tk)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia))}</td><td>${fmtS(sum(rs,cargosFijos))}</td><td>${fmtS(sum(rs,r=>r.alumbrado))}</td><td>${fmtS(sum(rs,impuestos))}</td><td>${fmtS(sum(rs,intereses))}</td><td>${fmtS(tm)}</td><td></td><td></td><td></td></tr>
       <tr><td>Promedio</td><td>${fmtN(tk/n)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia)/n)}</td><td>${fmtS(sum(rs,cargosFijos)/n)}</td><td>${fmtS(sum(rs,r=>r.alumbrado)/n)}</td><td>${fmtS(sum(rs,impuestos)/n)}</td><td>${fmtS(sum(rs,intereses)/n)}</td><td>${fmtS(tm/n)}</td><td></td><td></td><td></td></tr></tfoot>
     </table></div></div>`;
+  el.insertAdjacentHTML('afterbegin',panelCobranza());
   $('#anio').onchange=e=>{renderReportes.anio=e.target.value;renderReportes()};
   const csvBtn=$('#csv');if(csvBtn)csvBtn.onclick=()=>exportarCSV(rs,sel);
   if(!window.Chart){cargarChart().then(()=>{if(tabActual==='reportes')renderReportes()}).catch(()=>{});return}
