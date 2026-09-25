@@ -1174,6 +1174,12 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       if(directo){if(data.kwhDirecto==null){toast('Ingresa el consumo del mes.');return}}
       else if(data.lecturaActual==null){toast('Falta la lectura actual.');return}
       const id=deptoId+'_'+data.mes;
+      const consumoNuevo=directo?data.kwhDirecto:(data.lecturaAnterior!=null?data.lecturaActual-data.lecturaAnterior:null);
+      if(consumoNuevo!=null&&deptoId!=='general'){
+        const normal=consumoNormal(deptoId,data.mes,AG?'agua':'luz');
+        if(consumoNuevo<0&&!(await confirmar('La lectura actual es menor que la anterior (consumo '+fmtN(consumoNuevo,AG?3:0)+' '+unidad+'). ¿Guardar igual?','Guardar igual')))return;
+        if(normal&&consumoNuevo>=0&&(consumoNuevo>normal*2||consumoNuevo<normal/3)&&!(await confirmar('Este mes da '+fmtN(consumoNuevo,AG?2:0)+' '+unidad+' y lo normal de este depto es ~'+fmtN(normal,AG?1:0)+' '+unidad+'. Revisa que el número esté bien escrito. ¿Guardar igual?','Guardar igual')))return;
+      }
       const btn=dlg.querySelector('#f-save');btn.disabled=true;btn.textContent='Guardando…';
       try{
         if(!directo&&data.fotoBlob&&assets){
@@ -1886,6 +1892,22 @@ function iniciarSecuenciaLecturas(mes){
   paso(0);
 }
 
+/* ---------- Consumos fuera de lo normal ---------- */
+function consumoNormal(dep,mes,servicio){
+  const ls=(servicio==='agua'?lecturasAguaDe(dep):lecturasDe(dep)).filter(l=>l.mes<mes).slice(-6);
+  const vals=ls.map(l=>servicio==='agua'?m3De(l):Number(l.kwh)).filter(v=>v!=null&&!isNaN(v)&&v>0);
+  return vals.length>=3?mediana(vals):null;
+}
+// Altos: al menos 40 % sobre lo normal y una diferencia que importe (20 kWh o 3 m³).
+function consumosAltos(mes){
+  const out=[];
+  deptos.forEach(d=>{
+    const l=lecturaDe(d.id,mes);if(l&&l.kwh!=null){const n=consumoNormal(d.id,mes,'luz');if(n&&l.kwh>n*1.4&&l.kwh-n>=20)out.push({d,serv:'luz',v:Number(l.kwh),n,u:'kWh'})}
+    const la=lecturaAguaDe(d.id,mes),m=m3De(la);if(m!=null){const n=consumoNormal(d.id,mes,'agua');if(n&&m>n*1.4&&m-n>=3)out.push({d,serv:'agua',v:m,n,u:'m³'})}
+  });
+  return out;
+}
+
 /* ---------- Resumen: qué hacer este mes ---------- */
 function tareasDelMes(){
   const mes=mesDeLecturas(),hoy=new Date().toISOString().slice(0,10),T=[];
@@ -1902,6 +1924,8 @@ function tareasDelMes(){
   if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
   if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
     btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+(e.message||e.code)))}]})}
+  const altos=consumosAltos(mes);
+  if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:['Ver deptos',()=>irA('deptos')]});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
   if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:ant.length+' · '+fmtS(sum(ant,p=>p.falta)),btn:['Ver',()=>irA('cobros')]});
   return{mes,T};
