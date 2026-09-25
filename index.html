@@ -2696,7 +2696,9 @@ class SheetsDB{
     const abiertos=tab?[...tab.querySelectorAll('details[open]')].map(clave):[];
     const vista=this.pendientes.length?JSON.parse(JSON.stringify(all)):all;
     this.pendientes.forEach(p=>SheetsDB.aplicar(vista,p));
-    Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>{calcAgua.memo=null;s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))})})});
+    redibujoAgrupado.activo=true;
+    try{Object.keys(this.subs).forEach(n=>{const docs=vista[n]||[];this.subs[n].forEach(s=>{calcAgua.memo=null;s.cb({docs:docs.map(d=>({id:d.id,data:()=>d}))})})})}
+    finally{redibujoAgrupado.activo=false;calcAgua.memo=null;redibujoAgrupado.vaciar()}
     if(tab&&abiertos.length)tab.querySelectorAll('details').forEach(d=>{if(abiertos.includes(clave(d)))d.open=true});
   }
   static aplicar(all,p){
@@ -2837,6 +2839,23 @@ async function conectar(){
   renderTodo();db.mostrarCopiaLocal();marcarEstadoSync();
   if(tabActual==='reportes')renderReportes();
 }
+// Redibujado agrupado: las funciones de dibujo, si se llaman durante una entrega de datos, se anotan y se ejecutan
+// una sola vez al terminar (renderTodo primero, porque ya dibuja el resumen, la luz y la pestaña activa).
+const redibujoAgrupado={activo:false,pendientes:new Set(),vaciar(){
+  const p=this.pendientes;this.pendientes=new Set();if(!p.size)return;
+  const orden=['renderTodo','renderResumen','renderRecibos','renderAgua','renderDeptos','renderCobros','renderReportes','renderRuta','renderInquilino'];
+  const hechos=new Set();
+  if(p.has('renderTodo')){REDIBUJOS.renderTodo();hechos.add('renderTodo');['renderResumen','renderRecibos'].forEach(n=>hechos.add(n));if(tabActual&&({agua:1,deptos:1,cobros:1,reportes:1,ruta:1,inquilino:1})[tabActual])hechos.add('render'+tabActual[0].toUpperCase()+tabActual.slice(1))}
+  orden.forEach(n=>{if(p.has(n)&&!hechos.has(n)){REDIBUJOS[n]();hechos.add(n)}});
+}};
+const REDIBUJOS={};
+[['renderTodo',renderTodo],['renderResumen',renderResumen],['renderRecibos',renderRecibos],['renderAgua',renderAgua],['renderDeptos',renderDeptos],['renderCobros',renderCobros],['renderReportes',renderReportes],['renderRuta',renderRuta],['renderInquilino',renderInquilino]].forEach(([n,f])=>{
+  REDIBUJOS[n]=f;
+  const envoltura=function(...a){if(redibujoAgrupado.activo&&!a.length){redibujoAgrupado.pendientes.add(n);return}return f.apply(this,a)};
+  Object.assign(envoltura,f); // conserva propiedades guardadas en la función (p. ej. renderCobros.mes)
+  window[n]=envoltura;
+});
+renderTodo=window.renderTodo;renderResumen=window.renderResumen;renderRecibos=window.renderRecibos;renderAgua=window.renderAgua;renderDeptos=window.renderDeptos;renderCobros=window.renderCobros;renderReportes=window.renderReportes;renderRuta=window.renderRuta;renderInquilino=window.renderInquilino;
 conectar();
 async function cerrarSesion(){
   if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
