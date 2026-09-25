@@ -1565,7 +1565,7 @@ async function abrirCargosMes(mes){
   c.querySelector('#cm-save').onclick=async()=>{
     const vals=['luz','agua','mant'].map(k=>num(c.querySelector('#cm-'+k).value));
     const cb=c.querySelector('#cm-base');const base=cb?num(cb.value):car.base;
-    if(vals.some(v=>v==null||v<0)||base==null||base<0){toast('Revisa los montos.');return}
+    if(vals.some(v=>v==null||v<0)||base==null||base<0){toast('Completa todos los montos (usa 0 si no corresponde); no pueden ser negativos.');return}
     try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2],base});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}
   };
   c.showModal();
