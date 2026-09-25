@@ -1220,7 +1220,8 @@ function responsablesAtraso(mes){
   const g=r&&r.responsablesAtraso;
   if(g&&!Array.isArray(g)&&g.manual)return{ids:g.ids||[],fuente:'manual'};
   const prev=mesAnterior(mes),lim=fechaLimitePago(prev);
-  const ids=deptosConAgua().filter(d=>{const c=cobroDe(d.id,prev);return !c||c.montoCobrado==null||(c.fechaCobro&&c.fechaCobro>lim)}).map(d=>d.id);
+  // pagoTarde marcado en el cobro manda; si no está marcado, se decide por la fecha de cobro.
+  const ids=deptosConAgua().filter(d=>{const c=cobroDe(d.id,prev);if(!c||c.montoCobrado==null)return true;if(c.pagoTarde===true)return true;if(c.pagoTarde===false)return false;return !!(c.fechaCobro&&c.fechaCobro>lim)}).map(d=>d.id);
   return{ids,fuente:ids.length?'auto':'todos'};
 }
 
@@ -1246,7 +1247,7 @@ function detalleCobro(dep,mes){
   const cobrado=c&&c.montoCobrado!=null?Number(c.montoCobrado):null;
   const legado=cobrado==null&&lz&&lz.montoCobrado!=null?Number(lz.montoCobrado):null; // cobro de solo luz registrado antes del módulo de agua
   let estado;
-  if(cobrado!=null)estado={cls:'ok',txt:'Cobrado'};
+  if(cobrado!=null)estado={cls:'ok',txt:c.pagoTarde===true?'Cobrado · fuera de fecha':'Cobrado'};
   else if(legado!=null)estado={cls:'pend',txt:usaAgua?'Solo luz cobrada':'Cobrado (luz)'};
   else{const dh=diasHasta(fechaLimitePago(mes));estado=dh!=null&&dh<0?{cls:'late',txt:'Atrasado'}:{cls:'pend',txt:'Pendiente'}}
   if(legado!=null&&!usaAgua)estado={cls:'ok',txt:'Cobrado'};
@@ -1348,7 +1349,10 @@ async function abrirCargosMes(mes){
 async function abrirCobroMes(dep,mes){
   await esperarDatos();
   const x=detalleCobro(dep,mes);const c0=x.cobro;
-  const data={monto:c0&&c0.montoCobrado!=null?Number(c0.montoCobrado):null,fecha:(c0&&c0.fechaCobro)||new Date().toISOString().slice(0,10),nota:(c0&&c0.nota)||''};
+  const data={monto:c0&&c0.montoCobrado!=null?Number(c0.montoCobrado):null,fecha:(c0&&c0.fechaCobro)||new Date().toISOString().slice(0,10),nota:(c0&&c0.nota)||'',
+    tarde:c0&&typeof c0.pagoTarde==='boolean'?c0.pagoTarde:null}; // null = se sugiere por la fecha
+  const lim=fechaLimitePago(mes),mesAgua=siguienteMes(mes);
+  const tardeEfectivo=()=>data.tarde!=null?data.tarde:!!(data.fecha&&data.fecha>lim);
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
   const pintar=()=>{
@@ -1362,15 +1366,28 @@ async function abrirCobroMes(dep,mes){
       <label class="f" style="margin-top:12px">Monto cobrado (S/)<input type="text" inputmode="decimal" id="cm-monto" value="${data.monto??''}" placeholder="${x.total}"></label>
       <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Usar el total (${fmtS(x.total)})</button></div>
       <label class="f" style="margin-top:10px">Fecha de cobro<input type="date" id="cm-fecha" value="${data.fecha}"></label>
+      <div style="margin-top:12px">
+        <div class="small muted" style="margin-bottom:6px">¿Pagó a tiempo? Fecha límite: <strong>${fechaCorta(lim)}</strong></div>
+        <div class="seg" role="group" aria-label="¿Pagó a tiempo?"><button type="button" data-tarde="no">✓ A tiempo</button><button type="button" data-tarde="si">⏰ Fuera de fecha</button></div>
+        <p class="small" id="cm-tarde-info" style="margin:6px 0 0"></p>
+      </div>
       <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
       <p class="muted small" style="margin-top:12px">Cada cambio queda en el historial${hist.length?` (${hist.length} cambio${hist.length>1?'s':''})`:''}.</p>
     </div>
     <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelector('#cm-total').onclick=()=>{dlg.querySelector('#cm-monto').value=x.total};
+    // A tiempo / fuera de fecha: se sugiere por la fecha hasta que se elige a mano. Se actualiza sin redibujar el formulario.
+    const pintarTarde=()=>{const t=tardeEfectivo();
+      dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
+      dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Le tocará una parte de la mora, el corte y la reapertura del recibo de agua de ${mesLargo(mesAgua)}.`:`No pagará mora, corte ni reapertura del recibo de agua de ${mesLargo(mesAgua)}.`)
+        +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
+    dlg.querySelectorAll('[data-tarde]').forEach(b=>b.onclick=()=>{data.tarde=b.dataset.tarde==='si';pintarTarde()});
+    dlg.querySelector('#cm-fecha').oninput=e=>{data.fecha=e.target.value;pintarTarde()};
+    pintarTarde();
     const guardarCon=async(monto,fecha,nota)=>{
       const h=hist.concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha}}]);
-      await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h});
+      await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:fecha,nota,historialCobro:h,pagoTarde:monto==null?null:tardeEfectivo()});
     };
     const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
     dlg.querySelector('#cm-save').onclick=async()=>{

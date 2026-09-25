@@ -33,7 +33,9 @@ const SHEETS = {
   // base = m³ del mes para los deptos sin medidor (cada mes guarda la suya).
   cargos: ['id','admLuz','admAgua','mant','actualizado','base'],
   // Cobro único por depto y mes (luz + agua + administración + mantenimiento + atrasos).
-  cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado'],
+  // pagoTarde: true = pagó fuera de fecha (le toca parte de la mora/corte/reapertura del agua del mes siguiente),
+  // false = a tiempo, vacío = se decide por la fecha de cobro.
+  cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado','pagoTarde'],
 };
 
 // Columnas que deben guardarse como texto plano. Sin esto Sheets convierte "2025-12" o
