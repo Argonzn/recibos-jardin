@@ -698,6 +698,7 @@ function tituloDepto(d){return 'Depto '+(d.numero??'?')}
 function miniUnidad(d,mesRef){
   const ls=lecturasDe(d.id);const last=ls[ls.length-1];
   const falta=d.estado!=='desocupado'&&mesRef&&!lecturaDe(d.id,mesRef);
+  const faltaAgua=tipoAgua(d)==='medidor'&&mesRef&&aguaRecibos.some(r=>r.id===mesRef)&&!lecturaAguaDe(d.id,mesRef);
   const pago=last?estadoPago(last):null;
   return `<button class="unidad ${d.estado==='desocupado'?'suspendido':''}" data-depto="${d.id}">
     <div class="n">${tituloDepto(d)}</div>
@@ -705,7 +706,7 @@ function miniUnidad(d,mesRef){
     <div class="chips">
       <span class="chip sm ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Desocupado':'Activo'}</span>
       ${pago&&d.estado!=='desocupado'?`<span class="chip sm ${pago.cls}">${pago.txt}</span>`:''}
-      ${falta?`<span class="chip sm miss">Falta lectura</span>`:''}
+      ${falta?`<span class="chip sm miss">Falta luz</span>`:''}${faltaAgua?`<span class="chip sm miss">Falta agua</span>`:''}
     </div>
   </button>`;
 }
@@ -741,7 +742,7 @@ function renderDeptos(){
   const mesRef=ultimoMesConDatos();
   const su=sinUbicar();
   const pc=cobrosPendientesTodos();
-  el.innerHTML=`<div class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Cobros</h2><p class="muted small" style="margin:4px 0 0">${pc.length?pc.length+' pendientes · '+fmtS(sum(pc,x=>x.falta))+' por cobrar':'Todo cobrado'}</p></div><button class="btn primary" onclick="irA(\'cobros\')">Ver cobros</button></div></div><div class="panel">
+  el.innerHTML=panelLecturasDelMes()+`<div class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Cobros</h2><p class="muted small" style="margin:4px 0 0">${pc.length?pc.length+' pendientes · '+fmtS(sum(pc,x=>x.falta))+' por cobrar':'Todo cobrado'}</p></div><button class="btn primary" onclick="irA(\'cobros\')">Ver cobros</button></div></div><div class="panel">
     <div class="row" style="justify-content:space-between">
       <h2 style="margin:0">Departamentos</h2>
       <button class="btn primary" id="btn-add-depto">Agregar departamento</button>
@@ -753,7 +754,7 @@ function renderDeptos(){
   <div class="edificio" id="edificio">${PISOS.map(p=>`<div class="piso-row"><div class="piso-num">P${p}</div>${LADOS.map(l=>{const d=deptoEnSlot(p,l);return d?miniUnidad(d,mesRef):`<button class="unidad vacio" data-slot="${p}-${l}">+ Vacío</button>`}).join('')}</div>`).join('')}</div>
   ${su.length?`<div class="panel"><h3>Sin ubicar en el plano</h3><div class="sinubicar">${su.map(d=>`<button data-ubicar="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div></div>`:''}
   <div class="panel" id="comparativa"></div>`;
-  renderComparativa(mesRef);
+  renderComparativa(mesRef);conectarPanelLecturas();
   document.querySelectorAll('[data-cobrar]').forEach(b=>b.onclick=()=>{const l=lecturas.find(x=>x.id===b.dataset.cobrar);if(l)abrirCobro(l,b.dataset.dep)});
   $('#btn-add-depto').onclick=async()=>{
     const n=(Math.max(0,...deptos.map(d=>d.numero||0)))+1;
@@ -806,31 +807,71 @@ function abrirUbicar(deptoId){
   dlg.showModal();
 }
 
+// Comparativa del mes con tres vistas: Luz (kWh y %), Agua (m³ y reparto) y Todo (lo que paga cada depto).
 function renderComparativa(mesDefault){
   const el=$('#comparativa');if(!el)return;
-  const meses=[...new Set([...recibos.map(r=>r.id),...lecturas.map(l=>l.mes)])].sort().reverse();
-  const mes=renderComparativa.mes&&meses.includes(renderComparativa.mes)?renderComparativa.mes:(mesDefault||meses[0]);
+  const meses=mesesCobro().slice().reverse();
+  const mes=renderComparativa.mes&&meses.includes(renderComparativa.mes)?renderComparativa.mes:(mesDefault&&meses.includes(mesDefault)?mesDefault:meses[0]);
+  const vista=renderComparativa.vista||'luz';
   if(!meses.length){el.innerHTML=`<h3>Comparativa del mes</h3><p class="muted small">Aparece cuando haya recibos o lecturas cargadas.</p>`;return}
-  const r=recibos.find(x=>x.id===mes);
-  const sumaSub=sumaSubmedidores(mes);
-  const filas=deptos.filter(d=>d.estado!=='desocupado'||lecturaDe(d.id,mes)).sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>{const l=lecturaDe(d.id,mes);const v=calcVerif(d.id,mes);return{d,l,v}});
-  const conLectura=filas.filter(f=>f.l&&f.l.kwh!=null);
-  const parcial=deptos.filter(x=>x.estado!=='desocupado').length>conLectura.length;
-  const residual=r?r.kwh-sumaSub:null;
-  el.innerHTML=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Comparativa del mes</h3>
-    <select id="sel-mes-comp">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
-    ${!r?`<p class="muted small" style="margin-top:10px">No hay recibo del edificio guardado para ${mesLargo(mes)}, así que no se puede calcular el % ni el cargo correcto todavía.</p>`
-      :`<p class="muted small" style="margin-top:10px">Edificio: ${fmtN(r.kwh)} kWh, ${fmtS(r.totalMes)} del mes. Sub-medidores registrados: ${fmtN(sumaSub)} kWh${parcial?' (faltan deptos por leer)':''}. El costo eléctrico se reparte según el % de cada depto sobre los sub-medidores, no sobre el total del edificio, para que no lo afecten las fechas de lectura de Luz del Sur.</p>`}
-    <p class="small" style="margin:6px 0 12px"><strong>Cargo correcto</strong> = lo que debe pagar (electricidad + mantenimiento). <strong>Cargo cobrado</strong> = lo que se pagó. <strong>Diferencia</strong>: <span class="diff-pos">verde = excedente</span>, <span class="diff-neg">rojo = falta</span>.</p>
-    <div class="scroll"><table>
-    <thead><tr><th>Depto</th><th>kWh depto</th><th>% correcto</th><th>Electricidad</th><th>Mantenimiento</th><th>Cargo correcto</th><th>Cargo cobrado</th><th>Diferencia</th></tr></thead>
-    <tbody>${filas.map(({d,l,v})=>`<tr><td>${tituloDepto(d)}${d.encargado?' · '+esc(d.encargado):''}${d.estado==='desocupado'?' <span class="muted small">(desocupado)</span>':''}</td>
-      <td>${l&&l.kwh!=null?fmtN(l.kwh):'—'}</td>
-      <td>${v?fmtN(v.pct*100,2)+'%':'—'}</td><td>${v?fmtS(v.cargoElectricidad):'—'}</td><td>${v?fmtS(v.mant):'—'}</td><td>${v?fmtS(v.cargoCorrecto):'—'}</td><td>${v&&v.cobrado!=null?fmtS(v.cobrado):'—'}</td>
-      <td>${v&&v.diferencia!=null?`<span class="${v.diferencia>0?'diff-pos':v.diferencia<0?'diff-neg':''}">${v.diferencia>0?'+':''}${fmtS(v.diferencia)}</span>`:'—'}</td></tr>`).join('')}
-    </tbody></table></div>
-    ${r&&residual!=null?`<p class="muted small" style="margin-top:10px">Áreas comunes / sin medir: ${fmtN(residual)} kWh${parcial?' (dato parcial, faltan deptos por leer este mes)':''}. No se cobra a ningún depto.</p>`:''}`;
+  const cab=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Comparativa del mes</h3>
+    <select id="sel-mes-comp" aria-label="Mes">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
+    <div class="seg" role="tablist" style="margin:12px 0 4px">${[['luz','Luz'],['agua','Agua'],['todo','Todo junto']].map(([k,t])=>`<button type="button" class="${vista===k?'on':''}" data-vista="${k}">${t}</button>`).join('')}</div>`;
+  let cuerpo='';
+  const ordenados=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0));
+  if(vista==='luz'){
+    const r=recibos.find(x=>x.id===mes);const sumaSub=sumaSubmedidores(mes);
+    const filas=ordenados.filter(d=>d.estado!=='desocupado'||lecturaDe(d.id,mes)).map(d=>({d,l:lecturaDe(d.id,mes),v:calcVerif(d.id,mes)}));
+    const conLectura=filas.filter(f=>f.l&&f.l.kwh!=null);const parcial=deptos.filter(x=>x.estado!=='desocupado').length>conLectura.length;
+    cuerpo=!r?`<p class="muted small" style="margin-top:10px">No hay recibo de luz de ${mesLargo(mes)}: todavía no se puede calcular el reparto.</p>`
+      :`<p class="muted small" style="margin-top:10px">Edificio: ${fmtN(r.kwh)} kWh, ${fmtS(r.totalMes)} del mes. Sub-medidores: ${fmtN(sumaSub)} kWh${parcial?' (faltan deptos por leer)':''}. El costo se reparte según el % de cada depto sobre los sub-medidores.</p>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>kWh</th><th>%</th><th>Luz</th><th>Adm. luz</th><th>Total luz</th></tr></thead>
+      <tbody>${filas.map(({d,l,v})=>`<tr><td>${esc(nombreDepto(d))}</td><td>${l&&l.kwh!=null?fmtN(l.kwh):'<span class="chip sm miss">Falta</span>'}</td><td>${v?fmtN(v.pct*100,2)+'%':'—'}</td><td>${v?fmtS(v.cargoElectricidad):'—'}</td><td>${v?fmtS(v.mant):'—'}</td><td><strong>${v?fmtS(v.cargoCorrecto):'—'}</strong></td></tr>`).join('')}</tbody></table></div>
+      <p class="muted small" style="margin-top:10px">Áreas comunes / sin medir: ${fmtN(r.kwh-sumaSub)} kWh${parcial?' (dato parcial)':''}. Se reparten dentro del % de cada depto.</p>`;
+  }else if(vista==='agua'){
+    const a=calcAgua(mes);
+    cuerpo=!a?`<p class="muted small" style="margin-top:10px">No hay recibo de agua de ${mesLargo(mes)}.</p>`
+      :a.incompleto?`<div class="banner warn" style="margin-top:10px">Faltan lecturas de agua de ${mesLargo(mes)}: ${a.faltan.map(d=>esc(nombreDepto(d))).join(', ')}.</div>`
+      :`<p class="muted small" style="margin-top:10px">General ${fmtN(a.general,2)} m³ − medidos ${fmtN(a.medidos,2)} m³ = ${fmtN(a.R,2)} m³ sin medir (${fmtN(a.pct*100,0)} %)${a.fueraDeLoNormal?`, <strong>${fmtN(a.exceso,1)} m³ por encima de lo normal</strong>`:''}. Base sin medidor del mes: ${fmtN(a.base,1)} m³.</p>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>%</th><th>Agua</th><th>Atraso</th></tr></thead>
+      <tbody>${ordenados.filter(d=>a.porDepto[d.id]).map(d=>{const p=a.porDepto[d.id];return `<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtN(p.m3/a.general*100,1)}%</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`}).join('')}</tbody></table></div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" data-veragua="${mes}">Ver el detalle del recibo</button></div>`;
+  }else{
+    const filas=cobrosDelMes(mes);
+    cuerpo=`<p class="muted small" style="margin-top:10px">Luz + agua + administración + mantenimiento + atrasos de ${mesLargo(mes)}. Los pagos se registran en la pestaña Cobros.</p>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Atraso</th><th>Total</th><th>Estado</th></tr></thead>
+      <tbody>${filas.map(x=>`<tr><td>${esc(nombreDepto(x.d))}</td><td>${x.partes.luz!=null?fmtS(x.partes.luz):'—'}</td><td>${x.partes.agua!=null?fmtS(x.partes.agua):'—'}</td><td>${fmtS(x.partes.admLuz+x.partes.admAgua+x.partes.mant)}</td><td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td><td><strong>${fmtS(x.total)}</strong>${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(sum(filas,x=>x.total))}</td><td></td></tr></tfoot></table></div>
+      <div class="row" style="margin-top:10px"><button class="btn sm" id="comp-ir-cobros">Registrar pagos en Cobros</button></div>`;
+  }
+  el.innerHTML=cab+cuerpo;
   $('#sel-mes-comp').onchange=e=>{renderComparativa.mes=e.target.value;renderComparativa()};
+  el.querySelectorAll('[data-vista]').forEach(b=>b.onclick=()=>{renderComparativa.vista=b.dataset.vista;renderComparativa(mes)});
+  el.querySelectorAll('[data-veragua]').forEach(b=>b.onclick=()=>abrirDetalleAgua(b.dataset.veragua));
+  const ic=el.querySelector('#comp-ir-cobros');if(ic)ic.onclick=()=>{renderCobros.mes=mes;irA('cobros')};
+}
+
+// Lista del día 12: qué lecturas de luz y agua faltan este mes y un botón directo para cada una.
+function mesDeLecturas(){const d=new Date();const m=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');return d.getDate()>=12?m:mesAnterior(m)}
+function panelLecturasDelMes(){
+  const mes=renderDeptos.mesLect||mesDeLecturas();
+  const ordenados=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0));
+  const celdaLuz=d=>{if(d.estado==='desocupado')return'<span class="muted small">sin luz</span>';const l=lecturaDe(d.id,mes);return l?`<span class="chip sm ok">✓ ${fmtN(l.kwh)} kWh</span>`:`<button class="btn sm primary" data-leer="${d.id}|luz">Luz</button>`};
+  const celdaAgua=d=>{const t=tipoAgua(d);if(t==='no')return'<span class="muted small">sin agua</span>';if(t==='sin_medidor')return'<span class="muted small">se estima</span>';const l=lecturaAguaDe(d.id,mes);return l?`<span class="chip sm ok">✓ ${fmtN(m3De(l),2)} m³</span>`:`<button class="btn sm primary" data-leer="${d.id}|agua">Agua</button>`};
+  const gen=lecturaAguaDe('general',mes);
+  const faltan=ordenados.filter(d=>d.estado!=='desocupado'&&!lecturaDe(d.id,mes)).length+ordenados.filter(d=>tipoAgua(d)==='medidor'&&!lecturaAguaDe(d.id,mes)).length+(gen?0:1);
+  return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lecturas de ${mesLargo(mes)}</h2>
+      <span class="chip ${faltan?'pend':'ok'}">${faltan?faltan+' por tomar':'Completas'}</span></div>
+    <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura. <button class="iconbtn" id="cambiar-mes-lect">Otro mes</button></p>
+    <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
+      ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
+      <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">✓ ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
+    </tbody></table></div></div>`;
+}
+function conectarPanelLecturas(){
+  document.querySelectorAll('[data-leer]').forEach(b=>b.onclick=()=>{const [dep,serv]=b.dataset.leer.split('|');const mes=renderDeptos.mesLect||mesDeLecturas();
+    abrirLecturaForm(dep,null,serv).then(()=>{const f=$('#f-mes');if(f&&f.value!==mes){f.value=mes;f.dispatchEvent(new Event('change'))}})});
+  const cm=$('#cambiar-mes-lect');if(cm)cm.onclick=async()=>{const v=await pedirTexto('¿De qué mes? (AAAA-MM)',renderDeptos.mesLect||mesDeLecturas());if(v&&/^\d{4}-\d{2}$/.test(v.trim())){renderDeptos.mesLect=v.trim();renderDeptos()}};
 }
 
 function abrirDepto(id){
@@ -845,13 +886,15 @@ function abrirDepto(id){
         ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
         <button class="btn" id="btn-ver-cobros">Ver cobros</button>
       </div>
+      <div class="row" style="margin-bottom:16px">
+        ${d.estado!=='desocupado'?'<button class="btn primary" id="add-lectura-top">📷 Lectura de luz</button>':''}
+        ${ta==='medidor'?'<button class="btn primary" id="add-lectura-agua-top">📷 Lectura de agua</button>':''}
+      </div>
 
       <h3>Luz</h3>
       <div class="row" style="margin-bottom:12px">
         <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz / desocupado':'Con luz'}</span>
-        <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>
-        ${d.estado!=='desocupado'?'<button class="btn primary sm" id="add-lectura">Lectura de luz</button>':''}
-      </div>
+        <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>      </div>
       ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
       ${ls.length?ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
           <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">📷 ver foto</a>`:l.origen==='foto'?'📷':''}</div></div>
@@ -862,10 +905,8 @@ function abrirDepto(id){
 
       <h3 style="margin-top:18px">Agua</h3>
       <div class="row" style="margin-bottom:12px">
-        <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>
-        ${ta==='medidor'?'<button class="btn primary sm" id="add-lectura-agua">Lectura de agua</button>':''}
-      </div>
-      ${ta==='sin_medidor'?`<p class="muted small">Se le asigna una base de ${fmtN(config.baseSinMedidor??7,1)} m³ al mes, más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
+        <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>      </div>
+      ${ta==='sin_medidor'?`<p class="muted small">Se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
       ${ta!=='no'?aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
           <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
           <div class="small">${p?fmtN(p.m3,2)+' m³ asignados':'—'}</div>
@@ -882,6 +923,8 @@ function abrirDepto(id){
     const br=dlg.querySelector('#btn-reubicar');if(br)br.onclick=()=>{dlg.close();abrirUbicar(id)};
     dlg.querySelector('#btn-ver-cobros').onclick=()=>{dlg.close();irA('cobros')};
     const al=dlg.querySelector('#add-lectura');if(al)al.onclick=()=>{dlg.close();abrirLecturaForm(id)};
+    const alt=dlg.querySelector('#add-lectura-top');if(alt)alt.onclick=()=>{dlg.close();abrirLecturaForm(id)};
+    const alat=dlg.querySelector('#add-lectura-agua-top');if(alat)alat.onclick=()=>{dlg.close();abrirLecturaForm(id,null,'agua')};
     const ala=dlg.querySelector('#add-lectura-agua');if(ala)ala.onclick=()=>{dlg.close();abrirLecturaForm(id,null,'agua')};
     dlg.querySelectorAll('[data-editl]').forEach(b=>b.onclick=()=>{dlg.close();abrirLecturaForm(id,lecturas.find(x=>x.id===b.dataset.editl))});
     dlg.querySelectorAll('[data-editla]').forEach(b=>b.onclick=()=>{dlg.close();abrirLecturaForm(id,lecturasAgua.find(x=>x.id===b.dataset.editla),'agua')});
@@ -1149,7 +1192,7 @@ function calcAgua(mes){
   if(s.incompleto)return{r,incompleto:true,faltan:s.faltan||[]};
   const hist=[];
   for(const m of aguaRecibos.map(x=>x.id).filter(m=>m<mes).sort().reverse()){const x=sinMedirAgua(m);if(!x.incompleto)hist.push(x.R);if(hist.length>=6)break}
-  const base=Number(config.baseSinMedidor??7);
+  const base=cargosDe(mes).base;
   const sinMed=deptosSinMedidor();
   let normal=null,tol=null,exceso=0;
   if(hist.length>=3){normal=mediana(hist);tol=Math.max(3,desviacion(hist));exceso=Math.max(0,s.R-(normal+tol))}
@@ -1185,7 +1228,7 @@ function responsablesAtraso(mes){
 const cobroDe=(dep,mes)=>cobros.find(c=>c.deptoId===dep&&c.mes===mes);
 function cargosDe(mes){
   const c=cargosMes.find(x=>x.id===mes);const v=(x,def)=>x!=null&&x!==''?Number(x):def;
-  return{admLuz:v(c&&c.admLuz,Number(config.mantenimiento??5)),admAgua:v(c&&c.admAgua,Number(config.admAgua??5)),mant:v(c&&c.mant,Number(config.mantExtra??0)),propio:!!c};
+  return{admLuz:v(c&&c.admLuz,Number(config.mantenimiento??5)),admAgua:v(c&&c.admAgua,Number(config.admAgua??5)),mant:v(c&&c.mant,Number(config.mantExtra??0)),base:v(c&&c.base,Number(config.baseSinMedidor??7)),propio:!!c};
 }
 function mesesCobro(){return[...new Set([...recibos.map(r=>r.id),...aguaRecibos.map(r=>r.id),...lecturas.map(l=>l.mes)])].sort()}
 function detalleCobro(dep,mes){
@@ -1232,7 +1275,7 @@ function renderCobros(){
   el.innerHTML=`<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
-    <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
+    <p class="small" style="margin:10px 0 4px">Cargos del mes: adm. luz <strong>${fmtS(car.admLuz)}</strong> · adm. agua <strong>${fmtS(car.admAgua)}</strong> · mantenimiento <strong>${fmtS(car.mant)}</strong>${deptosSinMedidor().length?' · base agua sin medidor <strong>'+fmtN(car.base,1)+' m³</strong>':''}${car.propio?'':' <span class="muted">(valores por defecto)</span>'} <button class="iconbtn" id="btn-cargos-mes">Cambiar para ${mesLargo(mes)}</button></p>
     <p class="small muted" style="margin:0 0 12px">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}. Cobrados ${nOk} de ${filas.length} · ${fmtS(cobrado)} de ${fmtS(esperado)}.</p>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     <div class="scroll"><table class="tabla-cobro">
@@ -1257,11 +1300,12 @@ function renderCobros(){
       <button class="btn primary sm" data-cobrar-mes="${p.d.id}|${p.mes}">Registrar cobro</button></div>`).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
   </div>
   <div class="panel"><h2>Valores por defecto</h2>
-    <p class="muted small" style="margin:0 0 10px">Se usan en los meses que no tienen sus propios cargos.</p>
+    <p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
     <div class="list">
       <div class="row" style="justify-content:space-between"><span>Administración de luz (por depto con luz)</span><span><strong>${fmtS(config.mantenimiento??5)}</strong> <button class="iconbtn" data-cfg="mantenimiento">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Administración de agua (por depto con agua)</span><span><strong>${fmtS(config.admAgua??5)}</strong> <button class="iconbtn" data-cfg="admAgua">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
+      ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
     </div></div>`;
   $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
@@ -1270,10 +1314,17 @@ function renderCobros(){
 }
 const ETIQUETA_CFG={mantenimiento:'Administración de luz por depto al mes (S/)',admAgua:'Administración de agua por depto al mes (S/)',mantExtra:'Mantenimiento por depto al mes (S/)',baseSinMedidor:'Consumo base de agua de los deptos sin medidor (m³ al mes)'};
 async function cambiarValorConfig(k){
+  await esperarDatos();
   const def={mantenimiento:5,admAgua:5,mantExtra:0,baseSinMedidor:7}[k];
-  const v=await pedirTexto(ETIQUETA_CFG[k],config[k]??def);
+  const v=await pedirTexto(ETIQUETA_CFG[k]+' — solo para los meses nuevos; los meses ya registrados conservan su valor',config[k]??def);
   if(v==null||v==='')return;const n=num(v);if(n==null||n<0){toast('Ingresa un número válido.');return}
-  guardarConfig({...config,[k]:n}).then(()=>toast('Guardado')).catch(e=>toast('No se pudo guardar: '+(e.message||e.code)));
+  try{
+    // Fija los cargos vigentes en cada mes existente que aún usa el valor por defecto.
+    const docs=mesesCobro().filter(m=>{const c=cargosMes.find(x=>x.id===m);return !c||['admLuz','admAgua','mant','base'].some(f=>c[f]==null||c[f]==='')})
+      .map(m=>{const e=cargosDe(m);return{id:m,data:{admLuz:e.admLuz,admAgua:e.admAgua,mant:e.mant,base:e.base,actualizado:new Date().toISOString()}}});
+    if(docs.length){toast('Guardando los valores de '+docs.length+' meses…');await db._write({action:'setMany',collection:'cargos',docs})}
+    await guardarConfig({...config,[k]:n});toast('Guardado. Se aplica desde el próximo mes.');
+  }catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
 }
 async function abrirCargosMes(mes){
   await esperarDatos();
@@ -1282,13 +1333,15 @@ async function abrirCargosMes(mes){
   <div class="dlg-b"><p class="muted small" style="margin-top:0">Montos por departamento para este mes. No cambian los demás meses.</p>
     <div class="grid2"><label class="f">Administración de luz (S/)<input id="cm-luz" type="text" inputmode="decimal" value="${car.admLuz}"></label>
     <label class="f">Administración de agua (S/)<input id="cm-agua" type="text" inputmode="decimal" value="${car.admAgua}"></label>
-    <label class="f">Mantenimiento (S/)<input id="cm-mant" type="text" inputmode="decimal" value="${car.mant}"></label></div></div>
+    <label class="f">Mantenimiento (S/)<input id="cm-mant" type="text" inputmode="decimal" value="${car.mant}"></label>
+    ${deptosSinMedidor().length?`<label class="f">Agua sin medidor: base del mes (m³)<input id="cm-base" type="text" inputmode="decimal" value="${car.base}"></label>`:''}</div></div>
   <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
   c.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>c.close());
   c.querySelector('#cm-save').onclick=async()=>{
     const vals=['luz','agua','mant'].map(k=>num(c.querySelector('#cm-'+k).value));
-    if(vals.some(v=>v==null||v<0)){toast('Revisa los montos.');return}
-    try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2]});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
+    const cb=c.querySelector('#cm-base');const base=cb?num(cb.value):car.base;
+    if(vals.some(v=>v==null||v<0)||base==null||base<0){toast('Revisa los montos.');return}
+    try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2],base});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}
   };
   c.showModal();
 }
@@ -1348,8 +1401,8 @@ function renderAgua(){
       <p class="muted small" style="margin:0 0 10px">Fotografíalo el día 12 junto con los medidores de los deptos: así el agua sin medir se calcula con las mismas fechas y el método detecta mejor los excesos.</p>
       <button class="btn" id="btn-lectura-general">Lectura del medidor general</button></div>
     <div class="panel"><h3>Sin medidor</h3>
-      ${sm.length?sm.map(d=>`<p class="small" style="margin:0 0 6px"><strong>${esc(nombreDepto(d))}</strong>: base de <strong>${fmtN(config.baseSinMedidor??7,1)} m³</strong> al mes, más el exceso cuando el agua sin medir se sale de lo normal.</p>`).join(''):'<p class="muted small">Todos los deptos tienen medidor.</p>'}
-      <button class="iconbtn" data-cfg="baseSinMedidor" style="padding:0">Cambiar la base</button></div>
+      ${sm.length?sm.map(d=>`<p class="small" style="margin:0 0 6px"><strong>${esc(nombreDepto(d))}</strong>: se le asigna la <strong>base de m³ de cada mes</strong> (por defecto ${fmtN(config.baseSinMedidor??7,1)} m³), más el exceso cuando el agua sin medir se sale de lo normal.</p>`).join('')+'<p class="muted small" style="margin:0 0 8px">Cada mes guarda su propia base: cambiar el valor por defecto no altera los meses pasados.</p>':'<p class="muted small">Todos los deptos tienen medidor.</p>'}
+      <button class="iconbtn" data-cfg="baseSinMedidor" style="padding:0">Cambiar la base por defecto</button></div>
   </div>
   <div class="list">${lista.length?lista.map(r=>{const a=calcAgua(r.id);const st=r.pagado?{cls:'ok',txt:'Pagado'}:(diasHasta(r.vencimiento)<0?{cls:'late',txt:'Vencido'}:{cls:'pend',txt:'Pendiente'});
     const info=!a||a.incompleto?`<span class="chip sm miss">Faltan lecturas${a&&a.faltan&&a.faltan.length?': '+a.faltan.map(d=>tituloDepto(d)).join(', '):''}</span>`
@@ -1390,7 +1443,7 @@ function abrirDetalleAgua(mes){
       <h3 style="margin-top:16px">Reparto</h3>
       ${!aa||aa.incompleto?`<div class="banner warn">Faltan lecturas de agua de ${mesLargo(mes)}${aa&&aa.faltan&&aa.faltan.length?': '+aa.faltan.map(d=>esc(nombreDepto(d))).join(', '):''}. El reparto se calcula cuando estén todas.</div>`:`
       <p class="small" style="margin-top:0">Medidor general ${fmtN(aa.general,2)} m³ (${aa.fuente==='propia'?'tu lectura del día 12':'del recibo de Sedapal'}) − medidores internos ${fmtN(aa.medidos,2)} m³ = <strong>${fmtN(aa.R,2)} m³ sin medir</strong> (${fmtN(aa.pct*100,0)} %).</p>
-      <p class="small">${aa.nHist>=3?`Lo normal en los meses anteriores: ${fmtN(aa.normal,1)} m³ ± ${fmtN(aa.tol,1)}. `:'Todavía hay pocos meses para calcular lo normal (hacen falta 3). '}${aa.fueraDeLoNormal?`<strong>Este mes se pasó en ${fmtN(aa.exceso,1)} m³</strong>: se suman a los deptos sin medidor.`:'Este mes está dentro de lo normal.'} Sin medidor: ${fmtN(aa.m3SinMed,2)} m³ cada uno. El resto se reparte en proporción a lo medido (× ${fmtN(aa.factor,3)}). Precio: ${fmtS(aa.precio)} por m³.</p>
+      <p class="small">${aa.nHist>=3?`Lo normal en los meses anteriores: ${fmtN(aa.normal,1)} m³ ± ${fmtN(aa.tol,1)}. `:'Todavía hay pocos meses para calcular lo normal (hacen falta 3). '}${aa.fueraDeLoNormal?`<strong>Este mes se pasó en ${fmtN(aa.exceso,1)} m³</strong>: se suman a los deptos sin medidor.`:'Este mes está dentro de lo normal.'} Base sin medidor de este mes: ${fmtN(aa.base,1)} m³ <button class="iconbtn" id="ag-base" style="padding:0">cambiar</button>; asignado: ${fmtN(aa.m3SinMed,2)} m³ cada uno. El resto se reparte en proporción a lo medido (× ${fmtN(aa.factor,3)}). Precio: ${fmtS(aa.precio)} por m³.</p>
       <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>Agua</th><th>Atraso</th></tr></thead><tbody>
         ${deps.map(d=>{const p=aa.porDepto[d.id];return p?`<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`:''}).join('')}
       </tbody><tfoot><tr><td>Total</td><td>${fmtN(aa.medidos,2)}</td><td>${fmtN(aa.general,2)}</td><td>${fmtS(aa.consumo)}</td><td>${aa.atraso?fmtS(aa.atraso):'—'}</td></tr></tfoot></table></div>`}
@@ -1408,6 +1461,7 @@ function abrirDetalleAgua(mes){
     const rg=dlg.querySelector('#resp-guardar');if(rg)rg.onclick=async()=>{const ids=[...dlg.querySelectorAll('[data-resp]:checked')].map(c=>c.dataset.resp);const body={...r};delete body.id;body.responsablesAtraso={manual:true,ids};try{await guardarReciboAgua(mes,body);r.responsablesAtraso=body.responsablesAtraso;toast('Responsables guardados');pintar()}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
     const ra=dlg.querySelector('#resp-auto');if(ra)ra.onclick=async()=>{const body={...r};delete body.id;body.responsablesAtraso=[];try{await guardarReciboAgua(mes,body);r.responsablesAtraso=[];toast('Responsables automáticos');pintar()}catch(e){toast('No se pudo guardar')}};
     const vp=dlg.querySelector('[data-verpdfagua]');if(vp)vp.onclick=()=>abrirVisorPdf(r);
+    const ab=dlg.querySelector('#ag-base');if(ab)ab.onclick=()=>{dlg.close();abrirCargosMes(mes)};
   };
   pintar();dlg.showModal();
 }
@@ -1433,6 +1487,7 @@ function parseReciboAgua(t){
   t=t.replace(/\s+/g,' ');const r={otros:[],cierre:0,reapertura:0,mora:0};let m;
   if(/CONVENIO DE PAGO/i.test(t))return{convenio:true};
   if(m=t.match(/\b(S\d{3}-\d{6,})/))r.recibo=m[1];
+  if(m=t.match(/Suministro\s+(\d{5,9}-\d)/i))r.suministro=m[1];
   if(m=t.match(/Mes facturado:?\s*(Enero|Febrero|Marzo|Abril|Mayo|Junio|Julio|Agosto|Setiembre|Septiembre|Octubre|Noviembre|Diciembre)\s+(\d{4})/i)){let x=m[1].toLowerCase();if(x==='septiembre')x='setiembre';r.mes=m[2]+'-'+String(MES_LARGO.indexOf(x)+1).padStart(2,'0')}
   const per=t.match(/(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})/);
   if(per){r.periodoInicio=fechaDMY(per[1]);r.periodoFin=fechaDMY(per[2])}
@@ -1497,6 +1552,7 @@ async function abrirFormAgua(data,{file=null,editando=false}={}){
           if(existe){for(const k of ['pagado','fechaPago','pdfUrl','pdfId','pdfNombre','responsablesAtraso','suministro'])if(body[k]===undefined)body[k]=existe[k]??null}
           if(file&&assets){const up=await assets.upload(file,{type:'application/pdf',nombre:`Agua ${data.mes}.pdf`,carpeta:['Recibos agua PDF']});if(existe&&existe.pdfId&&existe.pdfId!==up.id){try{await assets.delete(existe.pdfId)}catch(e){}}body.pdfUrl=up.url;body.pdfId=up.id;body.pdfNombre=file.name}
           body.pagado=!!body.pagado;body.otros=body.otros||[];if(!body.responsablesAtraso)body.responsablesAtraso=[];
+          if(!body.suministro)body.suministro=(aguaRecibos.find(x=>x.suministro)||{}).suministro||null;
           for(const k of Object.keys(body))if(body[k]===undefined)body[k]=null;
           await guardarReciboAgua(data.mes,body);dlg.close();toast(`Recibo de agua de ${mesLargo(data.mes)} guardado`);
         }catch(e){btn.disabled=false;btn.textContent='Guardar recibo';toast('No se pudo guardar: '+(e.message||e.code))}

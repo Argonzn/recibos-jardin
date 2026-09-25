@@ -30,7 +30,8 @@ const SHEETS = {
   // Lecturas de agua del día 12. deptoId 'general' = medidor de Sedapal leído por nosotros.
   lecturas_agua: ['id','deptoId','mes','lecturaAnterior','lecturaActual','m3','origen','fotoUrl','fotoId','actualizado'],
   // Cargos del mes por depto (si falta el mes, se usan los de config).
-  cargos: ['id','admLuz','admAgua','mant','actualizado'],
+  // base = m³ del mes para los deptos sin medidor (cada mes guarda la suya).
+  cargos: ['id','admLuz','admAgua','mant','actualizado','base'],
   // Cobro único por depto y mes (luz + agua + administración + mantenimiento + atrasos).
   cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado'],
 };
@@ -97,18 +98,57 @@ function asegurarEncabezados_(sh, name) {
   });
 }
 
+// Zona horaria de la Hoja: Sheets interpreta "2026-02" como fecha en SU zona, no en la del script.
+let tzHoja_ = null;
+function zonaHoja_() {
+  if (!tzHoja_) { try { tzHoja_ = getSs_().getSpreadsheetTimeZone(); } catch (e) { tzHoja_ = Session.getScriptTimeZone(); } }
+  return tzHoja_;
+}
+const esFecha_ = v => Object.prototype.toString.call(v) === "[object Date]";
+const COLS_MES_ = ['id', 'mes']; // columnas que guardan un mes AAAA-MM
+
 // google.script.run no puede devolver objetos Date (devuelve null entero), así que se normalizan.
-function cellValue_(v) {
-  if (v instanceof Date) {
-    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+// Si Sheets convirtió un texto en fecha, se recupera tal cual se escribió ("2026-02" o "2026-02-10").
+function cellValue_(v, col) {
+  if (esFecha_(v)) {
+    const iso = Utilities.formatDate(v, zonaHoja_(), 'yyyy-MM-dd');
+    if (COLS_MES_.indexOf(col) > -1 && iso.slice(8) === '01') return iso.slice(0, 7);
+    return iso;
   }
   return v;
+}
+
+// Formato de texto en las columnas de texto de UNA fila, justo antes de escribirla: sin esto Sheets
+// convierte "2026-02" en fecha al agregar filas nuevas.
+function formatoTextoFila_(sh, name, fila) {
+  const headers = SHEETS[name];
+  const a1 = TEXT_COLS[name].map(col => headers.indexOf(col) + 1).filter(c => c > 0)
+    .map(c => sh.getRange(fila, c).getA1Notation());
+  if (a1.length) sh.getRangeList(a1).setNumberFormat('@');
+}
+
+// Reparación única: pasa a texto las celdas de columnas de texto que Sheets había convertido en fecha.
+function repararTextos_() {
+  Object.keys(SHEETS).forEach(name => {
+    const sh = getSs_().getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    const headers = SHEETS[name];
+    TEXT_COLS[name].forEach(col => {
+      const c = headers.indexOf(col) + 1;
+      if (c < 1 || c > sh.getLastColumn()) return;
+      const rango = sh.getRange(2, c, sh.getLastRow() - 1, 1);
+      const vals = rango.getValues();
+      if (!vals.some(r => esFecha_(r[0]))) return;
+      rango.setNumberFormat('@');
+      rango.setValues(vals.map(r => [esFecha_(r[0]) ? cellValue_(r[0], col) : r[0]]));
+    });
+  });
 }
 
 function rowToObj_(headers, row) {
   const obj = {};
   headers.forEach((h, i) => {
-    const v = cellValue_(row[i]);
+    const v = cellValue_(row[i], h);
     if (h.endsWith('JSON')) {
       const key = h.slice(0, -4);
       try { obj[key] = v ? JSON.parse(v) : []; } catch (e) { obj[key] = []; }
@@ -146,7 +186,7 @@ function listCollection_(name) {
 function findRowIndex_(sh, id) {
   const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getValues();
   for (let i = 1; i < ids.length; i++) {
-    if (String(cellValue_(ids[i][0])) === String(id)) return i + 1;
+    if (String(cellValue_(ids[i][0], 'id')) === String(id)) return i + 1;
   }
   return -1;
 }
@@ -156,9 +196,10 @@ function setDoc_(collection, id, data) {
   const headers = SHEETS[collection];
   const full = Object.assign({}, data, { id: id });
   const rowArr = objToRow_(headers, full);
-  const idx = findRowIndex_(sh, id);
-  if (idx === -1) sh.appendRow(rowArr);
-  else sh.getRange(idx, 1, 1, headers.length).setValues([rowArr]);
+  let idx = findRowIndex_(sh, id);
+  if (idx === -1) idx = sh.getLastRow() + 1; // no se usa appendRow: convierte textos como "2026-02" en fechas
+  formatoTextoFila_(sh, collection, idx);
+  sh.getRange(idx, 1, 1, headers.length).setValues([rowArr]);
   return full;
 }
 
@@ -169,6 +210,7 @@ function updateDoc_(collection, id, patch) {
   if (idx === -1) throw new Error('not_found: ' + collection + '/' + id);
   const current = rowToObj_(headers, sh.getRange(idx, 1, 1, headers.length).getValues()[0]);
   const merged = Object.assign({}, current, patch, { id: id });
+  formatoTextoFila_(sh, collection, idx);
   sh.getRange(idx, 1, 1, headers.length).setValues([objToRow_(headers, merged)]);
   return merged;
 }
@@ -418,10 +460,21 @@ function requiereClave_(body) {
   return false;
 }
 
+function repararTextosUnaVez_() {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty('TEXTOS_REPARADOS_V1')) return;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000)) return; // otra ejecución la está haciendo
+  try {
+    if (!p.getProperty('TEXTOS_REPARADOS_V1')) { repararTextos_(); p.setProperty('TEXTOS_REPARADOS_V1', new Date().toISOString()); }
+  } finally { lock.releaseLock(); }
+}
+
 /** Punto de entrada único: lo usan google.script.run (desde index.html) y doGet/doPost. */
 function api(body) {
   if (body.action === 'login') return login_(body.codigo);
   exigirToken_(body.token);
+  repararTextosUnaVez_();
   switch (body.action) {
     case 'ping':    return { ok: true };
     case 'list':    return listCollection_(body.collection);
@@ -449,6 +502,11 @@ function api(body) {
       case 'upload':     return uploadFile_(body.base64, body.mimeType, body.filename, body.carpeta);
       case 'deleteFile': return deleteFile_(body.fileId);
       case 'vincularPdfs': return vincularPdfs_(body.tipo);
+      // Guardado en bloque, solo para cargos del mes (al cambiar un valor por defecto se fijan los meses pasados).
+      case 'setMany':
+        if (body.collection !== 'cargos') throw new Error('setMany_no_permitido');
+        (body.docs || []).forEach(d => setDoc_('cargos', d.id, d.data));
+        return { ok: true, n: (body.docs || []).length };
       default: throw new Error('unknown_action: ' + body.action);
     }
   } finally {
