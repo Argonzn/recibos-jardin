@@ -111,7 +111,9 @@ const COLS_MES_ = ['id', 'mes']; // columnas que guardan un mes AAAA-MM
 // Si Sheets convirtió un texto en fecha, se recupera tal cual se escribió ("2026-02" o "2026-02-10").
 function cellValue_(v, col) {
   if (esFecha_(v)) {
-    const iso = Utilities.formatDate(v, zonaHoja_(), 'yyyy-MM-dd');
+    // Las filas agregadas por el script guardan la fecha a medianoche UTC; las escritas a mano, en la zona de la Hoja.
+    const utc = v.getUTCHours() === 0 && v.getUTCMinutes() === 0 && v.getUTCSeconds() === 0;
+    const iso = Utilities.formatDate(v, utc ? 'UTC' : zonaHoja_(), 'yyyy-MM-dd');
     if (COLS_MES_.indexOf(col) > -1 && iso.slice(8) === '01') return iso.slice(0, 7);
     return iso;
   }
@@ -462,12 +464,47 @@ function requiereClave_(body) {
 
 function repararTextosUnaVez_() {
   const p = PropertiesService.getScriptProperties();
-  if (p.getProperty('TEXTOS_REPARADOS_V1')) return;
+  if (p.getProperty('TEXTOS_REPARADOS_V1') && p.getProperty('DESFASE_REPARADO_V2')) return;
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return; // otra ejecución la está haciendo
   try {
     if (!p.getProperty('TEXTOS_REPARADOS_V1')) { repararTextos_(); p.setProperty('TEXTOS_REPARADOS_V1', new Date().toISOString()); }
+    if (!p.getProperty('DESFASE_REPARADO_V2')) { repararDesfase_(); p.setProperty('DESFASE_REPARADO_V2', new Date().toISOString()); }
   } finally { lock.releaseLock(); }
+}
+
+// La reparación V1 leyó con la zona equivocada y dejó los meses como el último día del mes anterior
+// ("2026-01-31" en vez de "2026-02") y las fechas de esas filas un día antes. Esto lo revierte.
+// Solo toca filas cuyo mes tiene la forma dañada; las que ya están bien ("2026-02") no cambian.
+const COLS_FECHA_DESFASE_ = { agua_recibos: ['emision','vencimiento','periodoInicio','periodoFin','fechaPago'], cobros: ['fechaCobro'] };
+function sumarDia_(iso) { const [y, m, d] = iso.split('-').map(Number); const x = new Date(Date.UTC(y, m - 1, d + 1)); return Utilities.formatDate(x, 'UTC', 'yyyy-MM-dd'); }
+function mesDesfasado_(v) {
+  const s = String(v || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const sig = sumarDia_(s);
+  return sig.slice(8) === '01' ? sig.slice(0, 7) : null; // era el último día del mes → el mes correcto es el siguiente
+}
+function repararDesfase_() {
+  const cambios = [];
+  [['agua_recibos','id'],['cargos','id'],['lecturas_agua','mes'],['cobros','mes']].forEach(([name, colMes]) => {
+    const sh = getSs_().getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return;
+    const headers = SHEETS[name], n = sh.getLastRow() - 1;
+    const cM = headers.indexOf(colMes) + 1;
+    const colsF = (COLS_FECHA_DESFASE_[name] || []).map(c => headers.indexOf(c) + 1).filter(c => c > 0);
+    const datos = sh.getRange(2, 1, n, headers.length).getValues();
+    datos.forEach((fila, i) => {
+      const bueno = mesDesfasado_(cellValue_(fila[cM - 1], colMes));
+      if (!bueno) return;
+      const r = i + 2;
+      formatoTextoFila_(sh, name, r);
+      sh.getRange(r, cM).setValue(bueno);
+      colsF.forEach(c => { const v = String(cellValue_(fila[c - 1], headers[c - 1]) || ''); if (/^\d{4}-\d{2}-\d{2}$/.test(v)) sh.getRange(r, c).setValue(sumarDia_(v)); });
+      cambios.push(name + ':' + bueno);
+    });
+  });
+  console.log('Desfase reparado en ' + cambios.length + ' filas');
+  return cambios;
 }
 
 /** Punto de entrada único: lo usan google.script.run (desde index.html) y doGet/doPost. */
