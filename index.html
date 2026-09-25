@@ -742,10 +742,19 @@ function renderReportes(){
   charts.push(new Chart($('#c4'),{type:'bar',data:{labels:L,datasets:partes.map(([l,f,c])=>({label:l,data:rs.map(f),backgroundColor:css(c)}))},
     options:{...base,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmtS(c.raw)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true}}}}));
 }
+// Cobros de todos los meses: una fila por depto y mes (para archivo o para compartir).
+async function exportarCobrosCSV(){
+  const q=v=>v==null?'':/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:String(v);
+  const cab=['Mes','Depto','Encargado','Luz','Agua','Administración','Mantenimiento','Mora e intereses','Saldo a favor','Total a pagar','Pagado','Fecha de pago','Estado'];
+  const filas=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>filas.push([m,x.d.numero,x.d.encargado||'',x.partes.luz,x.partes.agua,r2(x.partes.admLuz+x.partes.admAgua),x.partes.mant,x.partes.atraso,x.aFavor,x.neto,x.pagado||'',x.cobro&&x.cobro.fechaCobro||'',x.estado.txt])));
+  const csv='\ufeff'+[cab,...filas].map(f=>f.map(q).join(',')).join('\n');
+  try{await downloads.save({filename:'cobros-'+hoyLocal()+'.csv',data:csv})}catch(e){if(e.code!=='declined')toast('No se pudo descargar el archivo.')}
+}
 async function exportarCSV(rs,sel){
   const cols=['mes',...CAMPOS.map(c=>c.k).filter(k=>k!=='mes'),'pagado','fechaPago'];
   const q=v=>v==null?'':/[",;\n]/.test(String(v))?`"${String(v).replace(/"/g,'""')}"`:String(v);
-  const csv='\ufeff'+[cols.join(','),...rs.map(r=>cols.map(k=>q(k==='mes'?r.id:k==='pagado'?(r.pagado?'si':'no'):r[k])).join(','))].join('\n');
+  const titulo=k=>k==='mes'?'Mes':k==='pagado'?'Pagado':k==='fechaPago'?'Fecha de pago':((CAMPOS.find(c=>c.k===k)||{}).l||k);
+  const csv='\ufeff'+[cols.map(k=>q(titulo(k))).join(','),...rs.map(r=>cols.map(k=>q(k==='mes'?r.id:k==='pagado'?(r.pagado?'si':'no'):r[k])).join(','))].join('\n');
   try{await downloads.save({filename:`recibos-luz-${sel}.csv`,data:csv})}catch(e){if(e.code!=='declined')toast('No se pudo descargar el archivo.')}
 }
 
@@ -1472,7 +1481,7 @@ function renderCobros(){
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <div class="avance"><div class="row" style="justify-content:space-between"><span><strong>${fmtS(cobrado)}</strong> <span class="muted">de ${fmtS(esperado)} cobrados</span></span><span class="small muted">${nOk} de ${filas.length} deptos</span></div><div class="barra"><i style="width:${esperado?Math.min(100,Math.round(cobrado/esperado*100)):0}%"></i></div><div class="small muted">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}</div></div>
-    <div class="row" style="margin:12px 0"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
+    <div class="row" style="margin:12px 0"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ CSV</button><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
     <details class="info-mes"><summary class="small">Cargos y moras del mes</summary>
@@ -1532,6 +1541,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
   el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
   const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
+  const cc=$('#btn-csv-cobros');if(cc)cc.onclick=()=>exportarCobrosCSV();
   const rt=$('#btn-recordar-todos');if(rt)rt.onclick=()=>abrirRecordatorios();
   el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
