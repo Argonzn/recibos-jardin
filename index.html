@@ -1344,7 +1344,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             }
           }
         }
-        dlg.close();toast('Lectura guardada');renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
+        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:''));renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
@@ -1752,6 +1752,9 @@ async function abrirCobroMes(dep,mes){
   const tardeEfectivo=()=>data.tarde!=null?data.tarde:!!(data.fecha&&data.fecha>lim);
   const tipoSugerido=()=>{const m=data.monto;if(m==null)return'completo';if(m<x.neto-0.5)return'parcial';if(m>x.neto+0.5)return'demas';return'completo'};
   const tipoEfectivo=()=>data.tipo||tipoSugerido();
+  // Lo guardado que coincide con la sugerencia se trata como sugerencia: así sigue al monto y a la fecha si se corrigen.
+  if(data.tipo&&data.tipo===tipoSugerido())data.tipo=null;
+  if(data.tarde!=null&&data.tarde===!!(data.fecha&&data.fecha>lim))data.tarde=null;
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
   const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
@@ -1816,7 +1819,7 @@ async function abrirCobroMes(dep,mes){
     if(fecha&&fecha>hoyLocal(1)&&!(await confirmar('La fecha de cobro ('+fechaCorta(fecha)+') es futura. ¿Guardar igual?','Guardar igual')))return;
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-    try{await guardarCon(monto,fecha,nota);dlg.close();toast('Cobro registrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
+    try{await guardarCon(monto,fecha,nota);dlg.close();const dif=Math.round((monto-x.neto)*100)/100,t=tipoEfectivo();toast('Cobro registrado: '+tituloDepto(x.d)+' · '+mesLargo(mes)+' · '+fmtS(monto)+(t==='parcial'&&dif<0?' · falta '+fmtS(-dif):t==='demas'&&dif>0?' · '+fmtS(dif)+' a favor':' · al día'),{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
   };
   dlg.showModal();
 }
