@@ -202,8 +202,18 @@ function findRowIndex_(sh, id) {
 }
 
 // Versión de los datos: cambia con cada escritura. La app la usa para no descargar todo si nada cambió.
-function versionDatos_() { return PropertiesService.getScriptProperties().getProperty('VERSION_DATOS') || '0'; }
-function subirVersion_() { PropertiesService.getScriptProperties().setProperty('VERSION_DATOS', String(Date.now()) + '.' + Math.floor(Math.random() * 1000)); }
+// Se lee de la caché (sin límite diario); la propiedad es el respaldo si la caché expiró.
+function versionDatos_() {
+  const cache = CacheService.getScriptCache();
+  let v = cache.get('VERSION_DATOS');
+  if (!v) { v = PropertiesService.getScriptProperties().getProperty('VERSION_DATOS') || '0'; cache.put('VERSION_DATOS', v, 21600); }
+  return v;
+}
+function subirVersion_() {
+  const v = String(Date.now()) + '.' + Math.floor(Math.random() * 1000);
+  PropertiesService.getScriptProperties().setProperty('VERSION_DATOS', v);
+  CacheService.getScriptCache().put('VERSION_DATOS', v, 21600);
+}
 // Edición manual en la Hoja (solo si el script está vinculado a ella): también cuenta como cambio.
 function onEdit() { try { subirVersion_(); } catch (e) {} }
 
