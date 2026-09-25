@@ -1458,7 +1458,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       ${acciones(x,mes)}</div>`}).join("")}</div>
     <p class="muted small" style="margin:10px 0 0">«✓ Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
-  <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<span class="chip ${pend.some(p=>p.estado.cls==='late')?'late':'pend'}">${pend.length}</span>`:''}</div>
+  <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">📲 Recordar a todos</button>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
     <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details class="pend-depto ${late?'atrasado':''}"><summary>
       <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''}: ${ps.map(p=>mesCorto(p.mes)).join(', ')}</div></div>
@@ -1485,6 +1485,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   el.querySelectorAll('[data-cobrar-mes]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.cobrarMes.split('|');abrirCobroMes(dep,m)});
   el.querySelectorAll('[data-pago-rapido]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.pagoRapido.split('|');pagoRapido(dep,m)});
   const ta=$('#btn-tel-admin');if(ta)ta.onclick=async()=>{const v=await pedirTexto('Celular de WhatsApp de la administración (9 dígitos)',config.telefonoAdmin||'','tel');if(v==null)return;const t=v.replace(/[^\d+ ]/g,'').trim();try{await guardarConfig({...config,telefonoAdmin:t});toast(t?'WhatsApp guardado':'WhatsApp quitado')}catch(e){toast('No se pudo guardar: '+(e.message||e.code))}};
+  const rt=$('#btn-recordar-todos');if(rt)rt.onclick=()=>abrirRecordatorios();
   el.querySelectorAll('[data-recordar]').forEach(b=>b.onclick=e=>{e.preventDefault();e.stopPropagation();recordarPago(b.dataset.recordar)});
   el.querySelectorAll('[data-wa]').forEach(b=>b.onclick=()=>{const [dep,m]=b.dataset.wa.split('|');enviarCobroWhatsApp(dep,m)});
   el.querySelectorAll('[data-cfg]').forEach(b=>b.onclick=()=>cambiarValorConfig(b.dataset.cfg));
@@ -1878,6 +1879,21 @@ function mensajeRecordatorio(dep){
   L.push('Si ya pagaste, avísanos para registrarlo. ¡Gracias!');
   return L.join('\n');
 }
+function abrirRecordatorios(){
+  const dlg=$('#dlg'),hoy=new Date().toISOString().slice(0,10),enviados={};
+  const pintar=()=>{
+    const pend=cobrosPendientesTodos(),ids=[...new Set(pend.map(p=>p.d.id))];
+    dlg.innerHTML=`<div class="dlg-h"><h2>Recordar pagos pendientes</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b"><p class="muted small" style="margin-top:0">Toca «Recordar» en cada uno: se abre WhatsApp con la lista de meses que debe y el total.</p>
+      ${ids.length?`<div class="stack" style="gap:0">${ids.map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d;return `<div class="pago-row"><div><strong>${esc(nombreDepto(d))}</strong><div class="muted small">${d.telefono?esc(d.telefono):'sin celular'} · ${ps.length} mes${ps.length>1?'es':''}</div></div>
+        <div class="small"><strong>${fmtS(sum(ps,p=>p.falta))}</strong></div><div class="small">${enviados[id]?'<span class="chip sm ok">✓ Enviado</span>':''}</div>
+        <button class="btn sm ${enviados[id]?'':'primary'}" data-rec="${id}">${enviados[id]?'Reenviar':'📲 Recordar'}</button></div>`}).join('')}</div>`:'<p>No hay pagos pendientes. 🎉</p>'}</div>
+    <div class="dlg-f"><button class="btn primary" data-close>Listo</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    dlg.querySelectorAll('[data-rec]').forEach(b=>b.onclick=()=>{recordarPago(b.dataset.rec);enviados[b.dataset.rec]=hoy;setTimeout(pintar,200)});
+  };
+  pintar();if(!dlg.open)dlg.showModal();
+}
 function recordarPago(dep){const t=mensajeRecordatorio(dep);if(t)abrirEnlace(waUrl((deptos.find(x=>x.id===dep)||{}).telefono,t))}
 function abrirEnvioCobros(mes){
   const dlg=$('#dlg');
@@ -2151,6 +2167,7 @@ function abrirMenu(){
       '<div class="menu-sep"></div>'+
       '<div class="menu-titulo">Administración</div>'+
       '<button data-accion="enviar">Enviar cobros por WhatsApp<small>Mensaje del mes listo para cada depto</small></button>'+
+      '<button data-accion="recordar">Recordar pagos pendientes<small>A quienes deben, con todos sus meses</small></button>'+
       '<button data-accion="recordatorio">Recordatorio de lecturas<small>'+esc(rec)+'</small></button>'+
       '<button data-accion="vincular">Buscar PDF en Drive<small>Vincula los PDF de luz y de agua dejados en Drive</small></button>'+
       item('ruta','Hoja de ruta','Pendientes, diagramas y recursos')+
@@ -2162,6 +2179,7 @@ function abrirMenu(){
   c.querySelector('[data-accion="recordatorio"]').onclick=()=>{c.close();abrirRecordatorio()};
   c.querySelector('[data-accion="vincular"]').onclick=()=>{c.close();buscarPdfsDrive()};
   c.querySelector('[data-accion="enviar"]').onclick=()=>{c.close();abrirEnvioCobros(mesDeLecturas())};
+  c.querySelector('[data-accion="recordar"]').onclick=()=>{c.close();abrirRecordatorios()};
   c.querySelector('[data-accion="salir"]').onclick=()=>{c.close();cerrarSesion()};
   c.addEventListener('click',e=>{if(e.target===c)c.close()}); // tocar fuera cierra
   c.showModal();
