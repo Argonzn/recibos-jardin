@@ -97,6 +97,8 @@ h3{font-size:1rem;font-weight:700;margin:0 0 8px}
 .rec .n{font-weight:650}
 .solo-movil{display:none}
 @media (max-width:560px){.rec{grid-template-columns:1fr auto}.rec .hide-s{display:none}.solo-movil{display:block;margin-top:2px}}
+.sec-acc{font-size:.85rem;color:var(--muted);display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px}
+@media (max-width:560px){.drop{display:none}}
 .drop{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted);transition:border-color .15s,background .15s}
 .drop.over{border-color:var(--blue);background:var(--blue-soft)}
 .empty{padding:28px;text-align:center}
@@ -298,8 +300,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
         <h2 style="margin:0">Todos los recibos</h2>
         <div class="row">
           <button class="btn primary" id="btn-subir">Subir recibo PDF</button>
-          <button class="btn" id="btn-manual">Agregar a mano</button>
-          <button class="btn" id="btn-vincular-viejo" hidden></button><button class="btn" id="btn-vincular" title="Vincula los PDF que dejes en Drive, en RECIBOS_JARDIN / Recibos PDF">Buscar PDF en Drive</button>
+          <span class="sec-acc">o <button class="iconbtn" id="btn-manual">agregar a mano</button> · <button class="iconbtn" id="btn-vincular-viejo" hidden></button><button class="iconbtn" id="btn-vincular" title="Vincula los PDF que dejes en Drive, en RECIBOS_JARDIN / Recibos PDF">buscar PDF en Drive</button></span>
         </div>
       </div>
       <div class="drop" id="drop" style="margin-top:14px">Arrastra aquí los PDF de tus recibos, o usa el botón de arriba. Los datos se leen solos y los revisas antes de guardar.</div>
@@ -1809,7 +1810,7 @@ function renderAgua(){
   const lista=aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id));
   el.innerHTML=`<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Agua · Sedapal</h2>
-      <div class="row"><button class="btn primary" id="btn-subir-agua">Subir recibo PDF</button><button class="btn" id="btn-manual-agua">Agregar a mano</button><button class="btn" id="btn-vincular-agua">Buscar PDF en Drive</button></div></div>
+      <div class="row"><button class="btn primary" id="btn-subir-agua">Subir recibo PDF</button><span class="sec-acc">o <button class="iconbtn" id="btn-manual-agua">agregar a mano</button> · <button class="iconbtn" id="btn-vincular-agua">buscar PDF en Drive</button></span></div></div>
     <input type="file" id="file-agua" accept="application/pdf,.pdf" multiple hidden>
     <p class="muted small" style="margin:10px 0 0">Las cuotas de convenio no se registran aquí: solo los recibos de consumo del mes.</p></div>
   <div class="charts">
