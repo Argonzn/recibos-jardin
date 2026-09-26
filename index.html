@@ -273,11 +273,8 @@ table.ec td,table.ec th{text-align:right;white-space:nowrap}table.ec td:first-ch
 table.ec tfoot td{font-weight:700}
 .ec-falta{color:var(--red);font-weight:700}
 .ec-acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-#print-ec{display:none}
-@media print{body.print-ec>*:not(#print-ec){display:none!important}body.print-ec #print-ec{display:block;color:#000;background:#fff;font-size:12px}#print-ec table{width:100%;border-collapse:collapse}#print-ec th,#print-ec td{border-bottom:1px solid #ccc;padding:4px 6px}#print-ec .chip{background:none!important;color:#000!important;padding:0}}
 .ec-cards{display:none}.ec-card{border-top:1px solid var(--line);padding:10px 2px}.ec-card.clic{cursor:pointer}.ec-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px}.ec-card-n{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 2px}.ec-card-total{display:flex;justify-content:space-between;font-weight:700}
 @media (max-width:640px){.ec-saldo{text-align:left}.ec-cards{display:block}.ec-tabla{display:none}}
-@media print{#print-ec .ec-cards{display:none!important}#print-ec .ec-tabla{display:block!important}}
 .avance{margin:12px 0 4px;display:grid;gap:6px}
 .avance .barra{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.avance .barra i{display:block;height:100%;background:var(--green)}
 .info-mes{margin:0 0 12px}.info-mes summary{cursor:pointer;color:var(--muted);padding:6px 0}
@@ -1727,13 +1724,109 @@ function mensajeEstadoCuenta(p,mesSig){
   if(p.debe>0)L.push('*Total pendiente: '+fmtS(p.debe)+'*');else L.push('Estás al día'+(p.favor>0?' y tienes '+fmtS(p.favor)+' a favor para '+mesLargo(mesSig):'')+'. ¡Gracias!');
   return L.join('\n');
 }
-// Imprime (o guarda como PDF) solo el estado de cuenta.
-function imprimirEstadoCuenta(p,mesSig){
-  let box=document.getElementById('print-ec');if(!box){box=document.createElement('div');box.id='print-ec';document.body.appendChild(box)}
-  box.innerHTML=`<h2 style="margin:0 0 2px">Estado de cuenta — ${tituloDepto(p.d)}${p.d.encargado?' · '+esc(p.d.encargado):''}</h2><p style="margin:0 0 10px">${esc(config.nombreEdificio||'Recibos Jardín')} · ${mesLargo(p.filas[0].mes)} a ${mesLargo(p.filas[p.filas.length-1].mes)} · emitido el ${fechaCorta(hoyLocal())}</p>${tablaEstadoCuenta(p,{clic:false})}<p style="margin-top:10px"><strong>${p.debe>0?'Total pendiente: '+fmtS(p.debe):'Al día'+(p.favor>0?' · a favor para '+mesLargo(mesSig)+': '+fmtS(p.favor):'')}</strong></p>`;
-  document.body.classList.add('print-ec');
-  const fin=()=>{document.body.classList.remove('print-ec');window.removeEventListener('afterprint',fin)};
-  window.addEventListener('afterprint',fin);setTimeout(()=>{window.print();setTimeout(fin,1000)},50);
+// Cuadre por mes: luz + agua + mora repartidas vs. recibos del edificio (la administración va aparte).
+function cuadreEstadoCuenta(E){
+  return E.meses.map(m=>{const rl=recibos.find(x=>x.id===m),ra=aguaRecibos.find(x=>x.id===m),xs=E.por.map(p=>p.filas.find(y=>y.mes===m)).filter(Boolean);
+    const incompleto=xs.some(x=>x.faltan.length);
+    const recibo=r2((rl?Number(rl.totalMes)||0:0)+(ra?Number(ra.total)||0:0)),rep=r2(sum(xs,x=>(x.partes.luz||0)+(x.partes.agua||0)+x.partes.atraso));
+    return{m,rl,ra,incompleto,recibo,rep,dif:r2(recibo-rep),adm:r2(sum(xs,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))}});
+}
+/* ---------- PDF del estado de cuenta (se descarga directo, con nombre del depto) ---------- */
+// jsPDF y su tabla se cargan solo al pedir un PDF.
+function cargarJsPDF(){
+  if(window.jspdf&&window.jspdf.jsPDF&&window.jspdf.jsPDF.API.autoTable)return Promise.resolve(window.jspdf.jsPDF);
+  const js=(src,sri)=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.integrity=sri;s.crossOrigin='anonymous';s.onload=ok;s.onerror=()=>no(new Error('no se pudo cargar el generador de PDF; revisa tu conexión'));document.head.appendChild(s)});
+  const CDN='https:\/\/cdnjs.cloudflare.com/ajax/libs/';
+  return cargarJsPDF.p||(cargarJsPDF.p=js(CDN+'jspdf/2.5.1/jspdf.umd.min.js','sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk')
+    .then(()=>js(CDN+'jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js','sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3'))
+    .then(()=>window.jspdf.jsPDF).catch(e=>{cargarJsPDF.p=null;throw e}));
+}
+const PDF_AZUL=[36,86,199],PDF_ROJO=[184,58,38],PDF_VERDE=[46,125,79],PDF_GRIS=[90,102,118];
+// Monto sin "S/" (para columnas que ya dicen soles).
+const n2=v=>v==null?'—':fmtS(v).replace('S/ ','');
+const periodoTexto=(m0,m1)=>{const a=mesLargo(m0).split(' '),b=mesLargo(m1).split(' ');return a[1]===b[1]?a[0].toLowerCase()+' a '+b[0].toLowerCase()+' '+b[1]:mesLargo(m0).toLowerCase()+' a '+mesLargo(m1).toLowerCase()};
+const nombreArchivo=t=>t.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim()+'.pdf';
+function pdfTitulo(doc,titulo,sub){
+  const W=doc.internal.pageSize.getWidth();
+  doc.setFillColor(...PDF_AZUL);doc.rect(0,0,W,4,'F');
+  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20,28,40);doc.text(titulo,14,17);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...PDF_GRIS);doc.text(sub,14,23);
+  return 30;
+}
+const pdfEstilo={theme:'plain',styles:{fontSize:8,cellPadding:{top:1.8,bottom:1.8,left:1.6,right:1.6},textColor:[20,28,40],lineColor:[220,226,233],lineWidth:{bottom:.2}},
+  headStyles:{fillColor:PDF_AZUL,textColor:255,fontStyle:'bold',halign:'right'},footStyles:{fillColor:[238,242,248],textColor:[20,28,40],fontStyle:'bold',halign:'right'},
+  margin:{left:14,right:14}};
+// Una página por depto: saldo, tabla mes a mes y nota.
+function pdfDepto(doc,p,mesSig,y){
+  const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes;
+  y=pdfTitulo(doc,'Estado de cuenta — '+tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1)+' · emitido el '+fechaCorta(hoyLocal()));
+  doc.setFont('helvetica','bold');doc.setFontSize(12);
+  if(p.debe>0){doc.setTextColor(...PDF_ROJO);doc.text('Debe en total: '+fmtS(p.debe),14,y+2)}
+  else{doc.setTextColor(...PDF_VERDE);doc.text('Al día'+(p.favor>0?' · a favor para '+mesLargo(mesSig).toLowerCase()+': '+fmtS(p.favor):''),14,y+2)}
+  const est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok';
+  doc.autoTable({...pdfEstilo,startY:y+7,styles:{...pdfEstilo.styles,overflow:'linebreak'},
+    head:[['Mes','Luz','Agua','Adm.','Mora','Total','A favor','A pagar','Pagó','Falta','Estado']],
+    body:p.filas.map(x=>[mesLargo(x.mes),x.partes.luz==null?'—':n2(x.partes.luz),x.partes.agua==null?'—':n2(x.partes.agua),n2(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)),x.partes.atraso?n2(x.partes.atraso):'—',n2(x.total),x.aFavor?'- '+n2(x.aFavor):'—',n2(x.neto),x.pagado?n2(x.pagado):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]),
+    foot:[['Total',p.filas.some(x=>x.partes.luz!=null)?n2(r2(sum(p.filas,x=>x.partes.luz))):'—',n2(r2(sum(p.filas,x=>x.partes.agua))),n2(r2(sum(p.filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))),n2(r2(sum(p.filas,x=>x.partes.atraso))),n2(r2(sum(p.filas,x=>x.total))),'','',n2(p.pagado),n2(p.debe),'']],
+    columnStyles:{0:{halign:'left',cellWidth:25},1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right',fontStyle:'bold'},8:{halign:'right'},9:{halign:'right',fontStyle:'bold'},10:{halign:'left',cellWidth:'auto'}},
+    didParseCell:c=>{if(c.column.index===0||c.column.index===10)c.cell.styles.halign='left';
+      if(c.section==='body'&&c.column.index===9&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
+      if(c.section==='body'&&c.column.index===10)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
+      if(c.section==='foot'&&c.column.index===9&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
+  y=doc.lastAutoTable.finalY+7;
+  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
+  doc.text(doc.splitTextToSize('Montos en soles (S/). «A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no pagaron completo el mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
+}
+function pdfPies(doc,texto){
+  const n=doc.getNumberOfPages(),W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...PDF_GRIS);doc.text(texto,14,H-8);doc.text('Página '+i+' de '+n,W-14,H-8,{align:'right'})}
+}
+async function guardarPdf(crear,archivo){
+  toast('Preparando el PDF…',{sinDeshacer:true});
+  try{const jsPDF=await cargarJsPDF();const doc=new jsPDF({unit:'mm',format:'a4'});crear(doc);doc.save(archivo);toast('PDF descargado: '+archivo,{sinDeshacer:true})}
+  catch(e){toast('No se pudo crear el PDF: '+mensajeError(e),{sinDeshacer:true})}
+}
+function descargarPdfDepto(p,mesSig){
+  const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes;
+  return unaVez('pdf-'+p.d.id,()=>guardarPdf(doc=>{pdfDepto(doc,p,mesSig);pdfPies(doc,'Estado de cuenta · '+tituloDepto(p.d)+' · '+(config.nombreEdificio||'Recibos Jardín'))},
+    nombreArchivo('Estado de cuenta '+tituloDepto(p.d)+(p.d.encargado?' '+p.d.encargado:'')+' - '+periodoTexto(M0,M1))));
+}
+// PDF general: resumen del edificio en la primera hoja y una hoja por depto.
+function descargarPdfGeneral(){
+  const E=estadoCuenta();if(!E.por.length)return;
+  const M=E.meses,per=periodoTexto(M[0],M[M.length-1]),Q=cuadreEstadoCuenta(E);
+  return unaVez('pdf-general',()=>guardarPdf(doc=>{
+    let y=pdfTitulo(doc,'Estado de cuenta del edificio',(config.nombreEdificio||'Recibos Jardín')+' · '+per+' · emitido el '+fechaCorta(hoyLocal()));
+    doc.setFont('helvetica','bold');doc.setFontSize(11);
+    doc.setTextColor(...PDF_ROJO);doc.text('Falta cobrar: '+fmtS(E.debe),14,y+2);
+    doc.setTextColor(20,28,40);doc.text('Pagado: '+fmtS(E.pagado),80,y+2);
+    doc.setTextColor(...PDF_VERDE);doc.text('A favor para '+mesLargo(E.mesSig).toLowerCase()+': '+fmtS(E.favor),136,y+2);
+    const sec=(t,yy)=>{doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20,28,40);doc.text(t,14,yy);return yy+2};
+    y=sec('Resumen por departamento',y+12);
+    doc.autoTable({...pdfEstilo,startY:y,
+      head:[['Depto','Encargado','Total del periodo','Pagó','Falta','A favor','Estado']],
+      body:E.por.map(p=>[tituloDepto(p.d),p.d.encargado||'',fmtS(r2(sum(p.filas,x=>x.total))),fmtS(p.pagado),p.debe?fmtS(p.debe):'—',p.favor?fmtS(p.favor):'—',p.debe>0?(p.late?'Con meses vencidos':'Pendiente'):'Al día']),
+      foot:[['Total','',fmtS(r2(sum(E.por,p=>sum(p.filas,x=>x.total)))),fmtS(E.pagado),fmtS(E.debe),fmtS(E.favor),'']],
+      didParseCell:c=>{if(c.column.index<2||c.column.index===6)c.cell.styles.halign='left';else c.cell.styles.halign='right';
+        if(c.section==='body'&&c.column.index===4&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
+        if(c.section==='body'&&c.column.index===6)c.cell.styles.textColor=c.cell.raw==='Al día'?PDF_VERDE:c.cell.raw==='Pendiente'?[138,95,0]:PDF_ROJO}});
+    y=sec('Pendiente por mes',doc.lastAutoTable.finalY+10);
+    const pm=m=>r2(sum(E.por,p=>{const x=p.filas.find(z=>z.mes===m);return x&&x.estado.cls!=='ok'?x.falta:0}));
+    doc.autoTable({...pdfEstilo,startY:y,
+      head:[['Depto',...M.map(mesCorto),'Total']],
+      body:E.por.map(p=>[tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),...M.map(m=>{const x=p.filas.find(z=>z.mes===m);return x&&x.estado.cls!=='ok'&&x.falta?fmtS(x.falta):'—'}),p.debe?fmtS(p.debe):'al día']),
+      foot:[['Total',...M.map(m=>fmtS(pm(m))),fmtS(E.debe)]],
+      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';if(c.section==='body'&&c.column.index>0&&c.cell.raw!=='—'&&c.cell.raw!=='al día')c.cell.styles.textColor=PDF_ROJO;if(c.section==='body'&&c.cell.raw==='al día')c.cell.styles.textColor=PDF_VERDE}});
+    y=sec('Cuadre con los recibos',doc.lastAutoTable.finalY+10);
+    doc.autoTable({...pdfEstilo,startY:y,
+      head:[['Mes','Recibo luz','Recibo agua','Total recibos','Repartido','Diferencia','Administración']],
+      body:Q.map(q=>[mesLargo(q.m),q.rl?fmtS(q.rl.totalMes):'—',q.ra?fmtS(q.ra.total):'—',fmtS(q.recibo),fmtS(q.rep),q.incompleto?'incompleto':Math.abs(q.dif)<0.005?'OK '+fmtS(0):fmtS(q.dif),fmtS(q.adm)]),
+      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=String(c.cell.raw).startsWith('OK')?PDF_VERDE:PDF_ROJO}});
+    y=doc.lastAutoTable.finalY+6;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
+    doc.text(doc.splitTextToSize('Luz, agua y mora repartidas entre los deptos suman lo mismo que los recibos del edificio; la administración va aparte. En las hojas siguientes, el detalle de cada departamento.',doc.internal.pageSize.getWidth()-28),14,y);
+    E.por.forEach(p=>{doc.addPage();pdfDepto(doc,p,E.mesSig)});
+    pdfPies(doc,'Estado de cuenta del edificio · '+(config.nombreEdificio||'Recibos Jardín'));
+  },nombreArchivo('Estado de cuenta general - '+per)));
 }
 const segCobros=v=>`<div class="seg cobros-vista" role="tablist" aria-label="Vista de cobros"><button type="button" role="tab" data-cv="mes" aria-selected="${v==='mes'}" class="${v==='mes'?'on':''}">Este mes</button><button type="button" role="tab" data-cv="estado" aria-selected="${v==='estado'}" class="${v==='estado'?'on':''}">Estado de cuenta</button></div>`;
 function conectarSegCobros(el){el.querySelectorAll('[data-cv]').forEach(b=>b.onclick=()=>{renderCobros.vista=b.dataset.cv;try{sessionStorage.setItem('recibos_cobros_vista',b.dataset.cv)}catch(e){}renderCobros();window.scrollTo(0,0)})}
@@ -1743,12 +1836,9 @@ function renderEstadoCuenta(el){
   const sel=E.por.find(p=>p.d.id===renderCobros.ecDepto)||E.por.find(p=>p.debe>0)||E.por[0];
   const conDeuda=E.por.filter(p=>p.debe>0),conFavor=E.por.filter(p=>p.favor>0),M=E.meses;
   const pendMes=m=>r2(sum(E.por,p=>{const x=p.filas.find(y=>y.mes===m);return x&&x.estado.cls!=='ok'?x.falta:0}));
-  const cuadre=M.map(m=>{const rl=recibos.find(x=>x.id===m),ra=aguaRecibos.find(x=>x.id===m),xs=E.por.map(p=>p.filas.find(y=>y.mes===m)).filter(Boolean);
-    const incompleto=xs.some(x=>x.faltan.length);
-    const recibo=r2((rl?Number(rl.totalMes)||0:0)+(ra?Number(ra.total)||0:0)),rep=r2(sum(xs,x=>(x.partes.luz||0)+(x.partes.agua||0)+x.partes.atraso));
-    return{m,rl,ra,incompleto,recibo,rep,dif:r2(recibo-rep),adm:r2(sum(xs,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))}});
+  const cuadre=cuadreEstadoCuenta(E);
   el.innerHTML=`${segCobros('estado')}
-  <div class="panel"><h2 style="margin:0">Estado de cuenta</h2><p class="small muted" style="margin:4px 0 12px">De ${mesLargo(M[0])} a ${mesLargo(M[M.length-1])}. Se actualiza solo con cada pago; los meses antes de ${mesLargo(MES_INICIO_CALCULO)} están cerrados.</p>
+  <div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Estado de cuenta</h2><button class="btn" id="ec-pdf-general" title="Resumen del edificio y una hoja por depto">${ico('descargar')} PDF general</button></div><p class="small muted" style="margin:4px 0 12px">De ${mesLargo(M[0])} a ${mesLargo(M[M.length-1])}. Se actualiza solo con cada pago; los meses antes de ${mesLargo(MES_INICIO_CALCULO)} están cerrados.</p>
     <div class="kpis">
       <div class="kpi"><div class="l">Falta cobrar</div><div class="v" style="color:${E.debe>0?'var(--red)':'var(--green)'}">${fmtS(E.debe)}</div><div class="d">${conDeuda.length?conDeuda.length+' depto'+(conDeuda.length>1?'s':'')+' con deuda':'todos al día'}</div></div>
       <div class="kpi"><div class="l">Pagado desde ${mesLargo(M[0])}</div><div class="v">${fmtS(E.pagado)}</div><div class="d">según los pagos registrados</div></div>
@@ -1758,7 +1848,7 @@ function renderEstadoCuenta(el){
     <div class="ec-chips" role="group" aria-label="Departamento">${E.por.map(p=>`<button type="button" data-ec-depto="${p.d.id}" aria-pressed="${p===sel}">${tituloDepto(p.d)}${p.d.encargado?' <span class="muted">· '+esc(p.d.encargado)+'</span>':''}</button>`).join('')}</div>
     <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">«A pagar» ya descuenta el saldo a favor del mes anterior. Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(sel,E.mesSig)}</div>
     ${tablaEstadoCuenta(sel)}
-    <div class="ec-acciones">${sel.debe>0?`<button class="btn primary" data-pago-depto="${sel.d.id}">${ico('pago')} Registrar pago</button>`:''}<button class="btn" id="ec-wa">${ico('enviar')} Enviar por WhatsApp</button><button class="btn" id="ec-print">${ico('descargar')} Imprimir o guardar PDF</button></div>
+    <div class="ec-acciones">${sel.debe>0?`<button class="btn primary" data-pago-depto="${sel.d.id}">${ico('pago')} Registrar pago</button>`:''}<button class="btn" id="ec-wa">${ico('enviar')} Enviar por WhatsApp</button><button class="btn" id="ec-print">${ico('descargar')} Descargar PDF</button></div>
   </div>
   <div class="panel"><h2 style="margin:0">Pendiente por mes</h2><p class="small muted" style="margin:4px 0 10px">Lo que falta cobrar a cada depto en cada mes; a la derecha, lo que debe hoy.</p>
     <div class="scroll"><table class="ec"><thead><tr><th>Depto</th>${M.map(m=>`<th>${mesCorto(m)}</th>`).join('')}<th>Total</th></tr></thead>
@@ -1772,7 +1862,8 @@ function renderEstadoCuenta(el){
   el.querySelectorAll('[data-ec-mes]').forEach(t=>t.onclick=()=>abrirCobroMes(sel.d.id,t.dataset.ecMes));
   el.querySelectorAll('[data-pago-depto]').forEach(b=>b.onclick=()=>abrirPagoDepto(b.dataset.pagoDepto));
   $('#ec-wa').onclick=()=>abrirEnlace(waUrl(sel.d.telefono,mensajeEstadoCuenta(sel,E.mesSig)));
-  $('#ec-print').onclick=()=>imprimirEstadoCuenta(sel,E.mesSig);
+  $('#ec-print').onclick=()=>descargarPdfDepto(sel,E.mesSig);
+  $('#ec-pdf-general').onclick=()=>descargarPdfGeneral();
 }
 function renderCobros(){
   const el=$('#tab-cobros');if(!el)return;
@@ -2581,10 +2672,10 @@ function abrirHistorialInquilino(dep,meses){
   <div class="dlg-b"><div class="ec-top"><div class="small muted">Todos tus meses: lo que te tocó, lo que pagaste y lo que falta. Toca un mes para ver su detalle.</div>${saldoEstadoCuenta(p,mesSig)}</div>
     ${tablaEstadoCuenta(p)}
     ${filas.some(y=>y.cerrado)?'<p class="small muted" style="margin-top:10px">Los meses anteriores a '+mesLargo(MES_INICIO_CALCULO)+' muestran solo lo que pagaste.</p>':''}</div>
-  <div class="dlg-f"><button class="btn" id="inq-ec-print">${ico('descargar')} Imprimir o guardar PDF</button><button class="btn primary" data-close>Cerrar</button></div>`;
+  <div class="dlg-f"><button class="btn" id="inq-ec-print">${ico('descargar')} Descargar PDF</button><button class="btn primary" data-close>Cerrar</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
   dlg.querySelectorAll('[data-ec-mes]').forEach(t=>t.onclick=()=>abrirDetalleInquilino(dep,t.dataset.ecMes));
-  dlg.querySelector('#inq-ec-print').onclick=()=>imprimirEstadoCuenta(p,mesSig);
+  dlg.querySelector('#inq-ec-print').onclick=()=>descargarPdfDepto(p,mesSig);
   if(!dlg.open)dlg.showModal();
 }
 
