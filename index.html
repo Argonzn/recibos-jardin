@@ -39,7 +39,12 @@ header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:1
 .brand-fila{display:flex;align-items:center;gap:10px}.logo{width:34px;height:34px;border-radius:9px;flex:none}
 .usuario{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 12px 3px 3px;cursor:pointer;font:inherit;max-width:230px;min-height:40px}
 .usuario .u-txt{display:grid;text-align:left;line-height:1.15;min-width:0}.usuario .u-txt strong,.usuario .u-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.usuario .u-txt span{font-size:.72rem;color:var(--muted)}
-.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none;background:var(--amber);color:#1D2733}.avatar.inq{background:var(--blue);color:#fff}.avatar.grande{width:56px;height:56px;font-size:1.2rem}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none;background:var(--amber);color:#1D2733}.avatar.inq{background:var(--blue);color:#fff}.avatar.ayu{background:var(--green);color:#fff}
+/* Ayudante: se ocultan pagos, envíos, recibos y configuración (el servidor igual los rechaza) */
+body.modo-ayudante :is([data-pago-rapido],[data-pago-depto],[data-ed-pago],#btn-pago-ficha,[data-pagar],[data-wa],#btn-enviar-todos,#btn-recordar-todos,[data-recordar],[data-dell],[data-della],#btn-subir,#btn-subir-agua,.sec-acc,#drop,.datos-depto,#tab-cobros .mas-opciones,#btn-cargos-mes,#cm-save,#cm-quitar,#btn-corte,[data-cfg]){display:none!important}
+.err-item{border-bottom:1px solid var(--line);padding:8px 0}.err-item summary{cursor:pointer}.err-det{white-space:pre-wrap;word-break:break-word;font-size:.75rem;background:var(--surface-2);padding:8px;border-radius:8px;margin:8px 0 0}
+.explica{text-align:left;margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--surface-2);display:grid;gap:4px}
+.aviso-version{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:60;border:0;border-radius:999px;padding:10px 18px;background:var(--blue);color:#fff;font:inherit;font-weight:650;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer}.avatar.grande{width:56px;height:56px;font-size:1.2rem}
 .perfil{display:flex;align-items:center;gap:14px;margin-bottom:16px}
 @media (max-width:640px){header.top{flex-wrap:nowrap;align-items:center}.usuario{max-width:160px;padding-right:10px}.usuario .u-txt span{display:none}}
 .brand h1{margin:0;font-size:1.6rem;line-height:1.1;font-weight:760;font-stretch:78%;letter-spacing:-.01em}
@@ -316,9 +321,14 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 <!-- OJO: Apps Script borra comentarios JS de forma ingenua. En el JavaScript no escribir barra-barra ni barra-asterisco dentro de textos: usar \/\/ y \/* (el navegador los lee igual). -->
 <script>
 // Muestra en pantalla cualquier error de carga (sin esto, un fallo deja la página en blanco sin explicación).
-function mostrarErrorCarga(msg){try{const a=document.getElementById('aviso-db');a.hidden=false;a.className='banner alert';a.textContent='Error al cargar la app: '+msg}catch(e){}}
-window.addEventListener('error',e=>mostrarErrorCarga((e.message||'error')+(e.lineno?' (línea '+e.lineno+')':'')));
-window.addEventListener('unhandledrejection',e=>mostrarErrorCarga(String(e.reason&&(e.reason.message||e.reason)||'promesa rechazada')));
+function mostrarErrorCarga(msg){try{const a=document.getElementById('aviso-db');a.hidden=false;a.className='banner alert';a.textContent=(window.__appLista?'Algo falló y quedó registrado para revisarlo: ':'Error al cargar la app: ')+msg}catch(e){}}
+// Cada error queda anotado y la app lo envía al servidor (registro "errores") cuando ya hay sesión.
+window.__errApp=[];
+function anotarErrorApp(m,d){try{window.__errApp.push({m:String(m||'error').slice(0,300),d:String(d||'').slice(0,1500)});if(window.enviarErroresApp)window.enviarErroresApp()}catch(e){}}
+window.addEventListener('error',e=>{if(e.target&&e.target!==window&&!e.message)return; // imagen o archivo que no cargó: no es un fallo de la app
+  mostrarErrorCarga((e.message||'error')+(e.lineno?' (línea '+e.lineno+')':''));anotarErrorApp(e.message,(e.filename||'')+':'+(e.lineno||'')+':'+(e.colno||'')+'\n'+(e.error&&e.error.stack||''))});
+window.addEventListener('unhandledrejection',e=>{const m=String(e.reason&&(e.reason.message||e.reason.code||e.reason)||'promesa rechazada');mostrarErrorCarga(m);
+  if(!/no_autorizado|failed to fetch|networkerror|load failed|conflicto|solo_lectura|codigo_incorrecto|demasiados_intentos/i.test(m))anotarErrorApp('Promesa: '+m,e.reason&&e.reason.stack||'')});
 </script>
 <script>
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
@@ -452,6 +462,7 @@ function mensajeError(e){
   if(/failed to fetch|networkerror|network|load failed/i.test(m))return 'sin conexión a internet';
   if(/lock|timeout|tiempo de espera/i.test(m))return 'el servidor estaba ocupado';
   if(m.includes('no_autorizado'))return 'la sesión se cerró; vuelve a entrar';
+  if(m.includes('solo_lecturas'))return 'con acceso de ayudante solo puedes registrar lecturas';
   if(m.includes('solo_lectura'))return 'tu acceso es solo de lectura';
   if(m.includes('conflicto'))return 'otra persona cambió este dato hace un momento';
   const c=mensajeClave(e);if(c)return c;
@@ -569,6 +580,7 @@ function abrirDetalle(id){
   dlg.innerHTML=`<div class="dlg-h"><h2>${mesLargo(r.id)} <span class="chip ${st.cls}" style="vertical-align:middle">${st.txt}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')}${r.suministro?`, suministro ${esc(r.suministro)}`:''}. Emitido el ${fechaCorta(r.emision)}.</p>
+    ${(s=>s?'<div class="banner warn">⚠ '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('luz',r.id))}
     ${r.pdfId?`<button class="pdf-mini" data-verpdf="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
     <h3>Lectura</h3>
     <p style="margin-top:0">${fmtN(r.lecturaActual,2)} − ${fmtN(r.lecturaAnterior,2)} = <strong>${fmtN(r.kwh)} kWh</strong> × ${r.precioKwh??'—'} = ${fmtS(r.consumoEnergia)}<br><span class="muted small">Del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}</span></p>
@@ -709,6 +721,34 @@ function tablaLuzYAgua(rs,sel){
     <tfoot><tr><td>Total</td><td>${fmtN(sum(rs,r=>r.kwh))}</td><td>${fmtS(tl)}</td><td>${fmtN(sum(ags,a=>a.m3))}</td><td>${fmtS(ta)}</td><td>${fmtS(tl+ta)}</td><td></td></tr>
     <tr><td>Promedio</td><td>${nl?fmtN(sum(rs,r=>r.kwh)/nl):'—'}</td><td>${nl?fmtS(tl/nl):'—'}</td><td>${na?fmtN(sum(ags,a=>a.m3)/na):'—'}</td><td>${na?fmtS(ta/na):'—'}</td><td></td><td></td></tr></tfoot>
   </table></div></div>`;
+}
+// Precio por unidad de un recibo. Luz: tarifa por kWh del recibo (si los dos meses la tienen) o costo real total/kWh.
+// Agua: costo por m³ sin los cargos por atraso (mora, cierre y reapertura no son tarifa).
+function precioUnitario(tipo,r,soloTarifa){if(!r)return null;
+  if(tipo==='luz'){if(soloTarifa)return Number(r.precioKwh)>0?Number(r.precioKwh):null;return Number(r.kwh)>0?Number(r.totalMes)/Number(r.kwh):null}
+  return Number(r.m3)>0?(Number(r.total)-atrasoDe(r))/Number(r.m3):null}
+// Si la tarifa subió más de 10% respecto al mes anterior: {pct, antes, ahora, unidad, mesAnt}; si no, null.
+function subidaTarifa(tipo,mes){
+  const L=tipo==='luz'?recibos:aguaRecibos,a=L.find(x=>x.id===mes),p=L.find(x=>x.id===mesAnterior(mes));if(!a||!p)return null;
+  const tarifa=tipo==='luz'&&precioUnitario('luz',a,true)&&precioUnitario('luz',p,true);
+  const pa=precioUnitario(tipo,a,tarifa),pp=precioUnitario(tipo,p,tarifa);if(!pa||!pp)return null;
+  const pct=pa/pp-1;return Math.round(pct*1000)>100?{pct,antes:pp,ahora:pa,unidad:tipo==='luz'?'kWh':'m³',mesAnt:p.id}:null}
+const textoSubida=s=>'La tarifa subió '+fmtN(s.pct*100,0)+'% respecto a '+mesLargo(s.mesAnt)+': de S/ '+fmtN(s.antes,s.unidad==='kWh'?4:2)+' a S/ '+fmtN(s.ahora,s.unidad==='kWh'?4:2)+' por '+s.unidad+'. Por eso los cobros de este mes salen más altos aunque el consumo sea parecido.';
+// Para el inquilino: por qué cambió lo que paga de luz y de agua respecto al mes anterior (consumo y precio).
+function explicaCambio(dep,mes){
+  const prev=mesAnterior(mes);if(mesCerrado(prev)||mesCerrado(mes))return'';
+  const x=detalleCobro(dep,mes),y=detalleCobro(dep,prev);if(!y||!y.partes)return'';
+  const linea=(ico,serv,nAhora,nAntes,uAhora,uAntes,unidad)=>{
+    if(nAhora==null||nAntes==null||!uAhora||!uAntes||!(nAhora>0)||!(nAntes>0))return'';
+    const dS=r2(nAhora-nAntes);if(Math.abs(dS)<1)return'';
+    const c=uAhora/uAntes-1,p=(nAhora/uAhora)/(nAntes/uAntes)-1;
+    const tc=Math.abs(c)<0.01?'consumiste lo mismo':'consumiste '+fmtN(Math.abs(c)*100,0)+'% '+(c>0?'más':'menos');
+    const tp=Math.abs(p)<0.01?'el precio por '+unidad+' no cambió':'el precio por '+unidad+(p>0?' subió ':' bajó ')+fmtN(Math.abs(p)*100,0)+'%';
+    return '<div>'+ico+' Tu '+serv+(dS>0?' subió ':' bajó ')+'<strong>'+fmtS(Math.abs(dS))+'</strong> ('+fmtS(nAntes)+' → '+fmtS(nAhora)+'): '+tc+' y '+tp+'.</div>'};
+  const la=lecturaDe(dep,mes),lp=lecturaDe(dep,prev),aa=calcAgua(mes),ap=calcAgua(prev);
+  const ma=aa&&!aa.incompleto&&aa.porDepto[dep]?aa.porDepto[dep].m3:null,mp=ap&&!ap.incompleto&&ap.porDepto[dep]?ap.porDepto[dep].m3:null;
+  const t=linea('💡','luz',x.partes.luz,y.partes.luz,la&&la.kwh,lp&&lp.kwh,'kWh')+linea('💧','agua',x.partes.agua,y.partes.agua,ma,mp,'m³');
+  return t?'<div class="explica small"><div class="muted" style="margin-bottom:4px">¿Por qué cambió respecto a '+mesLargo(prev)+'?</div>'+t+'</div>':'';
 }
 function renderReportes(){
   charts.forEach(c=>c.destroy());charts=[];
@@ -1865,6 +1905,7 @@ function abrirDetalleAgua(mes){
     dlg.innerHTML=`<div class="dlg-h"><h2>Agua · ${mesLargo(mes)} <span class="chip ${r.pagado?'ok':'pend'}" style="vertical-align:middle">${r.pagado?'Pagado':'Pendiente'}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')} · periodo ${fechaCorta(r.periodoInicio)} al ${fechaCorta(r.periodoFin)} · vence ${fechaCorta(r.vencimiento)}.</p>
+      ${(s=>s?'<div class="banner warn">⚠ '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('agua',mes))}
       ${r.pdfId?`<button class="pdf-mini" data-verpdfagua="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
       <h3>Recibo</h3>
       <p style="margin-top:0">Medidor general: ${fmtN(r.lecturaAnterior)} → ${fmtN(r.lecturaActual)} = <strong>${fmtN(r.m3)} m³</strong></p>
@@ -2028,8 +2069,8 @@ function panelRecibosDelMes(r,prev){
   const st=estado(r),dV=diasHasta(r.vencimiento),a=ua?calcAgua(ua.id):null;
   const fila=(attr,ico,t,monto,det,chip)=>`<button class="rm-fila" ${attr}><span class="rm-ico" aria-hidden="true">${ico}</span><span class="rm-txt"><strong>${t}</strong><span class="small muted">${det}</span></span><span class="rm-der"><strong>${monto}</strong>${chip}</span></button>`;
   return `<div class="panel"><h2 style="margin:0 0 6px">Recibos del mes</h2>
-    ${fila(`data-ver="${r.id}"`,'💡','Luz · '+mesLargo(r.id),fmtS(r.totalMes),fmtN(r.kwh)+' kWh'+variacion(r.kwh,prev&&prev.kwh)+(r.pagado?'':' · vence '+fechaCorta(r.vencimiento)+(dV!=null?' ('+enDias(dV)+')':'')),`<span class="chip sm ${st.cls}">${st.txt}</span>`)}
-    ${ua?fila(`data-veragua="${ua.id}"`,'💧','Agua · '+mesLargo(ua.id),fmtS(ua.total),fmtN(ua.m3)+' m³'+variacion(ua.m3,pa&&pa.m3)+(a&&!a.incompleto?' · sin medir '+fmtN(a.R,1)+' m³':'')+(ua.pagado?'':' · vence '+fechaCorta(ua.vencimiento)),`${a&&a.fueraDeLoNormal?'<span class="chip sm late">fuera de lo normal</span>':''}<span class="chip sm ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span>`):''}
+    ${fila(`data-ver="${r.id}"`,'💡','Luz · '+mesLargo(r.id),fmtS(r.totalMes),fmtN(r.kwh)+' kWh'+variacion(r.kwh,prev&&prev.kwh)+(subidaTarifa('luz',r.id)?' · ⚠ tarifa +'+fmtN(subidaTarifa('luz',r.id).pct*100,0)+'%':'')+(r.pagado?'':' · vence '+fechaCorta(r.vencimiento)+(dV!=null?' ('+enDias(dV)+')':'')),`<span class="chip sm ${st.cls}">${st.txt}</span>`)}
+    ${ua?fila(`data-veragua="${ua.id}"`,'💧','Agua · '+mesLargo(ua.id),fmtS(ua.total),fmtN(ua.m3)+' m³'+variacion(ua.m3,pa&&pa.m3)+(subidaTarifa('agua',ua.id)?' · ⚠ tarifa +'+fmtN(subidaTarifa('agua',ua.id).pct*100,0)+'%':'')+(a&&!a.incompleto?' · sin medir '+fmtN(a.R,1)+' m³':'')+(ua.pagado?'':' · vence '+fechaCorta(ua.vencimiento)),`${a&&a.fueraDeLoNormal?'<span class="chip sm late">fuera de lo normal</span>':''}<span class="chip sm ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span>`):''}
   </div>`;
 }
 document.addEventListener('click',e=>{const s=e.target.closest('[data-ir-rec]');if(s)irA(s.dataset.irRec)});
@@ -2216,7 +2257,7 @@ function tareasDelMes(){
 }
 function panelQueHacer(){
   if(!datosListos&&!recibos.length)return'';
-  const {mes,T,proximas}=tareasDelMes();panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
+  const {mes,T:T0,proximas}=tareasDelMes();const T=esAyudante()?T0.filter(x=>['lect','altos','revAgua'].includes(x.id)):T0;panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
   return `<div class="panel que-hacer"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Qué hacer este mes</h2><span class="chip ${hechas===T.length?'ok':'pend'}">${hechas} de ${T.length}</span></div>
     <p class="muted small" style="margin:4px 0 10px">${mesLargo(mes)}</p>
     ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':x.bloq?'bloqueada':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':x.bloq?'🔒':'○'}</span>
@@ -2261,8 +2302,66 @@ async function abrirAccesoInquilino(d){
   try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:'ver'});pintar(r.codigo)}catch(e){pintar(null);toast('No se pudo consultar: '+mensajeError(e))}
 }
 
+/* ---------- Acceso de ayudante ---------- */
+async function abrirAccesoAyudante(){
+  const dlg=$('#dlg');
+  const pintar=(cod,cargando)=>{
+    dlg.innerHTML=`<div class="dlg-h"><h2>Acceso de ayudante</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b"><p style="margin-top:0">Con este código, otra persona entra a la app, <strong>ve todo y puede registrar lecturas</strong> de luz y agua con sus fotos. <strong>No puede</strong> registrar ni borrar pagos, cambiar recibos, montos ni configuración.</p>
+      ${cargando?'<p class="muted">Consultando…</p>':cod?`<div class="banner info" style="text-align:center"><div class="small muted">Código de ayudante</div><div style="font-size:2rem;font-weight:800;letter-spacing:.2em">${esc(cod)}</div></div>`:'<p class="muted">Todavía no hay acceso de ayudante.</p>'}
+      <p class="muted small">Si cambias o quitas el código, el anterior deja de funcionar al instante.</p></div>
+    <div class="dlg-f">${cod?'<button class="btn danger" id="aa-quitar" style="margin-right:auto">Quitar acceso</button><button class="btn" id="aa-nuevo">Cambiar código</button><button class="btn primary" id="aa-wa">📲 Enviar por WhatsApp</button>':'<button class="btn primary" id="aa-nuevo">Crear código</button>'}</div>`;
+    dlg.querySelector('[data-close]').onclick=()=>dlg.close();
+    const op=async o=>{try{const r=await db._post({action:'codigoAyudante',op:o});pintar(r.codigo);toast(o==='quitar'?'Acceso de ayudante quitado':'Código de ayudante listo',{sinDeshacer:true})}catch(e){toast('No se pudo: '+mensajeError(e))}};
+    const n=dlg.querySelector('#aa-nuevo');if(n)n.onclick=()=>op('generar');
+    const q=dlg.querySelector('#aa-quitar');if(q)q.onclick=async()=>{if(await confirmar('¿Quitar el acceso de ayudante? Quien lo use ya no podrá entrar.','Quitar',true))op('quitar')};
+    const w=dlg.querySelector('#aa-wa');if(w)w.onclick=()=>abrirEnlace(waUrl('','Hola. Para registrar las lecturas de los medidores del edificio entra aquí:\n'+APP_PUBLICA+'\nTu código de acceso es: *'+cod+'*'));
+  };
+  pintar(null,true);if(!dlg.open)dlg.showModal();
+  try{const r=await db._post({action:'codigoAyudante',op:'ver'});pintar(r.codigo)}catch(e){pintar(null);toast('No se pudo consultar: '+mensajeError(e))}
+}
+
+/* ---------- Registro de errores de la app ---------- */
+// Envía los errores anotados (sin repetir el mismo mensaje y como máximo 10 por sesión).
+const errEnviados=new Set();
+window.enviarErroresApp=function(){
+  if(!db||!tokenAcceso)return;
+  const cola=(window.__errApp||[]).splice(0);
+  cola.forEach(x=>{if(errEnviados.has(x.m)||errEnviados.size>=10)return;errEnviados.add(x.m);
+    const dlgAbierto=document.querySelector('dialog[open] h2');
+    db._post({action:'logError',mensaje:x.m,detalle:x.d,donde:(tabActual||'')+(dlgAbierto?' · '+dlgAbierto.textContent.slice(0,60):''),agente:navigator.userAgent,version:document.lastModified}).catch(()=>{})});
+};
+async function abrirErrores(){
+  const dlg=$('#dlg');
+  const pintar=(lista,cargando)=>{
+    dlg.innerHTML=`<div class="dlg-h"><h2>Errores de la app</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b">${cargando?'<p class="muted">Consultando…</p>':!lista.length?'<p class="muted" style="margin-top:0">No hay errores registrados. 🎉</p>':
+      '<p class="muted small" style="margin-top:0">Fallos que ocurrieron en los celulares (se guardan los últimos 300). Si ves uno repetido, avísale a Claude.</p>'+lista.map(e=>`<details class="err-item"><summary><strong>${esc(e.mensaje||'')}</strong><div class="small muted">${esc(fechaCorta(String(e.fecha||'').slice(0,10)))} ${esc(String(e.fecha||'').slice(11,16))} · ${esc(e.rol||'')}${e.depto?' '+esc(e.depto):''}${e.donde?' · '+esc(e.donde):''}</div></summary><pre class="err-det">${esc((e.detalle||'')+'\n'+(e.agente||'')+'\nversión: '+(e.version||''))}</pre></details>`).join('')}</div>
+    <div class="dlg-f">${lista&&lista.length?'<button class="btn danger" id="er-vaciar" style="margin-right:auto">Vaciar registro</button>':''}<button class="btn primary" data-close>Cerrar</button></div>`;
+    dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+    const v=dlg.querySelector('#er-vaciar');if(v)v.onclick=async()=>{if(!(await confirmar('¿Vaciar el registro de errores?','Vaciar',true)))return;try{await db._post({action:'errores',op:'limpiar'});pintar([]);toast('Registro vaciado',{sinDeshacer:true})}catch(e){toast('No se pudo: '+mensajeError(e))}};
+  };
+  pintar(null,true);if(!dlg.open)dlg.showModal();
+  try{pintar(await db._post({action:'errores'})||[])}catch(e){pintar([]);toast('No se pudo consultar: '+mensajeError(e))}
+}
+
+/* ---------- Aviso de versión nueva ---------- */
+// Compara la firma (ETag o fecha) de la página publicada con la que se cargó; si cambió, ofrece actualizar.
+const versionApp={base:null};
+async function firmaPagina(){try{const r=await fetch(location.href.split('#')[0],{method:'HEAD',cache:'no-store'});return r.ok?(r.headers.get('etag')||r.headers.get('last-modified')):null}catch(e){return null}}
+async function revisarVersion(){
+  if(EN_APPS_SCRIPT||!/^https?:$/.test(location.protocol)||$('#aviso-version'))return;
+  const f=await firmaPagina();if(!f)return;
+  if(!versionApp.base){versionApp.base=f;return}
+  if(f!==versionApp.base){const b=document.createElement('button');b.id='aviso-version';b.className='aviso-version';b.textContent='Hay una versión nueva · Toca para actualizar';b.onclick=()=>location.reload();document.body.appendChild(b)}
+}
+// Se empieza después de cargar todo (EN_APPS_SCRIPT se define más abajo en el archivo).
+setTimeout(revisarVersion,3000);setInterval(revisarVersion,10*60*1000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')revisarVersion()});
+
 /* ---------- Vista del inquilino ---------- */
 const esInquilino=()=>lsGet('recibos_rol')==='inquilino';
+const esAyudante=()=>lsGet('recibos_rol')==='ayudante';
 function renderInquilino(){
   const el=$('#tab-inquilino');if(!el)return;
   const dep=lsGet('recibos_depto'),d=deptos.find(x=>x.id===dep);
@@ -2283,6 +2382,7 @@ function renderInquilino(){
     <div class="inq-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)}</div>
     <div class="muted small">${ok?(x.cobro&&x.cobro.fechaCobro?'El '+fechaCorta(x.cobro.fechaCobro):''):'Hasta el <strong>'+fechaCorta(fechaLimitePago(mes))+'</strong>'}${x.faltan.length?' · monto provisional':''}</div>
     ${resumen?`<p class="small" style="margin:14px 0 0">${resumen}</p>`:''}
+    ${explicaCambio(dep,mes)}
     <button class="btn primary inq-btn" id="inq-detalle">Ver detalle del cobro</button>
     ${config.telefonoAdmin?`<div class="row inq-acciones">${ok?'':'<button class="btn" id="inq-pague">✅ Avisar que pagué</button>'}<button class="btn" id="inq-consulta">💬 Consultar</button></div>`:''}
   </div>
@@ -2447,16 +2547,18 @@ function abrirMenu(){
   c.innerHTML='<div class="menu-h"><strong>Recibos Jardín</strong><button class="x" aria-label="Cerrar menú" data-close>×</button></div>'+
     '<nav class="menu-list" aria-label="Secciones">'+
       item('reportes','Reportes','Cobranza, consumos y gráficos')+
-      '<div class="menu-sep"></div>'+
+      (esAyudante()?'':'<div class="menu-sep"></div>'+
       '<div class="menu-titulo">Administración</div>'+
       '<button data-accion="recordatorio">Recordatorio de lecturas<small>'+esc(rec)+'</small></button>'+
       '<button data-accion="vincular">Buscar PDF en Drive<small>Vincula los PDF de luz y de agua dejados en Drive</small></button>'+
+      '<button data-accion="ayudante">Acceso de ayudante<small>Un código para que alguien tome lecturas sin tocar los pagos</small></button>'+
+      '<button data-accion="errores">Errores de la app<small>Fallos registrados en los celulares</small></button>')+
     '</nav>'+
     '<div class="menu-pie">'+(datosListos?'Datos al día':'Actualizando datos…')+'</div>';
   c.querySelector('[data-close]').onclick=()=>c.close();
   c.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{c.close();irA(b.dataset.ir)});
-  c.querySelector('[data-accion="recordatorio"]').onclick=()=>{c.close();abrirRecordatorio()};
-  c.querySelector('[data-accion="vincular"]').onclick=()=>{c.close();buscarPdfsDrive()};
+  const acc=(k,f)=>{const b=c.querySelector('[data-accion="'+k+'"]');if(b)b.onclick=()=>{c.close();f()}};
+  acc('recordatorio',abrirRecordatorio);acc('vincular',buscarPdfsDrive);acc('ayudante',abrirAccesoAyudante);acc('errores',abrirErrores);
   c.addEventListener('click',e=>{if(e.target===c)c.close()}); // tocar fuera cierra
   c.showModal();
 }
@@ -2731,6 +2833,7 @@ async function conectar(){
   db=new SheetsDB(APPS_SCRIPT_URL);assets=crearAssets(db);downloads=crearDownloads();sample=crearSampleOCR();
   pintarUsuario();
   $('#aviso-db').hidden=true;
+  window.__appLista=true;document.body.classList.toggle('modo-ayudante',esAyudante());if(window.enviarErroresApp)enviarErroresApp();
   if(esInquilino()){tabActual='inquilino';$('nav.tabs').hidden=true;PESTANAS.forEach(t=>$('#tab-'+t).hidden=true);$('#tab-inquilino').hidden=false;document.body.classList.add('modo-inquilino')}
   else{let t=null,m=null;try{t=sessionStorage.getItem('recibos_tab');m=sessionStorage.getItem('recibos_mes_cobro')}catch(e){}
     if(m&&/^\d{4}-\d{2}$/.test(m))renderCobros.mes=m;
@@ -2770,8 +2873,8 @@ conectar();
 /* ---------- Usuario conectado ---------- */
 function datosUsuario(){
   const inq=esInquilino(),dep=inq?deptos.find(d=>d.id===lsGet('recibos_depto')):null;
-  const nombre=(lsGet('recibos_nombre')||'').trim()||(inq?(dep&&dep.encargado)||'Inquilino':'Administración');
-  const rol=inq?(dep?tituloDepto(dep):'Inquilino'):'Administrador';
+  const nombre=(lsGet('recibos_nombre')||'').trim()||(inq?(dep&&dep.encargado)||'Inquilino':esAyudante()?'Ayudante':'Administración');
+  const rol=inq?(dep?tituloDepto(dep):'Inquilino'):esAyudante()?'Ayudante':'Administrador';
   const ini=nombre.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
   return {inq,dep,nombre,rol,ini};
 }
@@ -2779,13 +2882,13 @@ function pintarUsuario(){
   const b=$('#btn-usuario');if(!b)return;
   if(!tokenAcceso){b.hidden=true;return}
   const u=datosUsuario();b.hidden=false;b.setAttribute('aria-label','Tu cuenta: '+u.nombre+', '+u.rol);
-  b.innerHTML=`<span class="avatar ${u.inq?'inq':''}" aria-hidden="true">${esc(u.ini)}</span><span class="u-txt"><strong>${esc(u.nombre)}</strong><span>${esc(u.rol)}</span></span>`;
+  b.innerHTML=`<span class="avatar ${u.inq?'inq':esAyudante()?'ayu':''}" aria-hidden="true">${esc(u.ini)}</span><span class="u-txt"><strong>${esc(u.nombre)}</strong><span>${esc(u.rol)}</span></span>`;
 }
 function abrirCuenta(){
   const u=datosUsuario(),dlg=$('#dlg');
   dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">Tu cuenta</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
-    <div class="perfil"><span class="avatar grande ${u.inq?'inq':''}" aria-hidden="true">${esc(u.ini)}</span><div><strong style="font-size:1.1rem">${esc(u.nombre)}</strong><div class="muted small">${esc(u.rol)}${u.inq?' · solo ves tus datos':' · acceso completo'}</div></div></div>
+    <div class="perfil"><span class="avatar grande ${u.inq?'inq':''}" aria-hidden="true">${esc(u.ini)}</span><div><strong style="font-size:1.1rem">${esc(u.nombre)}</strong><div class="muted small">${esc(u.rol)}${u.inq?' · solo ves tus datos':esAyudante()?' · puedes ver todo y registrar lecturas':' · acceso completo'}</div></div></div>
     <label class="f">Tu nombre<input id="u-nombre" value="${esc((lsGet('recibos_nombre')||'').trim())}" placeholder="${esc(u.nombre)}" autocomplete="name"></label>
     <p class="muted small" style="margin:6px 0 0">Se entra con un código compartido, así que este nombre se guarda solo en este dispositivo.</p>
     <p class="muted small" style="margin:10px 0 0">${esc(($('#estado-sync')||{}).textContent||'')}</p>

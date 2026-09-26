@@ -36,6 +36,8 @@ const SHEETS = {
   // pagoTarde: true = pagó fuera de fecha (le toca parte de la mora/corte/reapertura del agua del mes siguiente),
   // false = a tiempo, vacío = se decide por la fecha de cobro.
   cobros: ['id','deptoId','mes','montoCobrado','fechaCobro','nota','historialCobroJSON','actualizado','pagoTarde','tipoPago'],
+  // Errores que ocurren en los celulares (los manda la app sola); solo los lee el administrador.
+  errores: ['id','fecha','rol','depto','mensaje','detalle','donde','agente','version'],
 };
 
 // Columnas que deben guardarse como texto plano. Sin esto Sheets convierte "2025-12" o
@@ -52,6 +54,7 @@ const TEXT_COLS = {
   lecturas_agua: ['id','deptoId','mes','origen','fotoUrl','fotoId','actualizado'],
   cargos: ['id','actualizado'],
   cobros: ['id','deptoId','mes','fechaCobro','nota','historialCobroJSON','actualizado','tipoPago'],
+  errores: ['id','fecha','rol','depto','mensaje','detalle','donde','agente','version'],
 };
 
 function formatTextCols_(sh, name) {
@@ -444,6 +447,8 @@ function codigosInquilino_() {
   return out;
 }
 const tokenInquilino_ = (dep, codigo) => 'inq.' + dep + '.' + firmaHex_('recibos-jardin-inq|' + dep, codigo);
+// Ayudante: un código aparte (Propiedad COD_AYUDANTE). Ve todo, pero solo puede guardar lecturas y fotos de medidores.
+const tokenAyudante_ = codigo => 'ayu.' + firmaHex_('recibos-jardin-ayu', codigo);
 
 function login_(codigo) {
   const cache = CacheService.getScriptCache();
@@ -455,14 +460,21 @@ function login_(codigo) {
   const inq = codigosInquilino_();
   const dep = Object.keys(inq).find(d => inq[d] && inq[d] === c.toUpperCase().trim());
   if (dep) { cache.remove('fallos_login'); return { token: tokenInquilino_(dep, inq[dep]), rol: 'inquilino', depto: dep }; }
+  const ayu = PropertiesService.getScriptProperties().getProperty('COD_AYUDANTE') || '';
+  if (ayu && ayu === c.toUpperCase().trim()) { cache.remove('fallos_login'); return { token: tokenAyudante_(ayu), rol: 'ayudante' }; }
   if (!real) throw new Error('sin_codigo_acceso');
   cache.put('fallos_login', String(fallos + 1), 600);
   throw new Error('codigo_incorrecto');
 }
 
-// Devuelve quién llama: {rol:'admin'} o {rol:'inquilino', depto}.
+// Devuelve quién llama: {rol:'admin'}, {rol:'inquilino', depto} o {rol:'ayudante'}.
 function exigirToken_(token) {
   const t = String(token || '');
+  if (t.indexOf('ayu.') === 0) {
+    const codigo = PropertiesService.getScriptProperties().getProperty('COD_AYUDANTE');
+    if (codigo && t === tokenAyudante_(codigo)) return { rol: 'ayudante' };
+    throw new Error('no_autorizado');
+  }
   if (t.indexOf('inq.') === 0) {
     const dep = t.split('.')[1];
     const codigo = PropertiesService.getScriptProperties().getProperty('COD_INQ_' + dep);
@@ -495,20 +507,85 @@ function apiInquilino_(body, dep) {
   return out;
 }
 
-// Administración de los códigos de inquilino (solo el administrador).
+// Administración de los códigos de inquilino y de ayudante (solo el administrador).
+function nuevoCodigo_(semilla) {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para que no se confundan
+  let codigo = '';
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + semilla + Date.now());
+  for (let i = 0; i < 6; i++) codigo += letras[(bytes[i] & 0xff) % letras.length];
+  return codigo;
+}
+function codigoGuardado_(k, op, semilla) {
+  const p = PropertiesService.getScriptProperties();
+  if (op === 'quitar') { p.deleteProperty(k); return { codigo: null }; }
+  if (op === 'generar') { const codigo = nuevoCodigo_(semilla); p.setProperty(k, codigo); return { codigo: codigo }; }
+  return { codigo: p.getProperty(k) };
+}
 function codigoInquilino_(dep, op) {
   if (!/^dep_[\w]+$/.test(String(dep || ''))) throw new Error('depto_invalido');
-  const p = PropertiesService.getScriptProperties(), k = 'COD_INQ_' + dep;
-  if (op === 'quitar') { p.deleteProperty(k); return { codigo: null }; }
-  if (op === 'generar') {
-    const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I para que no se confundan
-    let codigo = '';
-    const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + dep + Date.now());
-    for (let i = 0; i < 6; i++) codigo += letras[(bytes[i] & 0xff) % letras.length];
-    p.setProperty(k, codigo);
-    return { codigo: codigo };
+  return codigoGuardado_('COD_INQ_' + dep, op, dep);
+}
+const codigoAyudante_ = op => codigoGuardado_('COD_AYUDANTE', op, 'ayudante');
+
+// Lo que puede hacer el ayudante: leer todo y guardar lecturas (luz y agua) con sus fotos. Nada de pagos ni borrados.
+const CAMPOS_COBRO_LECTURA_ = ['montoCobrado', 'fechaCobro', 'historialCobro'];
+function apiAyudante_(body) {
+  if (body.action === 'ping') return { ok: true, rol: 'ayudante' };
+  if (body.action === 'listAll') {
+    const v = versionDatos_();
+    if (body.version && body.version === v) return { _sinCambios: true, _version: v };
+    const out = {};
+    (body.collections || []).filter(c => c !== 'errores').forEach(c => { out[c] = listCollection_(c); });
+    out._version = v;
+    return out;
   }
-  return { codigo: p.getProperty(k) };
+  const esLectura = body.collection === 'lecturas' || body.collection === 'lecturas_agua';
+  if (body.action === 'upload') {
+    const raiz = String(((body.carpeta || [])[0]) || '');
+    if (raiz !== 'Fotos medidores' && raiz !== 'Fotos medidores agua') throw new Error('solo_lecturas');
+  } else if (!((body.action === 'set' || body.action === 'update') && esLectura)) throw new Error('solo_lecturas');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    if (body.action === 'upload') return uploadFile_(body.base64, body.mimeType, body.filename, body.carpeta);
+    const actual = getDoc_(body.collection, body.id);
+    if (body.action === 'set' && 'esperado' in body) {
+      const ya = String((actual && actual.actualizado) || '');
+      if (ya !== String(body.esperado || '') && ya !== String((body.data && body.data.actualizado) || '')) throw new Error('conflicto');
+    }
+    // Los cobros antiguos guardados en la lectura no los puede cambiar el ayudante: se conservan tal cual.
+    const data = Object.assign({}, body.data);
+    if (body.collection === 'lecturas') CAMPOS_COBRO_LECTURA_.forEach(k => {
+      if (body.action === 'update') delete data[k];
+      else data[k] = actual ? actual[k] : (k === 'historialCobro' ? [] : null);
+    });
+    return body.action === 'set' ? setDoc_(body.collection, body.id, data) : updateDoc_(body.collection, body.id, data);
+  } finally { lock.releaseLock(); }
+}
+
+// Registro de errores de la app: no cambia la versión de los datos (no hace que los celulares vuelvan a descargar todo),
+// tiene un tope por dispositivo y conserva solo los últimos 300.
+function registrarError_(body, quien) {
+  const cache = CacheService.getScriptCache();
+  const clave = 'err_' + firmaHex_(String(body.token || ''), 'errores').slice(0, 16);
+  const n = Number(cache.get(clave) || 0);
+  if (n >= 30) return { ok: false, limite: true };
+  cache.put(clave, String(n + 1), 600);
+  const corta = (v, max) => String(v == null ? '' : v).slice(0, max);
+  const sh = getSheet_('errores');
+  const fila = sh.getLastRow() + 1;
+  const doc = { id: Utilities.getUuid(), fecha: new Date().toISOString(), rol: quien.rol, depto: quien.depto || '',
+    mensaje: corta(body.mensaje, 300), detalle: corta(body.detalle, 1500), donde: corta(body.donde, 200), agente: corta(body.agente, 200), version: corta(body.version, 60) };
+  formatoTextoFila_(sh, 'errores', fila);
+  sh.getRange(fila, 1, 1, SHEETS.errores.length).setValues([objToRow_(SHEETS.errores, doc)]);
+  const sobran = sh.getLastRow() - 1 - 300;
+  if (sobran > 0) sh.deleteRows(2, sobran);
+  return { ok: true };
+}
+function limpiarErrores_() {
+  const sh = getSheet_('errores');
+  if (sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
+  return { ok: true };
 }
 
 /* ---------- Contraseña de administrador ----------
@@ -596,11 +673,15 @@ function repararDesfase_() {
 function api(body) {
   if (body.action === 'login') return login_(body.codigo);
   const quien = exigirToken_(body.token);
+  if (body.action === 'logError') return registrarError_(body, quien);
   repararTextosUnaVez_();
   if (quien.rol === 'inquilino') return apiInquilino_(body, quien.depto);
+  if (quien.rol === 'ayudante') return apiAyudante_(body);
   switch (body.action) {
     case 'ping':    return { ok: true, rol: 'admin' };
     case 'codigoInquilino': return codigoInquilino_(body.depto, body.op);
+    case 'codigoAyudante': return codigoAyudante_(body.op);
+    case 'errores': return body.op === 'limpiar' ? limpiarErrores_() : listCollection_('errores').slice(-100).reverse();
     case 'list':    return listCollection_(body.collection);
     case 'listAll': {
       const v = versionDatos_();
