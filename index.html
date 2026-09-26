@@ -221,11 +221,13 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--b
 @media (max-width:640px){nav.tabs button{font-size:.74rem;padding:8px 1px}}
 .toast{display:flex;align-items:center;gap:14px}
 .toast button{border:0;background:none;color:var(--amber);font-weight:700;cursor:pointer;padding:6px 2px;text-decoration:underline;font-size:.95rem}
-.qh{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.qh li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.qh{list-style:none;margin:0;padding:0;display:grid;gap:0}
+.qh li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line)}
+.qh li:last-child{border-bottom:0}.qh li .btn{white-space:nowrap}
 .qh li.hecho{opacity:.62;padding:6px 12px}.qh li.hecho strong{text-decoration:line-through;font-weight:600}.qh li.hecho .small{display:none}
-.qh li.urgente{border-color:var(--red);background:var(--red-soft)}
+.qh li.urgente{background:var(--red-soft);border-radius:10px;border-bottom-color:transparent;padding:10px 8px}
 .qh-ico{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;border:2px solid var(--line)}
+.qh-hechas{margin-top:6px}.qh-hechas summary{cursor:pointer;padding:6px 0;min-height:32px}
 .qh li.hecho .qh-ico{background:var(--green-soft);color:var(--green);border-color:transparent}
 .qh li.urgente .qh-ico{background:var(--red);color:#fff;border-color:transparent}
 .menu-titulo{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;padding:4px 16px 2px}
@@ -237,7 +239,7 @@ body.modo-inquilino .wrap{padding-bottom:24px}
   .iconbtn{padding:9px 6px;min-height:36px}
   .panel select,#dlg select{min-height:40px}
   .x{min-width:44px;min-height:44px;font-size:1.6rem}
-  .qh li{grid-template-columns:auto 1fr}.qh li .btn{grid-column:1/-1;justify-content:center}
+  .qh li{gap:8px}.qh li .btn{padding-left:10px;padding-right:10px}
 }
 .inq-card{text-align:center}.inq-card .row{text-align:left}
 .inq-monto{font-size:3rem;font-weight:800;font-stretch:72%;line-height:1.1;margin:4px 0 6px}
@@ -2190,15 +2192,15 @@ function consumosAltos(mes){
 function tareasDelMes(){
   const mes=mesDeLecturas(),hoy=hoyLocal(),T=[];
   const pend=pendientesLectura(mes);
-  T.push({ok:!pend.length,t:'Tomar las lecturas de '+mesLargo(mes),d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
+  T.push({ok:!pend.length,t:'Tomar las lecturas',d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
   const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
-  T.push({ok:!!rl,t:'Subir el recibo de luz de '+mesLargo(mes),d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
-  T.push({ok:!!ra,t:'Subir el recibo de agua de '+mesLargo(mes),d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
+  T.push({ok:!!rl,t:'Subir el recibo de luz',d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
+  T.push({ok:!!ra,t:'Subir el recibo de agua',d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
   const filas=cobrosDelMes(mes),listo=rl&&ra&&filas.length&&!filas.some(x=>x.faltan.length);
   const env=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
-  T.push({ok:listo&&env===filas.length,t:'Enviar los cobros de '+mesLargo(mes),d:!listo?'Se habilita cuando estén los recibos y las lecturas':env+' de '+filas.length+' enviados por WhatsApp',btn:listo&&env<filas.length?['📲 Enviar',()=>abrirEnvioCobros(mes)]:null});
+  T.push({ok:listo&&env===filas.length,t:'Enviar los cobros',d:!listo?'Se habilita cuando estén los recibos y las lecturas':env+' de '+filas.length+' enviados por WhatsApp',btn:listo&&env<filas.length?['📲 Enviar',()=>abrirEnvioCobros(mes)]:null});
   const nOk=filas.filter(x=>x.estado.cls==='ok').length;
-  T.push({ok:filas.length&&nOk===filas.length,t:'Cobrar '+mesLargo(mes),d:nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta))+' · límite '+fechaCorta(fechaLimitePago(mes)),btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
+  T.push({ok:filas.length&&nOk===filas.length,t:'Cobrar el mes',d:nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta))+' · límite '+fechaCorta(fechaLimitePago(mes)),btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
   if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
   if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
     btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+mensajeError(e)))}]})}
@@ -2214,8 +2216,11 @@ function panelQueHacer(){
   const {mes,T}=tareasDelMes();panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
   return `<div class="panel que-hacer"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Qué hacer este mes</h2><span class="chip ${hechas===T.length?'ok':'pend'}">${hechas} de ${T.length}</span></div>
     <p class="muted small" style="margin:4px 0 10px">${mesLargo(mes)}</p>
-    <ul class="qh">${T.map((x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
-      <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`).join('')}</ul></div>`;
+    ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
+      <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`;
+      const pend=T.map((x,i)=>[x,i]).filter(([x])=>!x.ok),ok=T.map((x,i)=>[x,i]).filter(([x])=>x.ok);
+      return (pend.length?`<ul class="qh">${pend.map(([x,i])=>li(x,i)).join('')}</ul>`:'<p style="margin:0 0 6px"><strong>Todo listo este mes.</strong></p>')
+        +(ok.length?`<details class="qh-hechas"><summary class="small muted">✓ ${ok.length} hecha${ok.length>1?'s':''}</summary><ul class="qh">${ok.map(([x,i])=>li(x,i)).join('')}</ul></details>`:'')})()}</div>`;
 }
 // Estado de cada depto de un vistazo: cuánto debe (y desde cuándo), al día o con saldo a favor.
 function panelEstadoDeptos(){
