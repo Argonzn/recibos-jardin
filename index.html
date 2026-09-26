@@ -142,6 +142,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 .dlg-h h2{margin:0}
 .dlg-b{padding:16px 18px}
 .dlg-f{position:sticky;bottom:0;background:var(--surface);padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:560px){.dlg-f{padding:10px 12px;gap:8px}.dlg-f .btn{flex:1 1 0;justify-content:center;padding-left:6px;padding-right:6px;min-width:0;white-space:nowrap;font-size:.92rem;gap:5px}.dlg-f .btn.primary{flex:1.4 1 0}}
 fieldset{border:0;padding:0;margin:0 0 18px}
 legend{font-weight:720;font-stretch:85%;margin-bottom:8px;padding:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
@@ -162,7 +163,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .chip.miss{background:var(--amber-soft);color:var(--ink)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{border:0;background:var(--surface);padding:8px 14px;cursor:pointer;font-weight:600;color:var(--muted)}
-.seg button.on{background:var(--ink);color:var(--bg)}
+.seg button.on{background:var(--accent);color:#fff}.seg button.on .ic{color:inherit}
 .lect-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 .lect-row:last-child{border-bottom:0}
 @media (max-width:560px){.lect-row{grid-template-columns:1fr auto;row-gap:2px}.lect-row>div:nth-child(2){grid-column:2;grid-row:1;text-align:right}.lect-row>div:nth-child(3){grid-column:1/-1}.lect-row>div:nth-child(3):empty{display:none}.lect-row>div:last-child{grid-column:1/-1}}
@@ -916,7 +917,7 @@ function renderPagosPendientes(){
         <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${mesLargo(l.mes)} · ${fmtN(l.kwh)} kWh${d.piso?` · Piso ${d.piso}-${d.lado}`:''}</div></div>
         <div class="small">${v?fmtS(v.cargoCorrecto)+' esperado':'Sin recibo del edificio aún'}</div>
         <div class="small"><span class="chip sm ${pago.cls}">${pago.txt}</span>${diasAtraso?` <span class="muted">(${diasAtraso} día${diasAtraso!==1?'s':''})</span>`:''}<div class="muted small">Límite: ${fechaCorta(lim)}</div></div>
-        <button class="btn primary sm" data-cobrar="${l.id}" data-dep="${d.id}">Registrar cobro</button>
+        <button class="btn primary sm" data-cobrar="${l.id}" data-dep="${d.id}">Registrar pago</button>
       </div>`).join('')}</div>`}
   </div>`;
 }
@@ -1178,7 +1179,7 @@ async function abrirCobro(l,deptoId){
   const pintar=()=>{
     const diff=(v&&data.monto!=null)?data.monto-v.cargoCorrecto:null;
     const nCambios=Array.isArray(l.historialCobro)?l.historialCobro.length:0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${l.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${l.montoCobrado!=null?'Editar pago':'Registrar pago'} — ${tituloDepto(d)}, ${mesLargo(l.mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       ${v?`<div class="banner info" style="margin-bottom:14px">Cargo correcto (lo que debe pagar): <strong>${fmtS(v.cargoCorrecto)}</strong><br><span class="small">Electricidad ${fmtS(v.cargoElectricidad)} (${fmtN(v.pct*100,2)}% de ${fmtN(v.sumaSub)} kWh medidos, sobre ${fmtS(recibos.find(x=>x.id===l.mes).totalMes)} del mes) + mantenimiento ${fmtS(v.mant)}.</span></div>`
         :`<div class="banner warn" style="margin-bottom:14px">Todavía no se puede calcular el cargo correcto porque falta el recibo del edificio de ${mesLargo(l.mes)}.</div>`}
@@ -1808,7 +1809,7 @@ async function abrirCobroMes(dep,mes){
   const dlg=$('#dlg');
   const linea=(t,v)=>v==null?'':`<tr><td>${t}</td><td>${fmtS(v)}</td></tr>`;
   const hist=(c0&&Array.isArray(c0.historialCobro))?c0.historialCobro:[];
-  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar cobro':'Registrar cobro'} — ${tituloDepto(x.d)}${x.d.encargado?' · '+esc(x.d.encargado):''}, ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>${c0&&c0.montoCobrado!=null?'Editar pago':'Registrar pago'} — ${tituloDepto(x.d)}${x.d.encargado?' · '+esc(x.d.encargado):''}, ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <div class="scroll"><table class="detail"><tbody>${linea('Luz',x.partes.luz)}${linea('Agua',x.partes.agua)}${x.partes.admLuz?linea('Administración de luz',x.partes.admLuz):''}${x.partes.admAgua?linea('Administración de agua',x.partes.admAgua):''}${x.partes.mant?linea('Mantenimiento',x.partes.mant):''}${x.partes.atrasoAgua?linea('Mora del agua (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoAgua):''}${x.partes.atrasoLuz?linea('Intereses de la luz (atraso de '+mesLargo(mesAnterior(mes))+')',x.partes.atrasoLuz):''}
       ${x.aFavor?`<tr><td>Total del mes</td><td>${fmtS(x.total)}</td></tr><tr><td>Saldo a favor de ${mesLargo(mesAnterior(mes))}</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
@@ -1817,7 +1818,7 @@ async function abrirCobroMes(dep,mes){
     ${(()=>{const otros=cobrosPendientesTodos().filter(p=>p.d.id===dep&&p.mes!==mes);return otros.length?`<div class="banner warn" style="margin:10px 0">Además debe <strong>${fmtS(sum(otros,p=>p.falta))}</strong> de ${otros.map(p=>mesCorto(p.mes)).join(', ')}. <button class="iconbtn" id="cm-varios" style="color:inherit">Registrar un pago para varios meses</button></div>`:''})()}
     ${x.legado!=null?`<div class="banner info" style="margin:10px 0">Antes se registró ${fmtS(x.legado)} solo por la luz. Escribe el total cobrado del mes (luz + agua + administración).</div>`:''}
     <label class="f" style="margin-top:12px">Monto recibido (S/)<input type="text" inputmode="decimal" id="cm-monto" value="${data.monto??''}" placeholder="${x.neto}"></label>
-    <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Usar lo que debe (${fmtS(x.neto)})</button></div>
+    <div class="row" style="margin-top:6px"><button class="iconbtn" id="cm-total">Pagó todo (${fmtS(x.neto)})</button></div>
     <div style="margin-top:12px">
       <div class="small muted" style="margin-bottom:6px">¿Cuánto pagó?</div>
       <div class="seg" role="group" aria-label="Tipo de pago"><button type="button" data-tipo="completo">Completo</button><button type="button" data-tipo="parcial">Una parte</button><button type="button" data-tipo="demas">De más</button></div>
@@ -1832,7 +1833,7 @@ async function abrirCobroMes(dep,mes){
     <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
     ${hist.length?`<details class="small" style="margin-top:12px"><summary class="muted">Historial de cambios (${hist.length})</summary><ul class="hist-cobro">${hist.slice().reverse().map(lineaHistorial).join('')}</ul></details>`:'<p class="muted small" style="margin-top:12px">Cada cambio queda en el historial.</p>'}
   </div>
-  <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>${ico('enviar')} WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
+  <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>${ico('enviar')} WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">${c0&&c0.montoCobrado!=null?'Guardar cambios':'Registrar pago'}</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
   dlg.querySelector('[data-wa-dlg]').onclick=()=>enviarCobroWhatsApp(dep,mes);
   const cv=dlg.querySelector('#cm-varios');if(cv)cv.onclick=()=>abrirPagoDepto(dep);
@@ -1869,7 +1870,7 @@ async function abrirCobroMes(dep,mes){
     if(fecha&&fecha>hoyLocal(1)&&!(await confirmar('La fecha de cobro ('+fechaCorta(fecha)+') es futura. ¿Guardar igual?','Guardar igual')))return;
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-    try{await guardarCon(monto,fecha,nota);dlg.close();const dif=Math.round((monto-x.neto)*100)/100,t=tipoEfectivo();toast('Cobro registrado: '+tituloDepto(x.d)+' · '+mesLargo(mes)+' · '+fmtS(monto)+(t==='parcial'&&dif<0?' · falta '+fmtS(-dif):t==='demas'&&dif>0?' · '+fmtS(dif)+' a favor':' · al día'),{accion:['Enviar comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
+    try{await guardarCon(monto,fecha,nota);dlg.close();const dif=Math.round((monto-x.neto)*100)/100,t=tipoEfectivo();toast('Cobro registrado: '+tituloDepto(x.d)+' · '+mesLargo(mes)+' · '+fmtS(monto)+(t==='parcial'&&dif<0?' · falta '+fmtS(-dif):t==='demas'&&dif>0?' · '+fmtS(dif)+' a favor':' · al día'),{accion:['Enviar comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent=c0&&c0.montoCobrado!=null?'Guardar cambios':'Registrar pago';toast('No se pudo guardar: '+mensajeError(e))}
   };
   dlg.showModal();
 }
