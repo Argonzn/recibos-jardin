@@ -269,6 +269,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .hist-cobro{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 .cobro-cards{display:none}
 .cobro-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);display:grid;gap:6px}
+.cobro-card.pagado{background:none;padding:8px 12px}.cobro-card.pagado .row .btn{flex:0 0 auto!important}
 .cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
 .cc-monto{font-size:1.35rem;font-weight:800}
 @media (max-width:640px){.tabla-cobro-wrap{display:none}.cobro-cards{display:grid;gap:10px}.cobro-card .row .btn{flex:1;justify-content:center}}
@@ -1649,7 +1650,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
         <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz))}</td><td>${fmtS(sum(filas,x=>x.partes.admAgua))}</td><td>${fmtS(sum(filas,x=>x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
-    <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
+    <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";if(ok)return `<div class="cobro-card pagado"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap"><div><strong>${tituloDepto(x.d)}</strong> <span class="chip sm ok">${x.estado.txt}</span><div class="small muted">${fmtS(x.cobrado??x.neto)}${x.cobro&&x.cobro.fechaCobro?" · "+fechaCorta(x.cobro.fechaCobro):""}${enviadoCobro(x.d.id,mes)?" · 📲 enviado":""}</div></div><button class="btn sm" data-cobrar-mes="${x.d.id}|${mes}">Editar</button></div></div>`;return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
       <div class="row" style="justify-content:space-between;gap:8px"><div><strong>${tituloDepto(x.d)}</strong> <span class="muted small">${esc(x.d.encargado||"")}</span></div><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
       <div class="cc-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)} <span class="small muted">${ok?"cobrado":"por cobrar"}${x.faltan.length?" · incompleto":""}</span></div>
       <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · 📲 enviado":""}</div>
