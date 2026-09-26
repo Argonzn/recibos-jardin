@@ -1314,7 +1314,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             }
           }
         }
-        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:''));renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
+        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:''),(()=>{if(opts.siguiente)return{};const q=pendientesLectura(data.mes).filter(p=>!(p.dep===deptoId&&p.serv===(AG?'agua':'luz')));return q.length?{accion:['▶ Siguiente: '+q[0].txt,()=>iniciarSecuenciaLecturas(data.mes)]}:{}})());renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
