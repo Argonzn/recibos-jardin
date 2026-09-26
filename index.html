@@ -871,12 +871,13 @@ function renderDeptos(){
     </div>
     <p class="muted small" style="margin:8px 0 4px">Toca una unidad para ver su historial y registrar las lecturas de luz y agua.</p>
     <p class="small" style="margin:0">Corte interno: paga antes del día <strong id="dia-corte-txt">${config.diaCorte||12}</strong> de cada mes. <button class="iconbtn" id="btn-corte">Cambiar</button></p>
-    <p class="small" style="margin:4px 0 0">Administración de luz ${fmtS(config.mantenimiento??5)}, de agua ${fmtS(config.admAgua??5)} y mantenimiento ${fmtS(config.mantExtra??0)} por depto: se cambian en la pestaña Cobros. <button class="iconbtn" id="btn-mant" hidden>Cambiar</button></p>
+    <p class="small" style="margin:4px 0 0">Administración de luz ${fmtS(config.mantenimiento??5)}, de agua ${fmtS(config.admAgua??5)} y mantenimiento ${fmtS(config.mantExtra??0)} por depto: se cambian en Cobros → Más opciones. <button class="iconbtn" id="btn-mant" hidden>Cambiar</button></p>
   </div>
   <div class="edificio" id="edificio">${PISOS.map(p=>`<div class="piso-row"><div class="piso-num">P${p}</div>${LADOS.map(l=>{const d=deptoEnSlot(p,l);return d?miniUnidad(d,mesRef):`<button class="unidad vacio" data-slot="${p}-${l}">+ Vacío</button>`}).join('')}</div>`).join('')}</div>
   ${su.length?`<div class="panel"><h3>Sin ubicar en el plano</h3><div class="sinubicar">${su.map(d=>`<button data-ubicar="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div></div>`:''}
-  <div class="panel" id="comparativa"></div>`;
+  <details class="panel mas-opciones" id="comparativa-d" ${renderComparativa.abierta?'open':''}><summary><strong>📊 Comparativa del mes</strong> <span class="muted small">cuánto consume y paga cada depto</span></summary><div id="comparativa" style="margin-top:12px"></div></details>`;
   renderComparativa(mesRef);conectarPanelLecturas();
+  $('#comparativa-d').ontoggle=e=>{renderComparativa.abierta=e.target.open};
   document.querySelectorAll('[data-cobrar]').forEach(b=>b.onclick=()=>{const l=lecturas.find(x=>x.id===b.dataset.cobrar);if(l)abrirCobro(l,b.dataset.dep)});
   $('#btn-add-depto').onclick=async()=>{
     const n=(Math.max(0,...deptos.map(d=>d.numero||0)))+1;
@@ -936,7 +937,7 @@ function renderComparativa(mesDefault){
   const mes=renderComparativa.mes&&meses.includes(renderComparativa.mes)?renderComparativa.mes:(mesDefault&&meses.includes(mesDefault)?mesDefault:meses[0]);
   const vista=renderComparativa.vista||'luz';
   if(!meses.length){el.innerHTML=`<h3>Comparativa del mes</h3><p class="muted small">Aparece cuando haya recibos o lecturas cargadas.</p>`;return}
-  const cab=`<div class="row" style="justify-content:space-between"><h3 style="margin:0">Comparativa del mes</h3>
+  const cab=`<div class="row" style="justify-content:space-between"><span class="muted small">Mes</span>
     <select id="sel-mes-comp" aria-label="Mes">${meses.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <div class="seg" role="tablist" style="margin:12px 0 4px">${[['luz','Luz'],['agua','Agua'],['todo','Todo junto']].map(([k,t])=>`<button type="button" class="${vista===k?'on':''}" data-vista="${k}">${t}</button>`).join('')}</div>`;
   let cuerpo='';
@@ -986,7 +987,7 @@ function panelLecturasDelMes(){
       <span class="chip ${faltan?'pend':'ok'}">${faltan?faltan+' por tomar':'Completas'}</span></div>
     <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura.</p>
     <label class="small muted" style="display:inline-flex;gap:8px;align-items:center;margin:0 0 10px">Mes <select id="sel-mes-lect" aria-label="Mes de las lecturas">${(()=>{const hoy=mesDeLecturas(),ms=[...new Set([...lecturas.map(l=>l.mes),...lecturasAgua.map(l=>l.mes),hoy,siguienteMes(hoy)])].filter(Boolean).sort().reverse().slice(0,14);return ms.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}${m===hoy?' (este mes)':''}</option>`).join('')})()}</select></label>
-    ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">📷 Tomar las ${faltan} en orden</button>`:''}
+    ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">📷 ${faltan===1?'Tomar la que falta':'Tomar las '+faltan+' que faltan'}</button>`:''}
     <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
       ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
       <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">✓ ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
@@ -2484,7 +2485,7 @@ const TAREAS=[
  {g:'tu',id:'t-cobros',p:'alta',t:'Revisar los cobros pendientes de los departamentos',d:()=>{const c=cobrosPendientes();return c.n?c.n+' cobros sin registrar, unos '+fmtS(c.total)+'. Confirma si se cobraron y no se anotaron; Claude puede registrarlos en bloque.':'No hay cobros pendientes.'},auto:()=>lecturas.length&&!cobrosPendientes().n},
  {g:'tu',id:'t-cerrar',p:'alta',t:'Cerrar enero–marzo y quitar diciembre',d:()=>'Sube el PDF de enero a Drive → RECIBOS_JARDIN → Recibos agua PDF con el nombre «Agua 2026-01.pdf» y ejecuta cerrarMesesHistoricos en el editor de Apps Script.',auto:()=>!recibos.some(r=>r.id==='2025-12')&&!!cobroDe('dep_2','2026-01')},
  {g:'tu',id:'t-telefonos',p:'media',t:'Anotar el celular de cada depto',d:()=>{const s=deptos.filter(d=>!d.telefono);return s.length?'Sin celular: '+s.map(tituloDepto).join(', ')+'. Deptos → toca el depto → Celular. Así WhatsApp abre su chat directo.':'Listo.'},auto:()=>deptos.length&&deptos.every(d=>d.telefono)},
- {g:'tu',id:'t-wa-admin',p:'media',t:'Poner tu WhatsApp de administración',d:()=>'Cobros → Valores por defecto → WhatsApp de la administración. Los inquilinos te escriben desde su vista.',auto:()=>!!config.telefonoAdmin},
+ {g:'tu',id:'t-wa-admin',p:'media',t:'Poner tu WhatsApp de administración',d:()=>'Cobros → Más opciones → WhatsApp de la administración. Los inquilinos te escriben desde su vista.',auto:()=>!!config.telefonoAdmin},
  {g:'tu',id:'t-respaldo',p:'media',t:'Activar el respaldo semanal de la Hoja',d:()=>'En el editor de Apps Script ejecuta activarRespaldoSemanal una vez (pide permiso). Copia cada lunes, guarda las últimas 8.'},
  {g:'tu',id:'t-inquilinos',p:'baja',t:'Dar acceso a los inquilinos',d:()=>'Deptos → toca el depto → 🔑 Acceso del inquilino → Crear código → Enviar por WhatsApp.'},
  {g:'tu',id:'t-agua-junio',p:'media',t:'Subir el recibo de agua de junio 2026',d:()=>'Es el único mes de agua sin recibo (70 m³ según el medidor). Agua → Subir recibo PDF.',auto:()=>aguaRecibos.some(r=>r.id==='2026-06')},
