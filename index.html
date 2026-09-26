@@ -6,7 +6,8 @@
 <title>Recibos Jardín</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#12171D">
-<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Recibos">
 <meta name="mobile-web-app-capable" content="yes">
@@ -35,6 +36,12 @@ img{max-width:100%}
 button,input,select{font:inherit;color:inherit}
 .wrap{max-width:1040px;margin:0 auto;padding:16px 16px 96px}
 header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 0 16px}
+.brand-fila{display:flex;align-items:center;gap:10px}.logo{width:34px;height:34px;border-radius:9px;flex:none}
+.usuario{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:3px 12px 3px 3px;cursor:pointer;font:inherit;max-width:230px;min-height:40px}
+.usuario .u-txt{display:grid;text-align:left;line-height:1.15;min-width:0}.usuario .u-txt strong,.usuario .u-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.usuario .u-txt span{font-size:.72rem;color:var(--muted)}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;flex:none;background:var(--amber);color:#1D2733}.avatar.inq{background:var(--blue);color:#fff}.avatar.grande{width:56px;height:56px;font-size:1.2rem}
+.perfil{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+@media (max-width:640px){header.top{flex-wrap:nowrap;align-items:center}.usuario{max-width:160px;padding-right:10px}.usuario .u-txt span{display:none}}
 .brand h1{margin:0;font-size:1.6rem;line-height:1.1;font-weight:760;font-stretch:78%;letter-spacing:-.01em}
 .brand p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
 nav.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
@@ -190,7 +197,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .menu-list button[aria-current="page"]{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--amber)}
 .menu-sep{height:1px;background:var(--line);margin:8px 6px}
 .menu-pie{padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
-.rec-switch{max-width:320px}.rec-switch button{flex:1}
+.rec-switch{display:flex;width:100%;max-width:320px}.rec-switch button{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-height:40px;padding:8px 10px}
 nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--bg)}
 .form-rec{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .form-rec select,.form-rec input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
@@ -207,6 +214,9 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--b
 .qh li.hecho{opacity:.62;padding:6px 12px}.qh li.hecho strong{text-decoration:line-through;font-weight:600}.qh li.hecho .small{display:none}
 .qh li.urgente{background:var(--red-soft);border-radius:10px;border-bottom-color:transparent;padding:10px 8px}
 .qh-ico{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.8rem;border:2px solid var(--line)}
+.qh li.bloqueada{opacity:.6}.qh li.bloqueada .qh-ico{border-style:dashed;font-size:.7rem}
+.qh-cuando{display:inline-block;font-size:.72rem;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface-2);color:var(--muted);vertical-align:1px;white-space:nowrap}.qh-cuando.pronto{background:var(--amber-soft);color:var(--ink)}.qh-cuando.vencido{background:var(--red);color:#fff}.qh-cuando.futuro{background:none;border:1px dashed var(--line)}
+.qh-proximas{margin:8px 0 0}
 .qh-hechas{margin-top:6px}.qh-hechas summary{cursor:pointer;padding:6px 0;min-height:32px}
 .qh li.hecho .qh-ico{background:var(--green-soft);color:var(--green);border-color:transparent}
 .qh li.urgente .qh-ico{background:var(--red);color:#fff;border-color:transparent}
@@ -257,7 +267,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1>Recibos Jardín</h1>
+      <div class="brand-fila"><img class="logo" src="icons/icon-192.png" alt="" width="34" height="34" onerror="this.remove()"><h1>Recibos Jardín</h1></div>
       <p id="subtitulo">Luz del Sur</p>
       <p class="muted small" style="margin:2px 0 0" id="estado-sync" aria-live="polite"></p>
     </div>
@@ -268,6 +278,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
       <button role="tab" data-tab="recibos" data-tab2="agua" aria-selected="false">Recibos</button>
       <button type="button" class="menu-btn" id="btn-menu" aria-haspopup="dialog" aria-label="Más opciones">⋯ Más</button>
     </nav>
+    <button type="button" class="usuario" id="btn-usuario" hidden aria-haspopup="dialog"></button>
   </header>
   <div id="aviso-db" class="banner warn" hidden style="margin-bottom:16px">Esta vista no puede guardar datos. Los cambios que hagas se perderán al cerrar la página.</div>
   <div id="aviso-guardado" class="banner alert" hidden role="alert" style="margin-bottom:16px"></div>
@@ -2161,37 +2172,58 @@ function consumosAltos(mes){
 }
 
 /* ---------- Resumen: qué hacer este mes ---------- */
+// Fechas del ciclo de un mes: lecturas el día 12, agua (Sedapal) hacia el 10, luz (Luz del Sur) hacia el 15.
+function fechasCiclo(mes){return{lecturas:mes+'-12',agua:mes+'-10',luz:mes+'-15',envio:mes+'-16',cobro:fechaLimitePago(mes)}}
 function tareasDelMes(){
-  const mes=mesDeLecturas(),hoy=hoyLocal(),T=[];
+  const mes=mesDeLecturas(),hoy=hoyLocal(),T=[],fc=fechasCiclo(mes);
   const pend=pendientesLectura(mes);
-  T.push({ok:!pend.length,t:'Tomar las lecturas',d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
+  T.push({id:'lect',ok:!pend.length,t:'Tomar las lecturas',desde:fc.lecturas,d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
   const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
-  T.push({ok:!!rl,t:'Subir el recibo de luz',d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
-  T.push({ok:!!ra,t:'Subir el recibo de agua',d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
+  T.push({id:'agua',ok:!!ra,t:'Subir el recibo de agua',desde:fc.agua,d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
+  T.push({id:'luz',ok:!!rl,t:'Subir el recibo de luz',desde:fc.luz,d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
+  const aq=calcAgua(mes);if(aq&&!aq.incompleto&&aq.inconsistente)T.push({id:'revAgua',ok:false,urgente:true,dep:['lect','agua'],t:'Revisar las lecturas de agua',d:'El medidor general ('+fmtN(aq.general,2)+' m³) marca menos que la suma de los internos ('+fmtN(aq.medidos,2)+' m³). Corrige la lectura que esté mal antes de cobrar.',btn:['Revisar general',()=>abrirLecturaForm('general',lecturaAguaDe('general',mes)||null,'agua',{mes})]});
+  const altos=consumosAltos(mes);
+  if(altos.length)T.push({id:'altos',ok:false,t:'Revisar consumo alto',desde:hoy,d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:altos.length===1?['Revisar lectura',()=>{const a=altos[0];abrirLecturaForm(a.d.id,(a.serv==='agua'?lecturaAguaDe:lecturaDe)(a.d.id,mes),a.serv)}]:['Ver lecturas',()=>{renderDeptos.mesLect=mes;irA('deptos')}]});
   const filas=cobrosDelMes(mes),listo=rl&&ra&&filas.length&&!filas.some(x=>x.faltan.length);
   const env=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
-  T.push({ok:listo&&env===filas.length,t:'Enviar los cobros',d:!listo?'Se habilita cuando estén los recibos y las lecturas':env+' de '+filas.length+' enviados por WhatsApp',btn:listo&&env<filas.length?['📲 Enviar',()=>abrirEnvioCobros(mes)]:null});
+  T.push({id:'enviar',ok:!!(listo&&env===filas.length),dep:['lect','agua','luz'].concat(T.some(x=>x.id==='revAgua')?['revAgua']:[]),t:'Enviar los cobros',desde:fc.envio,d:listo?env+' de '+filas.length+' enviados por WhatsApp':'Mensaje del mes para cada depto',btn:['📲 Enviar',()=>abrirEnvioCobros(mes)]});
   const nOk=filas.filter(x=>x.estado.cls==='ok').length;
-  T.push({ok:filas.length&&nOk===filas.length,t:'Cobrar el mes',d:nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta))+' · límite '+fechaCorta(fechaLimitePago(mes)),btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
-  if(rl){const dv=diasHasta(rl.vencimiento);T.push({ok:!!rl.pagado,urgente:!rl.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'Vence el '+fechaCorta(rl.vencimiento)+' ('+enDias(dv)+')',btn:rl.pagado?null:['Marcar pagado',()=>marcarPagado(rl,true)]})}
-  if(ra){const dv=diasHasta(ra.vencimiento);T.push({ok:!!ra.pagado,urgente:!ra.pagado&&dv!=null&&dv<=3,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'Vence el '+fechaCorta(ra.vencimiento)+' ('+enDias(dv)+')',
-    btn:ra.pagado?null:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+mensajeError(e)))}]})}
-  const aq=calcAgua(mes);if(aq&&!aq.incompleto&&aq.inconsistente)T.push({ok:false,urgente:true,t:'Revisar las lecturas de agua',d:'El medidor general ('+fmtN(aq.general,2)+' m³) marca menos que la suma de los internos ('+fmtN(aq.medidos,2)+' m³). Corrige la lectura que esté mal antes de cobrar.',btn:['Revisar general',()=>abrirLecturaForm('general',lecturaAguaDe('general',mes)||null,'agua',{mes})]});
-  const altos=consumosAltos(mes);
-  if(altos.length)T.push({ok:false,urgente:false,t:'Revisar consumo alto',d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:altos.length===1?['Revisar lectura',()=>{const a=altos[0];abrirLecturaForm(a.d.id,(a.serv==='agua'?lecturaAguaDe:lecturaDe)(a.d.id,mes),a.serv)}]:['Ver lecturas',()=>{renderDeptos.mesLect=mes;irA('deptos')}]});
+  T.push({id:'cobrar',ok:!!(filas.length&&nOk===filas.length),dep:['lect','agua','luz'],t:'Cobrar el mes',limite:fc.cobro,d:listo?nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta)):'Límite de pago de los deptos',btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
+  T.push(ra?{id:'pagarAgua',ok:!!ra.pagado,limite:ra.vencimiento,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'A Sedapal',
+      btn:['Marcar pagado',()=>{const b={...ra};delete b.id;b.pagado=true;b.fechaPago=hoy;guardarReciboAgua(ra.id,b).then(()=>toast('Recibo de agua marcado como pagado')).catch(e=>toast('No se pudo guardar: '+mensajeError(e)))}]}
+    :{id:'pagarAgua',ok:false,dep:['agua'],t:'Pagar el recibo de agua',d:'A Sedapal'});
+  T.push(rl?{id:'pagarLuz',ok:!!rl.pagado,limite:rl.vencimiento,t:'Pagar el recibo de luz ('+fmtS(rl.totalPagar)+')',d:rl.pagado?'Pagado':'A Luz del Sur',btn:['Marcar pagado',()=>marcarPagado(rl,true)]}
+    :{id:'pagarLuz',ok:false,dep:['luz'],t:'Pagar el recibo de luz',d:'A Luz del Sur'});
   const ant=cobrosPendientesTodos().filter(p=>p.mes<mes);
-  if(ant.length)T.push({ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:fmtS(sum(ant,p=>p.falta))+' de '+(n=>n+' depto'+(n>1?'s':''))(new Set(ant.map(p=>p.d.id)).size)+'. En Cobros puedes enviarles un recordatorio.',btn:['Ver',()=>{irA('cobros');const p=document.getElementById('panel-pendientes');if(p)p.scrollIntoView({block:'start'})}]});
-  return{mes,T};
+  if(ant.length)T.push({id:'ant',ok:false,urgente:true,t:'Cobros pendientes de meses anteriores',d:fmtS(sum(ant,p=>p.falta))+' de '+(n=>n+' depto'+(n>1?'s':''))(new Set(ant.map(p=>p.d.id)).size)+'. En Cobros puedes enviarles un recordatorio.',btn:['Ver',()=>{irA('cobros');const p=document.getElementById('panel-pendientes');if(p)p.scrollIntoView({block:'start'})}]});
+  // Dependencias, fechas y prioridad
+  const porId=Object.fromEntries(T.map(x=>[x.id,x]));
+  T.forEach((x,i)=>{
+    x.orden=i;
+    const falta=(x.dep||[]).filter(id=>porId[id]&&!porId[id].ok);
+    x.bloq=!x.ok&&falta.length>0;
+    if(x.bloq){x.d='Primero: '+falta.map(id=>porId[id].t.replace(/ \(.*\)$/,'').toLowerCase()).join(', ');x.btn=null}
+    const dl=x.limite?diasHasta(x.limite):null,dd=x.desde?diasHasta(x.desde):null;
+    if(!x.ok&&!x.bloq&&dl!=null&&dl<=3)x.urgente=true;
+    x.cuando=x.ok?'':x.limite?(dl<0?{c:'vencido',t:'venció '+enDias(dl)}:{c:dl<=3?'pronto':'',t:'vence '+(dl<=7?enDias(dl):'el '+fechaCorta(x.limite))}):x.desde&&dd>0?{c:'futuro',t:'desde el '+fechaCorta(x.desde)}:'';
+    x.clave=x.limite||x.desde||hoy;
+  });
+  const grupo=x=>x.urgente?0:x.bloq?2:1;
+  T.sort((a,b)=>grupo(a)-grupo(b)||(grupo(a)===2?a.orden-b.orden:a.clave.localeCompare(b.clave)||a.orden-b.orden));
+  const fs2=fechasCiclo(siguienteMes(mes));
+  const proximas=[['Tomar las lecturas',fs2.lecturas],['Recibo de agua',fs2.agua],['Recibo de luz',fs2.luz]].sort((a,b)=>a[1].localeCompare(b[1]));
+  return{mes,T,proximas};
 }
 function panelQueHacer(){
   if(!datosListos&&!recibos.length)return'';
-  const {mes,T}=tareasDelMes();panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
+  const {mes,T,proximas}=tareasDelMes();panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
   return `<div class="panel que-hacer"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Qué hacer este mes</h2><span class="chip ${hechas===T.length?'ok':'pend'}">${hechas} de ${T.length}</span></div>
     <p class="muted small" style="margin:4px 0 10px">${mesLargo(mes)}</p>
-    ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':'○'}</span>
-      <div><strong>${esc(x.t)}</strong><div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`;
+    ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':x.bloq?'bloqueada':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':x.bloq?'🔒':'○'}</span>
+      <div><strong>${esc(x.t)}</strong>${x.cuando?` <span class="qh-cuando ${x.cuando.c}">${esc(x.cuando.t)}</span>`:''}<div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok&&!x.bloq?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok&&!y.bloq)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`;
       const pend=T.map((x,i)=>[x,i]).filter(([x])=>!x.ok),ok=T.map((x,i)=>[x,i]).filter(([x])=>x.ok);
       return (pend.length?`<ul class="qh">${pend.map(([x,i])=>li(x,i)).join('')}</ul>`:'<p style="margin:0 0 6px"><strong>Todo listo este mes.</strong></p>')
+        +`<p class="small muted qh-proximas">Próximo mes: ${proximas.map(([t,f])=>t.toLowerCase()+' '+fechaCorta(f)).join(' · ')}</p>`
         +(ok.length?`<details class="qh-hechas"><summary class="small muted">✓ ${ok.length} hecha${ok.length>1?'s':''}</summary><ul class="qh">${ok.map(([x,i])=>li(x,i)).join('')}</ul></details>`:'')})()}</div>`;
 }
 // Estado de cada depto de un vistazo: cuánto debe (y desde cuándo), al día o con saldo a favor.
@@ -2419,14 +2451,12 @@ function abrirMenu(){
       '<div class="menu-titulo">Administración</div>'+
       '<button data-accion="recordatorio">Recordatorio de lecturas<small>'+esc(rec)+'</small></button>'+
       '<button data-accion="vincular">Buscar PDF en Drive<small>Vincula los PDF de luz y de agua dejados en Drive</small></button>'+
-      '<button data-accion="salir">Cerrar sesión<small>Borra el acceso y la copia de este dispositivo</small></button>'+
     '</nav>'+
     '<div class="menu-pie">'+(datosListos?'Datos al día':'Actualizando datos…')+'</div>';
   c.querySelector('[data-close]').onclick=()=>c.close();
   c.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{c.close();irA(b.dataset.ir)});
   c.querySelector('[data-accion="recordatorio"]').onclick=()=>{c.close();abrirRecordatorio()};
   c.querySelector('[data-accion="vincular"]').onclick=()=>{c.close();buscarPdfsDrive()};
-  c.querySelector('[data-accion="salir"]').onclick=()=>{c.close();cerrarSesion()};
   c.addEventListener('click',e=>{if(e.target===c)c.close()}); // tocar fuera cierra
   c.showModal();
 }
@@ -2699,6 +2729,7 @@ function crearSampleOCR(){return{
 async function conectar(){
   if(!tokenAcceso){mostrarLogin();return}
   db=new SheetsDB(APPS_SCRIPT_URL);assets=crearAssets(db);downloads=crearDownloads();sample=crearSampleOCR();
+  pintarUsuario();
   $('#aviso-db').hidden=true;
   if(esInquilino()){tabActual='inquilino';$('nav.tabs').hidden=true;PESTANAS.forEach(t=>$('#tab-'+t).hidden=true);$('#tab-inquilino').hidden=false;document.body.classList.add('modo-inquilino')}
   else{let t=null,m=null;try{t=sessionStorage.getItem('recibos_tab');m=sessionStorage.getItem('recibos_mes_cobro')}catch(e){}
@@ -2706,7 +2737,7 @@ async function conectar(){
     if(t&&t!=='resumen'&&t!=='inquilino'&&PESTANAS.includes(t))irA(t)}
   const reVista=()=>{if(tabActual==='resumen')renderResumen();if(tabActual==='inquilino')renderInquilino()};
   db.collection('recibos').onSnapshot(snap=>{$('#aviso-db').hidden=true;recibos=snap.docs.map(x=>({id:x.id,...x.data()})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));renderTodo()},err=>{if(String(err.code).includes('no_autorizado'))return;$('#aviso-db').hidden=false;$('#aviso-db').dataset.conexion='1';$('#aviso-db').textContent='No se pudo conectar con los datos ('+mensajeError(err)+'). Mientras tanto ves la última copia guardada en este dispositivo; la app reintenta sola.'});
-  db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
+  db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));pintarUsuario();if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
   db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();reVista()});
   db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos();reAgua()});
   const reAgua=()=>{if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();if(tabActual==='reportes')renderReportes();reVista()};
@@ -2736,9 +2767,41 @@ const REDIBUJOS={};
 });
 renderTodo=window.renderTodo;renderResumen=window.renderResumen;renderRecibos=window.renderRecibos;renderAgua=window.renderAgua;renderDeptos=window.renderDeptos;renderCobros=window.renderCobros;renderReportes=window.renderReportes;renderInquilino=window.renderInquilino;
 conectar();
+/* ---------- Usuario conectado ---------- */
+function datosUsuario(){
+  const inq=esInquilino(),dep=inq?deptos.find(d=>d.id===lsGet('recibos_depto')):null;
+  const nombre=(lsGet('recibos_nombre')||'').trim()||(inq?(dep&&dep.encargado)||'Inquilino':'Administración');
+  const rol=inq?(dep?tituloDepto(dep):'Inquilino'):'Administrador';
+  const ini=nombre.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase()||'?';
+  return {inq,dep,nombre,rol,ini};
+}
+function pintarUsuario(){
+  const b=$('#btn-usuario');if(!b)return;
+  if(!tokenAcceso){b.hidden=true;return}
+  const u=datosUsuario();b.hidden=false;b.setAttribute('aria-label','Tu cuenta: '+u.nombre+', '+u.rol);
+  b.innerHTML=`<span class="avatar ${u.inq?'inq':''}" aria-hidden="true">${esc(u.ini)}</span><span class="u-txt"><strong>${esc(u.nombre)}</strong><span>${esc(u.rol)}</span></span>`;
+}
+function abrirCuenta(){
+  const u=datosUsuario(),dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">Tu cuenta</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  <div class="dlg-b">
+    <div class="perfil"><span class="avatar grande ${u.inq?'inq':''}" aria-hidden="true">${esc(u.ini)}</span><div><strong style="font-size:1.1rem">${esc(u.nombre)}</strong><div class="muted small">${esc(u.rol)}${u.inq?' · solo ves tus datos':' · acceso completo'}</div></div></div>
+    <label class="f">Tu nombre<input id="u-nombre" value="${esc((lsGet('recibos_nombre')||'').trim())}" placeholder="${esc(u.nombre)}" autocomplete="name"></label>
+    <p class="muted small" style="margin:6px 0 0">Se entra con un código compartido, así que este nombre se guarda solo en este dispositivo.</p>
+    <p class="muted small" style="margin:10px 0 0">${esc(($('#estado-sync')||{}).textContent||'')}</p>
+  </div>
+  <div class="dlg-f"><button class="btn" id="u-salir">Cerrar sesión</button><button class="btn primary" data-close>Listo</button></div>`;
+  const inp=dlg.querySelector('#u-nombre');
+  inp.oninput=()=>{lsSet('recibos_nombre',inp.value.trim()||null);pintarUsuario()};
+  inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();dlg.close()}};
+  dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
+  dlg.querySelector('#u-salir').onclick=()=>{dlg.close();cerrarSesion()};
+  if(!dlg.open)dlg.showModal();
+}
+document.addEventListener('click',e=>{if(e.target.closest('#btn-usuario'))abrirCuenta()});
 async function cerrarSesion(){
   if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
-  ['recibos_token','recibos_cache','recibos_rol','recibos_depto'].forEach(k=>lsSet(k,null));location.reload();
+  ['recibos_token','recibos_cache','recibos_rol','recibos_depto','recibos_nombre'].forEach(k=>lsSet(k,null));location.reload();
 }
 function marcarEstadoSync(){const e=$('#estado-sync');if(e)e.textContent=datosListos?'':'Actualizando…'}
 // App instalable (GitHub Pages): registra el service worker que guarda la interfaz para abrir más rápido.
