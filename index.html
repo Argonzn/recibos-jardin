@@ -216,7 +216,7 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--accent-soft);color
 .form-rec{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .form-rec select,.form-rec input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
 /* Agua y cobros */
-.tabla-cobro td,.tabla-cobro th{white-space:nowrap}
+.tabla-cobro td,.tabla-cobro th{white-space:nowrap;padding-left:7px;padding-right:7px}
 .tabla-cobro td:first-child{white-space:normal;min-width:120px}
 #dlg select,.panel select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
 @media (max-width:640px){nav.tabs button{font-size:.74rem;padding:8px 1px}}
@@ -272,7 +272,9 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .cobro-card.pagado{background:none;padding:8px 12px}.cobro-card.pagado .row .btn{flex:0 0 auto!important}
 .cobro-card.atrasado{border-color:var(--red);background:var(--red-soft)}
 .cc-monto{font-size:1.35rem;font-weight:800}
-@media (max-width:640px){.tabla-cobro-wrap{display:none}.cobro-cards{display:grid;gap:10px}.cobro-card .row .btn{flex:1;justify-content:center}}
+@media (max-width:900px){.tabla-cobro-wrap{display:none}.cobro-cards{display:grid;gap:10px}.cobro-card .row .btn{flex:1;justify-content:center}}
+@media (min-width:641px) and (max-width:900px){.cobro-cards{grid-template-columns:1fr 1fr}}
+@media (min-width:641px) and (max-width:1000px){header.top{align-items:center}header.top .usuario{order:2}header.top nav.tabs{order:3;width:100%;justify-content:space-between}header.top nav.tabs button{flex:1;justify-content:center}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -1015,13 +1017,13 @@ function renderComparativa(mesDefault){
     cuerpo=!a?`<p class="muted small" style="margin-top:10px">No hay recibo de agua de ${mesLargo(mes)}.</p>`
       :a.incompleto?`<div class="banner warn" style="margin-top:10px">Faltan lecturas de agua de ${mesLargo(mes)}: ${a.faltan.map(d=>esc(nombreDepto(d))).join(', ')}.</div>`
       :`<p class="muted small" style="margin-top:10px">General ${fmtN(a.general,2)} m³ − medidos ${fmtN(a.medidos,2)} m³ = ${fmtN(a.R,2)} m³ sin medir (${fmtN(a.pct*100,0)} %)${a.fueraDeLoNormal?`, <strong>${fmtN(a.exceso,1)} m³ por encima de lo normal</strong>`:''}. Base sin medidor del mes: ${fmtN(a.base,1)} m³.</p>
-      <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>%</th><th>Agua</th><th>Atraso</th></tr></thead>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>%</th><th>Agua</th><th>Mora</th></tr></thead>
       <tbody>${ordenados.filter(d=>a.porDepto[d.id]).map(d=>{const p=a.porDepto[d.id];return `<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtN(p.m3/a.general*100,1)}%</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`}).join('')}</tbody></table></div>
       <div class="row" style="margin-top:10px"><button class="btn sm" data-veragua="${mes}">Ver el detalle del recibo</button></div>`;
   }else{
     const filas=cobrosDelMes(mes);
     cuerpo=`<p class="muted small" style="margin-top:10px">Luz + agua + administración + mantenimiento + atrasos de ${mesLargo(mes)}. Los pagos se registran en la pestaña Cobros.</p>
-      <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Atraso</th><th>Total</th><th>Estado</th></tr></thead>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Mora</th><th>Total</th><th>Estado</th></tr></thead>
       <tbody>${filas.map(x=>`<tr><td>${esc(nombreDepto(x.d))}</td><td>${x.partes.luz!=null?fmtS(x.partes.luz):'—'}</td><td>${x.partes.agua!=null?fmtS(x.partes.agua):'—'}</td><td>${fmtS(x.partes.admLuz+x.partes.admAgua+x.partes.mant)}</td><td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td><td><strong>${fmtS(x.total)}</strong>${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(sum(filas,x=>x.total))}</td><td></td></tr></tfoot></table></div>
       <div class="row" style="margin-top:10px"><button class="btn sm" id="comp-ir-cobros">Registrar pagos en Cobros</button></div>`;
@@ -1696,16 +1698,16 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales; cuando alguien registra su pago completo de ${prev}, sale del reparto.</p>`:''})()}
     </details>
     <div class="scroll tabla-cobro-wrap"><table class="tabla-cobro">
-      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. luz</th><th>Adm. agua</th><th>Mant.</th><th>Atrasos</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Mora</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
         <td><strong>${tituloDepto(x.d)}</strong><div class="muted small">${esc(x.d.encargado||'')}</div></td>
-        <td>${celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td>${x.partes.admLuz?fmtS(x.partes.admLuz):'—'}</td><td>${x.partes.admAgua?fmtS(x.partes.admAgua):'—'}</td><td>${fmtS(x.partes.mant)}</td>
+        <td>${celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td title="Adm. luz ${fmtS(x.partes.admLuz)} · adm. agua ${fmtS(x.partes.admAgua)} · mantenimiento ${fmtS(x.partes.mant)}">${fmtS(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant))}</td>
         <td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td>
         <td><strong>${fmtS(x.neto)}</strong>${x.aFavor?`<div class="small muted">${fmtS(x.total)} − ${fmtS(x.aFavor)} a favor</div>`:''}${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td>
         <td>${x.cobrado!=null?fmtS(x.cobrado)+(x.diferencia&&Math.abs(x.diferencia)>=0.5?`<div class="small ${x.diferencia>0?'diff-pos':'diff-neg'}">${x.diferencia>0?'+':''}${fmtS(x.diferencia)}</div>`:'')+(x.estado.txt.startsWith('Pago parcial')?`<div class="small diff-neg">falta ${fmtS(x.falta)}</div>`:''):x.legado!=null?fmtS(x.legado)+'<div class="small muted">solo luz</div>':'—'}</td>
         <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${enviadoCobro(x.d.id,mes)?'<div class="small muted">'+ico('check')+' enviado</div>':''}</td>
         <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz))}</td><td>${fmtS(sum(filas,x=>x.partes.admAgua))}</td><td>${fmtS(sum(filas,x=>x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
+      <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
     <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";if(ok)return `<div class="cobro-card pagado"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap"><div><strong>${tituloDepto(x.d)}</strong> <span class="chip sm ok">${x.estado.txt}</span><div class="small muted">${fmtS(x.cobrado??x.neto)}${x.cobro&&x.cobro.fechaCobro?" · "+fechaCorta(x.cobro.fechaCobro):""}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div></div><button class="btn sm" data-cobrar-mes="${x.d.id}|${mes}">Editar</button></div></div>`;return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
       <div class="row" style="justify-content:space-between;gap:8px"><div><strong>${tituloDepto(x.d)}</strong> <span class="muted small">${esc(x.d.encargado||"")}</span></div><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
@@ -1935,7 +1937,7 @@ function abrirDetalleAgua(mes){
       ${aa.inconsistente?`<div class="banner alert" style="margin-bottom:12px">El medidor general de agua marca ${fmtN(aa.general,2)} m³ y la suma de los medidores internos da ${fmtN(aa.medidos,2)} m³: no puede ser menor. Revisa las lecturas de agua de ${mesLargo(mes)} antes de cobrar; el reparto de este mes no es confiable.</div>`:''}
       <p class="small" style="margin-top:0">Medidor general ${fmtN(aa.general,2)} m³ (${aa.fuente==='propia'?'tu lectura del día 12':'del recibo de Sedapal'}) − medidores internos ${fmtN(aa.medidos,2)} m³ = <strong>${fmtN(aa.R,2)} m³ sin medir</strong> (${fmtN(aa.pct*100,0)} %).</p>
       <p class="small">${aa.nHist>=3?`Lo normal en los meses anteriores: ${fmtN(aa.normal,1)} m³ ± ${fmtN(aa.tol,1)}. `:'Todavía hay pocos meses para calcular lo normal (hacen falta 3). '}${aa.fueraDeLoNormal?`<strong>Este mes se pasó en ${fmtN(aa.exceso,1)} m³</strong>: se suman a los deptos sin medidor.`:'Este mes está dentro de lo normal.'} Base sin medidor de este mes: ${fmtN(aa.base,1)} m³ <button class="iconbtn" id="ag-base" style="padding:0">cambiar</button>; asignado: ${fmtN(aa.m3SinMed,2)} m³ cada uno. El resto se reparte en proporción a lo medido (× ${fmtN(aa.factor,3)}). Precio: ${fmtS(aa.precio)} por m³.</p>
-      <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>Agua</th><th>Atraso</th></tr></thead><tbody>
+      <div class="scroll"><table><thead><tr><th>Depto</th><th>m³ medido</th><th>m³ asignado</th><th>Agua</th><th>Mora</th></tr></thead><tbody>
         ${deps.map(d=>{const p=aa.porDepto[d.id];return p?`<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`:''}).join('')}
       </tbody><tfoot><tr><td>Total</td><td>${fmtN(aa.medidos,2)}</td><td>${fmtN(aa.general,2)}</td><td>${fmtS(aa.consumo)}</td><td>${aa.atraso?fmtS(aa.atraso):'—'}</td></tr></tfoot></table></div>`}
       ${atrasoDe(r)>0&&aa&&!aa.incompleto?`<h3 style="margin-top:16px">¿Quién paga el atraso?</h3>
