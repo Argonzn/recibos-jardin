@@ -1,7 +1,7 @@
 {
-  "name": "Recibos de luz — Jardín",
+  "name": "Recibos Jardín",
   "short_name": "Recibos",
-  "description": "Recibos de luz y lecturas de medidores del edificio.",
+  "description": "Recibos de luz y agua, lecturas y cobros del edificio.",
   "lang": "es-PE",
   "start_url": "./",
   "scope": "./",
