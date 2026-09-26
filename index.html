@@ -131,6 +131,8 @@ h3{font-size:1rem;font-weight:700;margin:0 0 8px}
 table{border-collapse:collapse;width:100%;font-size:.9rem;white-space:nowrap}
 th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right}
 th:first-child,td:first-child{text-align:left}
+/* Tablas anchas en celular: la primera columna queda fija al desplazar las cifras */
+@media (max-width:640px){.scroll>table th:first-child,.scroll>table td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:1px 0 0 var(--line)}}
 thead th{font-weight:700;color:var(--muted);font-size:.82rem}
 tfoot td{font-weight:750}
 select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
