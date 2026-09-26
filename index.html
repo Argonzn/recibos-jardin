@@ -217,6 +217,7 @@ nav.tabs button.menu-btn[data-activo="true"]{background:var(--accent-soft);color
 .form-rec{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .form-rec select,.form-rec input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
 /* Agua y cobros */
+.tabla-lect td,.tabla-lect th{padding-left:6px;padding-right:6px}.tabla-lect td:first-child{white-space:normal}
 .tabla-cobro td,.tabla-cobro th{white-space:nowrap;padding-left:7px;padding-right:7px}
 .tabla-cobro td:first-child{white-space:normal;min-width:120px}
 #dlg select,.panel select{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
@@ -1042,7 +1043,7 @@ function panelLecturasDelMes(){
   const mes=renderDeptos.mesLect||mesDeLecturas();
   const ordenados=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0));
   const celdaLuz=d=>{if(d.estado==='desocupado')return'<span class="muted small">sin luz</span>';const l=lecturaDe(d.id,mes);return l?`<span class="chip sm ok">${ico('check')} ${fmtN(l.kwh)} kWh</span>`:`<button class="btn sm primary" data-leer="${d.id}|luz">Luz</button>`};
-  const celdaAgua=d=>{const t=tipoAgua(d);if(t==='no')return'<span class="muted small">sin agua</span>';if(t==='sin_medidor')return'<span class="muted small">se estima</span>';const l=lecturaAguaDe(d.id,mes);return l?`<span class="chip sm ok">✓ ${fmtN(m3De(l),2)} m³</span>`:`<button class="btn sm primary" data-leer="${d.id}|agua">Agua</button>`};
+  const celdaAgua=d=>{const t=tipoAgua(d);if(t==='no')return'<span class="muted small">sin agua</span>';if(t==='sin_medidor')return'<span class="muted small">se estima</span>';const l=lecturaAguaDe(d.id,mes);return l?`<span class="chip sm ok">${ico('check')} ${fmtN(m3De(l),2)} m³</span>`:`<button class="btn sm primary" data-leer="${d.id}|agua">Agua</button>`};
   const gen=lecturaAguaDe('general',mes);
   const faltan=ordenados.filter(d=>d.estado!=='desocupado'&&!lecturaDe(d.id,mes)).length+ordenados.filter(d=>tipoAgua(d)==='medidor'&&!lecturaAguaDe(d.id,mes)).length+(gen?0:1);
   return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Lecturas de ${mesLargo(mes)}</h2>
@@ -1050,9 +1051,9 @@ function panelLecturasDelMes(){
     <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura.</p>
     <label class="small muted" style="display:inline-flex;gap:8px;align-items:center;margin:0 0 10px">Mes <select id="sel-mes-lect" aria-label="Mes de las lecturas">${(()=>{const hoy=mesDeLecturas(),ms=[...new Set([...lecturas.map(l=>l.mes),...lecturasAgua.map(l=>l.mes),hoy,siguienteMes(hoy)])].filter(Boolean).sort().reverse().slice(0,14);return ms.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}${m===hoy?' (este mes)':''}</option>`).join('')})()}</select></label>
     ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">${ico('camara')} ${faltan===1?'Tomar la que falta':'Tomar las '+faltan+' que faltan'}</button>`:''}
-    <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
-      ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
-      <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">${ico('check')} ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
+    <div class="scroll"><table class="tabla-lect"><thead><tr><th>Depto</th><th>${ico('luz','ic-luz')} Luz</th><th>${ico('agua','ic-agua')} Agua</th></tr></thead><tbody>
+      ${ordenados.map(d=>`<tr><td><strong>${tituloDepto(d)}</strong>${d.encargado?`<div class="muted small">${esc(d.encargado)}</div>`:''}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
+      <tr><td><strong>General</strong><div class="muted small">medidor de agua</div></td><td></td><td>${gen?`<span class="chip sm ok">${ico('check')} ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
     </tbody></table></div></div>`;
 }
 function conectarPanelLecturas(){
