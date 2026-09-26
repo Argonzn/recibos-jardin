@@ -252,6 +252,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .avance{margin:12px 0 4px;display:grid;gap:6px}
 .avance .barra{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.avance .barra i{display:block;height:100%;background:var(--green)}
 .info-mes{margin:0 0 12px}.info-mes summary{cursor:pointer;color:var(--muted);padding:6px 0}
+.mas-opciones>summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;min-height:32px}.mas-opciones>summary::-webkit-details-marker{display:none}
 .pend-depto{border-bottom:1px solid var(--line);padding:2px 0}.pend-depto:last-child{border-bottom:0}
 .pend-depto>summary{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;cursor:pointer;list-style:none;padding:8px 0}
 .pend-depto>summary::-webkit-details-marker{display:none}.pend-depto.atrasado .pend-total{color:var(--red)}
@@ -1604,7 +1605,7 @@ function renderCobros(){
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <div class="avance"><div class="row" style="justify-content:space-between"><span><strong>${fmtS(cobrado)}</strong> <span class="muted">de ${fmtS(esperado)} cobrados</span></span><span class="small muted">${nOk} de ${filas.length} deptos</span></div><div class="barra"><i style="width:${esperado?Math.min(100,Math.round(cobrado/esperado*100)):0}%"></i></div><div class="small muted">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}</div></div>
-    <div class="row" style="margin:12px 0"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ CSV</button><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
+    <div class="row" style="margin:12px 0"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${mes!==mesActual?`<div class="banner info" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Estás viendo <strong>${mesLargo(mes)}</strong>, no el mes actual.</span><button class="btn sm" id="cobro-mes-actual">Ir a ${mesLargo(mesActual)}</button></div>`:''}
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
@@ -1642,7 +1643,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
   <div class="panel" id="panel-pendientes"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">📲 Recordar a todos</button>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
     <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details data-dep="${id}" class="pend-depto ${late?'atrasado':''}"><summary>
-      <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''}: ${ps.map(p=>mesCorto(p.mes)).join(', ')}</div></div>
+      <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</div></div>
       <div class="pend-total">${fmtS(sum(ps,p=>p.falta))}${late?'<div class="small">vencido</div>':''}</div>
       <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" data-pago-depto="${id}">💵 Pago</button><button class="btn sm" data-recordar="${id}">📲 Recordar</button></div></summary>
       <div class="stack" style="gap:0;margin-top:6px">${ps.slice().reverse().map(p=>`<div class="pago-row ${p.estado.cls==='late'?'atrasado':''}">
@@ -1651,15 +1652,16 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
         <div class="small"><span class="chip sm ${p.estado.cls}">${p.estado.txt}</span></div>
         ${acciones(p,p.mes)}</div>`).join('')}</div></details>`}).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
   </div>
-  <div class="panel"><h2>Valores por defecto</h2>
-    <p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
+  <details class="panel mas-opciones"><summary><strong>⚙ Más opciones</strong> <span class="muted small">valores por defecto, WhatsApp de la administración, descargar CSV</span></summary>
+    <h2 style="margin:14px 0 6px">Valores por defecto</h2><p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
     <div class="list">
       <div class="row" style="justify-content:space-between"><span>Administración de luz (por depto con luz)</span><span><strong>${fmtS(config.mantenimiento??5)}</strong> <button class="iconbtn" data-cfg="mantenimiento">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Administración de agua (por depto con agua)</span><span><strong>${fmtS(config.admAgua??5)}</strong> <button class="iconbtn" data-cfg="admAgua">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>WhatsApp de la administración<div class="small muted">Los inquilinos te escriben aquí desde su vista</div></span><span><strong>${config.telefonoAdmin?esc(config.telefonoAdmin):'—'}</strong> <button class="iconbtn" id="btn-tel-admin">Cambiar</button></span></div>
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
       ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
-    </div></div>`;
+    </div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ Descargar cobros (CSV)</button></div></details>`;
   const cma=$('#cobro-mes-actual');if(cma)cma.onclick=()=>{renderCobros.mes=null;try{sessionStorage.removeItem('recibos_mes_cobro')}catch(er){}renderCobros()};
   $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;try{sessionStorage.setItem('recibos_mes_cobro',e.target.value)}catch(er){}renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
