@@ -272,6 +272,8 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 table.ec td,table.ec th{text-align:right;white-space:nowrap}table.ec td:first-child,table.ec th:first-child{text-align:left}
 table.ec tfoot td{font-weight:700}
 .ec-falta{color:var(--red);font-weight:700}
+table.ec td.ec-cons{color:var(--muted)}
+.ec-tabla table.ec th,.ec-tabla table.ec td{padding-left:6px;padding-right:6px}.ec-tabla table.ec td:last-child{white-space:normal;min-width:110px}
 .ec-acciones{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .ec-cards{display:none}.ec-card{border-top:1px solid var(--line);padding:10px 2px}.ec-card.clic{cursor:pointer}.ec-card-h{display:flex;justify-content:space-between;align-items:center;gap:8px}.ec-card-n{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0 2px}.ec-card-total{display:flex;justify-content:space-between;font-weight:700}
 @media (max-width:640px){.ec-saldo{text-align:left}.ec-cards{display:block}.ec-tabla{display:none}}
@@ -1700,20 +1702,38 @@ function estadoCuenta(){
   }).filter(p=>p.filas.length);
   return{meses,mesSig,por,debe:r2(sum(por,p=>p.debe)),pagado:r2(sum(por,p=>p.pagado)),favor:r2(sum(por,p=>p.favor))};
 }
-// Tabla mes a mes de un depto (la usan Cobros, la impresión y el inquilino).
+// Consumo de un depto en un mes (solo para mostrar): kWh de su medidor de luz y m³ de su medidor de agua;
+// para un depto sin medidor, los m³ estimados con que se le cobra. Los meses cerrados no tienen desglose.
+function consumoMes(dep,mes){
+  if(mesCerrado(mes))return{kwh:null,m3:null,est:false};
+  const l=lecturaDe(dep,mes),a=calcAgua(mes),p=a&&!a.incompleto?a.porDepto[dep]:null,est=tipoAgua(deptos.find(x=>x.id===dep))==='sin_medidor';
+  return{kwh:l&&l.kwh!=null?Number(l.kwh):null,m3:p?(est?p.m3:p.m3Leido):null,est};
+}
+const fmtKwh=v=>v==null?"—":fmtN(v,1);
+const fmtM3=(v,est)=>v==null?'—':fmtN(v,2)+(est?' est.':'');
+function totalConsumo(p){const cs=p.filas.map(x=>consumoMes(p.d.id,x.mes)),k=cs.filter(c=>c.kwh!=null),m=cs.filter(c=>c.m3!=null);
+  return{kwh:k.length?sum(k,c=>c.kwh):null,m3:m.length?sum(m,c=>c.m3):null,est:m.some(c=>c.est)}}
+// Consumo del edificio por mes: kWh del recibo vs. medidores internos; m³ del medidor general, medidos y sin medir.
+function consumoEdificio(E){
+  return E.meses.map(m=>{const rl=recibos.find(x=>x.id===m),a=calcAgua(m),ok=a&&!a.incompleto,ks=sumaSubmedidores(m);
+    return{m,kwhRec:rl&&rl.kwh!=null?Number(rl.kwh):null,kwhSub:ks||null,m3Gen:ok?a.general:null,m3Med:ok?a.medidos:null,m3Sin:ok?a.R:null,m3Est:ok&&deptosSinMedidor().length?a.m3SinMed*deptosSinMedidor().length:null}});
+}
+const notaConsumo=est=>'kWh y m³: lo que marcó el medidor del depto. El monto del agua incluye además su parte del agua común (áreas comunes y diferencias de lectura).'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
+// Tabla mes a mes de un depto (la usan Cobros y el inquilino).
 function tablaEstadoCuenta(p,{clic=true}={}){
-  const c=v=>v?fmtS(v):'<span class="muted">—</span>';
-  const fila=x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant),ok=x.estado.cls==='ok';
-    return `<tr${clic?` class="clic" data-ec-mes="${x.mes}" title="Ver o registrar el pago de ${mesLargo(x.mes)}"`:''}><td>${mesLargo(x.mes)}</td><td>${x.partes.luz==null?'<span class="muted">—</span>':fmtS(x.partes.luz)}</td><td>${x.partes.agua==null?'<span class="muted">—</span>':fmtS(x.partes.agua)}</td><td>${c(adm)}</td><td>${c(x.partes.atraso)}</td><td>${fmtS(x.total)}</td><td>${x.aFavor?'− '+fmtS(x.aFavor):'<span class="muted">—</span>'}</td><td><strong>${fmtS(x.neto)}</strong></td><td>${c(x.pagado)}</td><td class="${!ok&&x.falta?'ec-falta':''}">${!ok&&x.falta?fmtS(x.falta):'<span class="muted">—</span>'}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${x.faltan.length?'<div class="small muted">falta '+x.faltan.join(' y ')+'</div>':''}</td></tr>`};
-  const t=f=>fmtS(r2(sum(p.filas,f)));
+  const S=v=>fmtS(v).replace('S/ ',''),c=v=>v?S(v):'<span class="muted">—</span>',cons=x=>consumoMes(p.d.id,x.mes),tc=totalConsumo(p);
+  const fila=x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant),ok=x.estado.cls==='ok',k=cons(x);
+    return `<tr${clic?` class="clic" data-ec-mes="${x.mes}" title="Ver o registrar el pago de ${mesLargo(x.mes)}"`:''}><td>${mesLargo(x.mes)}</td><td class="ec-cons">${fmtKwh(k.kwh)}</td><td>${x.partes.luz==null?'<span class="muted">—</span>':S(x.partes.luz)}</td><td class="ec-cons">${fmtM3(k.m3,k.est)}</td><td>${x.partes.agua==null?'<span class="muted">—</span>':S(x.partes.agua)}</td><td>${c(adm)}</td><td>${c(x.partes.atraso)}</td><td>${S(x.total)}</td><td>${x.aFavor?'− '+S(x.aFavor):'<span class="muted">—</span>'}</td><td><strong>${S(x.neto)}</strong></td><td>${c(x.pagado)}</td><td class="${!ok&&x.falta?'ec-falta':''}">${!ok&&x.falta?S(x.falta):'<span class="muted">—</span>'}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${x.faltan.length?'<div class="small muted">falta '+x.faltan.join(' y ')+'</div>':''}</td></tr>`};
+  const t=f=>S(r2(sum(p.filas,f)));
   // En celular: una tarjeta por mes con lo importante (a pagar, pagó, falta) a la vista.
-  const tarjeta=x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant),ok=x.estado.cls==='ok';
+  const tarjeta=x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant),ok=x.estado.cls==='ok',k=cons(x);
     return `<div class="ec-card${clic?' clic':''}"${clic?` data-ec-mes="${x.mes}"`:''}><div class="ec-card-h"><strong>${mesLargo(x.mes)}</strong><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
       <div class="ec-card-n"><span>A pagar <strong>${fmtS(x.neto)}</strong></span><span>Pagó <strong>${x.pagado?fmtS(x.pagado):'—'}</strong></span>${!ok&&x.falta?`<span class="ec-falta">Falta ${fmtS(x.falta)}</span>`:''}</div>
-      <div class="small muted">${[x.partes.luz!=null?'Luz '+fmtS(x.partes.luz):'',x.partes.agua!=null?'Agua '+fmtS(x.partes.agua):'',adm?'Adm. '+fmtS(adm):'',x.partes.atraso?'Mora '+fmtS(x.partes.atraso):'',x.aFavor?'A favor −'+fmtS(x.aFavor):'',x.faltan.length?'falta '+x.faltan.join(' y '):''].filter(Boolean).join(' · ')}</div></div>`};
-  return `<div class="ec-cards">${p.filas.map(tarjeta).join('')}<div class="ec-card ec-card-total"><span>Pagó en total <strong>${fmtS(p.pagado)}</strong></span><span class="${p.debe?'ec-falta':''}">Falta ${fmtS(p.debe)}</span></div></div><div class="scroll ec-tabla"><table class="ec"><thead><tr><th>Mes</th><th>Luz</th><th>Agua</th><th>Adm.</th><th>Mora</th><th>Total</th><th>A favor</th><th>A pagar</th><th>Pagó</th><th>Falta</th><th>Estado</th></tr></thead>
+      <div class="small muted">${[x.partes.luz!=null?'Luz '+fmtS(x.partes.luz)+(k.kwh!=null?' ('+fmtKwh(k.kwh)+' kWh)':''):'',x.partes.agua!=null?'Agua '+fmtS(x.partes.agua)+(k.m3!=null?' ('+fmtN(k.m3,2)+' m³'+(k.est?' est.':'')+')':''):'',adm?'Adm. '+fmtS(adm):'',x.partes.atraso?'Mora '+fmtS(x.partes.atraso):'',x.aFavor?'A favor −'+fmtS(x.aFavor):'',x.faltan.length?'falta '+x.faltan.join(' y '):''].filter(Boolean).join(' · ')}</div></div>`};
+  return `<div class="ec-cards">${p.filas.map(tarjeta).join('')}<div class="ec-card ec-card-total"><span>Pagó en total <strong>${fmtS(p.pagado)}</strong></span><span class="${p.debe?'ec-falta':''}">Falta ${fmtS(p.debe)}</span></div>${tc.kwh!=null||tc.m3!=null?`<div class="small muted" style="margin-top:4px">Consumo del periodo: ${[tc.kwh!=null?fmtKwh(tc.kwh)+' kWh':'',tc.m3!=null?fmtN(tc.m3,2)+' m³'+(tc.est?' est.':''):''].filter(Boolean).join(' · ')}</div>`:''}</div><div class="scroll ec-tabla"><table class="ec"><thead><tr><th>Mes</th><th>kWh</th><th>Luz</th><th>m³</th><th>Agua</th><th>Adm.</th><th>Mora</th><th>Total</th><th>A favor</th><th>A pagar</th><th>Pagó</th><th>Falta</th><th>Estado</th></tr></thead>
     <tbody>${p.filas.map(fila).join('')}</tbody>
-    <tfoot><tr><td>Total</td><td>${p.filas.some(x=>x.partes.luz!=null)?t(x=>x.partes.luz):'<span class="muted">—</span>'}</td><td>${t(x=>x.partes.agua)}</td><td>${t(x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant)}</td><td>${t(x=>x.partes.atraso)}</td><td>${t(x=>x.total)}</td><td></td><td></td><td>${fmtS(p.pagado)}</td><td class="${p.debe?'ec-falta':''}">${fmtS(p.debe)}</td><td></td></tr></tfoot></table></div>`;
+    <tfoot><tr><td>Total</td><td class="ec-cons">${fmtKwh(tc.kwh)}</td><td>${p.filas.some(x=>x.partes.luz!=null)?t(x=>x.partes.luz):'<span class="muted">—</span>'}</td><td class="ec-cons">${fmtM3(tc.m3,tc.est)}</td><td>${t(x=>x.partes.agua)}</td><td>${t(x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant)}</td><td>${t(x=>x.partes.atraso)}</td><td>${t(x=>x.total)}</td><td></td><td></td><td>${S(p.pagado)}</td><td class="${p.debe?'ec-falta':''}">${S(p.debe)}</td><td></td></tr></tfoot></table></div>
+    <p class="small muted ec-nota" style="margin:8px 0 0">Montos en soles (S/).${tc.kwh!=null||tc.m3!=null?' '+notaConsumo(tc.est):''}</p>`;
 }
 function saldoEstadoCuenta(p,mesSig){
   return p.debe>0?`<div class="ec-saldo debe"><div class="small muted">Debe en total</div><div class="v">${fmtS(p.debe)}</div>${p.incompleto?'<div class="small muted">algún mes aún incompleto</div>':''}</div>`
@@ -1765,19 +1785,20 @@ function pdfDepto(doc,p,mesSig,y){
   doc.setFont('helvetica','bold');doc.setFontSize(12);
   if(p.debe>0){doc.setTextColor(...PDF_ROJO);doc.text('Debe en total: '+fmtS(p.debe),14,y+2)}
   else{doc.setTextColor(...PDF_VERDE);doc.text('Al día'+(p.favor>0?' · a favor para '+mesLargo(mesSig).toLowerCase()+': '+fmtS(p.favor):''),14,y+2)}
-  const est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok';
-  doc.autoTable({...pdfEstilo,startY:y+7,styles:{...pdfEstilo.styles,overflow:'linebreak'},
-    head:[['Mes','Luz','Agua','Adm.','Mora','Total','A favor','A pagar','Pagó','Falta','Estado']],
-    body:p.filas.map(x=>[mesLargo(x.mes),x.partes.luz==null?'—':n2(x.partes.luz),x.partes.agua==null?'—':n2(x.partes.agua),n2(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)),x.partes.atraso?n2(x.partes.atraso):'—',n2(x.total),x.aFavor?'- '+n2(x.aFavor):'—',n2(x.neto),x.pagado?n2(x.pagado):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]),
-    foot:[['Total',p.filas.some(x=>x.partes.luz!=null)?n2(r2(sum(p.filas,x=>x.partes.luz))):'—',n2(r2(sum(p.filas,x=>x.partes.agua))),n2(r2(sum(p.filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))),n2(r2(sum(p.filas,x=>x.partes.atraso))),n2(r2(sum(p.filas,x=>x.total))),'','',n2(p.pagado),n2(p.debe),'']],
-    columnStyles:{0:{halign:'left',cellWidth:25},1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right',fontStyle:'bold'},8:{halign:'right'},9:{halign:'right',fontStyle:'bold'},10:{halign:'left',cellWidth:'auto'}},
-    didParseCell:c=>{if(c.column.index===0||c.column.index===10)c.cell.styles.halign='left';
-      if(c.section==='body'&&c.column.index===9&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
-      if(c.section==='body'&&c.column.index===10)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
-      if(c.section==='foot'&&c.column.index===9&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
+  const est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok',tc=totalConsumo(p);
+  doc.autoTable({...pdfEstilo,startY:y+7,styles:{...pdfEstilo.styles,fontSize:7.5,overflow:'linebreak'},
+    head:[['Mes','kWh','Luz','m³','Agua','Adm.','Mora','Total','A favor','A pagar','Pagó','Falta','Estado']],
+    body:p.filas.map(x=>{const k=consumoMes(p.d.id,x.mes);return[mesLargo(x.mes),fmtKwh(k.kwh),x.partes.luz==null?'—':n2(x.partes.luz),fmtM3(k.m3,k.est),x.partes.agua==null?'—':n2(x.partes.agua),n2(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)),x.partes.atraso?n2(x.partes.atraso):'—',n2(x.total),x.aFavor?'- '+n2(x.aFavor):'—',n2(x.neto),x.pagado?n2(x.pagado):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]}),
+    foot:[['Total',fmtKwh(tc.kwh),p.filas.some(x=>x.partes.luz!=null)?n2(r2(sum(p.filas,x=>x.partes.luz))):'—',fmtM3(tc.m3,tc.est),n2(r2(sum(p.filas,x=>x.partes.agua))),n2(r2(sum(p.filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))),n2(r2(sum(p.filas,x=>x.partes.atraso))),n2(r2(sum(p.filas,x=>x.total))),'','',n2(p.pagado),n2(p.debe),'']],
+    columnStyles:{0:{cellWidth:22},9:{fontStyle:'bold'},11:{fontStyle:'bold'}},
+    didParseCell:c=>{c.cell.styles.halign=c.column.index===0||c.column.index===12?'left':'right';
+      if((c.column.index===1||c.column.index===3)&&c.section!=='head')c.cell.styles.textColor=PDF_GRIS;
+      if(c.section==='body'&&c.column.index===11&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
+      if(c.section==='body'&&c.column.index===12)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
+      if(c.section==='foot'&&c.column.index===11&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
   y=doc.lastAutoTable.finalY+7;
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-  doc.text(doc.splitTextToSize('Montos en soles (S/). «A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no registraron ningún pago del mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
+  doc.text(doc.splitTextToSize('Montos en soles (S/). '+(tc.kwh!=null||tc.m3!=null?notaConsumo(tc.est)+' ':'')+'«A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no registraron ningún pago del mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
 }
 function pdfPies(doc,texto){
   const n=doc.getNumberOfPages(),W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
@@ -1803,15 +1824,16 @@ function descargarPdfGeneral(){
     doc.setTextColor(...PDF_ROJO);doc.text('Falta cobrar: '+fmtS(E.debe),14,y+2);
     doc.setTextColor(20,28,40);doc.text('Pagado: '+fmtS(E.pagado),80,y+2);
     doc.setTextColor(...PDF_VERDE);doc.text('A favor para '+mesLargo(E.mesSig).toLowerCase()+': '+fmtS(E.favor),136,y+2);
-    const sec=(t,yy)=>{doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20,28,40);doc.text(t,14,yy);return yy+2};
+    const sec=(t,yy,alto=58)=>{if(yy+alto>doc.internal.pageSize.getHeight()-16){doc.addPage();yy=18}doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20,28,40);doc.text(t,14,yy);return yy+2};
     y=sec('Resumen por departamento',y+12);
     doc.autoTable({...pdfEstilo,startY:y,
-      head:[['Depto','Encargado','Total del periodo','Pagó','Falta','A favor','Estado']],
-      body:E.por.map(p=>[tituloDepto(p.d),p.d.encargado||'',fmtS(r2(sum(p.filas,x=>x.total))),fmtS(p.pagado),p.debe?fmtS(p.debe):'—',p.favor?fmtS(p.favor):'—',p.debe>0?(p.late?'Con meses vencidos':'Pendiente'):'Al día']),
-      foot:[['Total','',fmtS(r2(sum(E.por,p=>sum(p.filas,x=>x.total)))),fmtS(E.pagado),fmtS(E.debe),fmtS(E.favor),'']],
-      didParseCell:c=>{if(c.column.index<2||c.column.index===6)c.cell.styles.halign='left';else c.cell.styles.halign='right';
-        if(c.section==='body'&&c.column.index===4&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
-        if(c.section==='body'&&c.column.index===6)c.cell.styles.textColor=c.cell.raw==='Al día'?PDF_VERDE:c.cell.raw==='Pendiente'?[138,95,0]:PDF_ROJO}});
+      head:[['Depto','Encargado','kWh','m³','Total del periodo','Pagó','Falta','A favor','Estado']],
+      body:E.por.map(p=>{const tc=totalConsumo(p);return[tituloDepto(p.d),p.d.encargado||'',fmtKwh(tc.kwh),fmtM3(tc.m3,tc.est),fmtS(r2(sum(p.filas,x=>x.total))),fmtS(p.pagado),p.debe?fmtS(p.debe):'—',p.favor?fmtS(p.favor):'—',p.debe>0?(p.late?'Con meses vencidos':'Pendiente'):'Al día']}),
+      foot:[['Total','',fmtKwh(sum(E.por,p=>totalConsumo(p).kwh||0)),fmtN(sum(E.por,p=>totalConsumo(p).m3||0),2),fmtS(r2(sum(E.por,p=>sum(p.filas,x=>x.total)))),fmtS(E.pagado),fmtS(E.debe),fmtS(E.favor),'']],
+      didParseCell:c=>{if(c.column.index<2||c.column.index===8)c.cell.styles.halign='left';else c.cell.styles.halign='right';
+        if((c.column.index===2||c.column.index===3)&&c.section==='body')c.cell.styles.textColor=PDF_GRIS;
+        if(c.section==='body'&&c.column.index===6&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
+        if(c.section==='body'&&c.column.index===8)c.cell.styles.textColor=c.cell.raw==='Al día'?PDF_VERDE:c.cell.raw==='Pendiente'?[138,95,0]:PDF_ROJO}});
     y=sec('Pendiente por mes',doc.lastAutoTable.finalY+10);
     const pm=m=>r2(sum(E.por,p=>{const x=p.filas.find(z=>z.mes===m);return x&&x.estado.cls!=='ok'?x.falta:0}));
     doc.autoTable({...pdfEstilo,startY:y,
@@ -1819,7 +1841,15 @@ function descargarPdfGeneral(){
       body:E.por.map(p=>[tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),...M.map(m=>{const x=p.filas.find(z=>z.mes===m);return x&&x.estado.cls!=='ok'&&x.falta?fmtS(x.falta):'—'}),p.debe?fmtS(p.debe):'al día']),
       foot:[['Total',...M.map(m=>fmtS(pm(m))),fmtS(E.debe)]],
       didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';if(c.section==='body'&&c.column.index>0&&c.cell.raw!=='—'&&c.cell.raw!=='al día')c.cell.styles.textColor=PDF_ROJO;if(c.section==='body'&&c.cell.raw==='al día')c.cell.styles.textColor=PDF_VERDE}});
-    y=sec('Cuadre con los recibos',doc.lastAutoTable.finalY+10);
+    y=sec('Consumo del edificio',doc.lastAutoTable.finalY+10);
+    const CE=consumoEdificio(E),hayEst=CE.some(q=>q.m3Est!=null);
+    doc.autoTable({...pdfEstilo,startY:y,
+      head:[['Mes','kWh recibo','kWh deptos','m³ medidor general','m³ medidos deptos','m³ sin medir',...(hayEst?['de eso, sin medidor (est.)']:[])]],
+      body:CE.map(q=>[mesLargo(q.m),fmtKwh(q.kwhRec),fmtKwh(q.kwhSub),q.m3Gen==null?'—':fmtN(q.m3Gen,2),q.m3Med==null?'—':fmtN(q.m3Med,2),q.m3Sin==null?'—':fmtN(q.m3Sin,2),...(hayEst?[q.m3Est==null?'—':fmtN(q.m3Est,2)]:[])]),
+      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right'}});
+    y=doc.lastAutoTable.finalY+5;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
+    doc.text(doc.splitTextToSize('La luz se reparte según los kWh de cada medidor interno sobre la suma de todos. El agua sin medir (medidor general menos los medidores de los deptos) incluye áreas comunes y diferencias de lectura'+(hayEst?' y el consumo estimado de los deptos sin medidor':'')+'.',doc.internal.pageSize.getWidth()-28),14,y);
+    y=sec('Cuadre con los recibos',y+10);
     doc.autoTable({...pdfEstilo,startY:y,
       head:[['Mes','Recibo luz','Recibo agua','Total recibos','Repartido','Diferencia','Administración']],
       body:Q.map(q=>[mesLargo(q.m),q.rl?fmtS(q.rl.totalMes):'—',q.ra?fmtS(q.ra.total):'—',fmtS(q.recibo),fmtS(q.rep),q.incompleto?'incompleto':Math.abs(q.dif)<0.005?'OK '+fmtS(0):fmtS(q.dif),fmtS(q.adm)]),
@@ -1856,6 +1886,9 @@ function renderEstadoCuenta(el){
     <div class="scroll"><table class="ec"><thead><tr><th>Depto</th>${M.map(m=>`<th>${mesCorto(m)}</th>`).join('')}<th>Total</th></tr></thead>
     <tbody>${E.por.map(p=>`<tr class="clic" data-ec-depto="${p.d.id}"><td><strong>${tituloDepto(p.d)}</strong>${p.d.encargado?' <span class="small muted">'+esc(p.d.encargado)+'</span>':''}</td>${M.map(m=>{const x=p.filas.find(y=>y.mes===m);return `<td class="${x&&x.estado.cls!=='ok'&&x.falta?'ec-falta':''}">${x&&x.estado.cls!=='ok'&&x.falta?fmtS(x.falta):'<span class="muted">—</span>'}</td>`}).join('')}<td class="${p.debe?'ec-falta':''}">${p.debe?fmtS(p.debe):'<span class="chip sm ok">al día</span>'}</td></tr>`).join('')}</tbody>
     <tfoot><tr><td>Total</td>${M.map(m=>`<td>${fmtS(pendMes(m))}</td>`).join('')}<td>${fmtS(E.debe)}</td></tr></tfoot></table></div></div>
+  <div class="panel"><h2 style="margin:0">Consumo del edificio</h2><p class="small muted" style="margin:4px 0 10px">La luz se reparte según los kWh de cada medidor interno sobre la suma de todos. El agua sin medir (medidor general menos los medidores de los deptos) incluye áreas comunes, diferencias de lectura${deptosSinMedidor().length?' y el consumo estimado de los deptos sin medidor':''}.</p>
+    <div class="scroll"><table class="ec"><thead><tr><th>Mes</th><th>kWh recibo</th><th>kWh deptos</th><th>m³ general</th><th>m³ medidos</th><th>m³ sin medir</th>${deptosSinMedidor().length?'<th>de eso, sin medidor (est.)</th>':''}</tr></thead>
+    <tbody>${consumoEdificio(E).map(q=>`<tr><td>${mesLargo(q.m)}</td><td>${fmtKwh(q.kwhRec)}</td><td>${fmtKwh(q.kwhSub)}</td><td>${q.m3Gen==null?'—':fmtN(q.m3Gen,2)}</td><td>${q.m3Med==null?'—':fmtN(q.m3Med,2)}</td><td>${q.m3Sin==null?'—':fmtN(q.m3Sin,2)}</td>${deptosSinMedidor().length?`<td>${q.m3Est==null?'—':fmtN(q.m3Est,2)}</td>`:''}</tr>`).join('')}</tbody></table></div></div>
   <div class="panel"><h2 style="margin:0">Cuadre con los recibos</h2><p class="small muted" style="margin:4px 0 10px">Luz, agua y mora repartidas entre los deptos deben sumar lo mismo que los recibos del edificio. La administración va aparte.</p>
     <div class="scroll"><table class="ec"><thead><tr><th>Mes</th><th>Recibo luz</th><th>Recibo agua</th><th>Total recibos</th><th>Repartido</th><th>Diferencia</th><th>Administración</th></tr></thead>
     <tbody>${cuadre.map(q=>`<tr><td>${mesLargo(q.m)}</td><td>${q.rl?fmtS(q.rl.totalMes):'<span class="muted">—</span>'}</td><td>${q.ra?fmtS(q.ra.total):'<span class="muted">—</span>'}</td><td><strong>${fmtS(q.recibo)}</strong></td><td>${fmtS(q.rep)}</td><td>${q.incompleto?'<span class="chip sm pend">incompleto</span>':Math.abs(q.dif)<0.005?'<span class="diff-pos">'+ico('check')+' '+fmtS(0)+'</span>':'<span class="ec-falta">'+fmtS(q.dif)+'</span>'}</td><td>${fmtS(q.adm)}</td></tr>`).join('')}</tbody></table></div></div>`;
