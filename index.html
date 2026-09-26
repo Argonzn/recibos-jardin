@@ -809,10 +809,10 @@ function renderReportes(){
   const L=rs.map(r=>mesCorto(r.id));
   charts.push(new Chart($('#c1'),{type:'bar',data:{labels:L,datasets:[{data:rs.map(r=>r.kwh),backgroundColor:css('--amber'),borderRadius:4}]},options:{...base,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtN(c.raw)+' kWh'}}}}}));
   const byM=Object.fromEntries(rs.map(r=>[r.id,r.totalMes]));
-  charts.push(new Chart($('#c2'),{type:'bar',data:{labels:mesesTot.map(mesCorto),datasets:[{data:mesesTot.map(m=>byM[m]??hist[m]),backgroundColor:mesesTot.map(m=>byM[m]!=null?css('--blue'):css('--grey-bar')),borderRadius:4}]},options:{...base,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtS(c.raw)}}}}}));
+  charts.push(new Chart($('#c2'),{type:'bar',data:{labels:mesesTot.map(mesCorto),datasets:[{data:mesesTot.map(m=>byM[m]??hist[m]),backgroundColor:mesesTot.map(m=>byM[m]!=null?css('--amber'):css('--grey-bar')),borderRadius:4}]},options:{...base,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtS(c.raw)}}}}}));
   charts.push(new Chart($('#c3'),{type:'line',data:{labels:L,datasets:[
     {label:'Tarifa (sin impuestos)',data:rs.map(r=>r.precioKwh),borderColor:css('--amber'),backgroundColor:css('--amber'),tension:.25},
-    {label:'Costo real (todo incluido)',data:rs.map(r=>r.kwh?r.totalMes/r.kwh:null),borderColor:css('--blue'),backgroundColor:css('--blue'),tension:.25}]},
+    {label:'Costo real (todo incluido)',data:rs.map(r=>r.kwh?r.totalMes/r.kwh:null),borderColor:css('--ink'),backgroundColor:css('--ink'),tension:.25}]},
     options:{...base,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>c.dataset.label+': S/ '+Number(c.raw).toFixed(4)}}},scales:{x:{grid:{display:false}},y:{beginAtZero:false}}}}));
   const partes=[['Energía',r=>r.consumoEnergia,'--amber'],['Cargos fijos',cargosFijos,'--muted'],['Alumbrado público',r=>r.alumbrado,'--green'],['Impuestos',impuestos,'--blue'],['Intereses',intereses,'--red']];
   charts.push(new Chart($('#c4'),{type:'bar',data:{labels:L,datasets:partes.map(([l,f,c])=>({label:l,data:rs.map(f),backgroundColor:css(c)}))},
