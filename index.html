@@ -80,6 +80,8 @@ h3{font-size:1rem;font-weight:700;margin:0 0 8px}
 .chip.ok{background:var(--green-soft);color:var(--green)}
 .chip.pend{background:var(--amber-soft);color:var(--ink)}
 .chip.late{background:var(--red-soft);color:var(--red)}
+.rm-fila{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;width:100%;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.rm-fila:last-child{border-bottom:0}.rm-ico{font-size:1.3rem}.rm-txt{display:grid;gap:2px;min-width:0}.rm-der{display:grid;gap:4px;justify-items:end;text-align:right}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 @media (max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -537,9 +539,6 @@ function renderResumen(){
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty"><h2>Todavía no hay recibos</h2><p class="muted">Sube el PDF de tu recibo de Luz del Sur y los datos se ordenan solos.</p><button class="btn primary" onclick="irA('recibos');document.getElementById('file').click()">Subir recibo PDF</button></div>`;return}
   const r=recibos[recibos.length-1];const st=estado(r);
-  const dias=diasEntre(r.fechaLecturaAnterior,r.fechaLectura);
-  const lect=r.lecturaActual!=null?Number(r.lecturaActual).toFixed(1):null;
-  let odo='';if(lect){const [ent,dec]=lect.split('.');odo=[...ent].map(c=>`<span>${c}</span>`).join('')+`<span class="sep">.</span><span class="dec">${dec}</span>`}
   const dV=diasHasta(r.vencimiento),dC=diasHasta(r.corte);
   const pend=recibos.filter(x=>!x.pagado);
   let banners='';
@@ -548,41 +547,9 @@ function renderResumen(){
     else if(dV!=null&&dV<0)banners+=`<div class="banner alert">El recibo de ${mesLargo(r.id)} venció el ${fechaCorta(r.vencimiento)}. Corte programado para el ${fechaCorta(r.corte)} (${enDias(dC)}).</div>`;
   }
   if(r.deudaVencida>0)banners+=`<div class="banner info">El total a pagar de ${mesLargo(r.id)} (${fmtS(r.totalPagar)}) incluye ${fmtS(r.deudaVencida)} de deuda del mes anterior. Lo que realmente se gastó ese mes es ${fmtS(r.totalMes)}, y es el monto que conviene usar para dividir.</div>`;
-  const totK=sum(recibos,x=>x.kwh),totM=sum(recibos,x=>x.totalMes),n=recibos.length;
   const prev=recibos.length>1?recibos[recibos.length-2]:null;
-  const delta=(a,b,suf)=>{if(a==null||b==null||!b)return'';const p=(a-b)/b*100;return `${p>0?'+':''}${fmtN(p,1)}% ${suf}`};
-  const intTot=sum(recibos,intereses);
   el.innerHTML=`${panelQueHacer()}${panelEstadoDeptos()}${banners}
-  <div class="panel hero">
-    <div class="meter">
-      <div class="meter-label">Lectura del medidor al ${fechaCorta(r.fechaLectura)}</div>
-      ${odo?`<div class="odo" aria-label="Lectura ${lect}">${odo}</div>`:''}
-      <div class="kwh-big">${fmtN(r.kwh)}<small>kWh</small></div>
-      <div class="muted small" style="margin-top:6px">Consumidos ${dias?`en ${dias} días, `:''}del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}${dias?`. Unos ${fmtN(r.kwh/dias,1)} kWh por día.`:''}</div>
-    </div>
-    <div class="money">
-      <div class="row" style="justify-content:space-between"><span class="muted">Gasto de ${mesLargo(r.id)}</span><span class="chip ${st.cls}">${st.txt}</span></div>
-      <div class="amount">${fmtS(r.totalMes)}</div>
-      <div class="muted small">Total a pagar en el recibo: ${fmtS(r.totalPagar)}</div>
-      <div class="dates">
-        <div><span>Vencimiento</span><strong>${fechaCorta(r.vencimiento)}${!r.pagado&&dV!=null?` <span class="muted small">(${enDias(dV)})</span>`:''}</strong></div>
-        <div><span>Corte</span><strong>${fechaCorta(r.corte)}${!r.pagado&&dC!=null?` <span class="muted small">(${enDias(dC)})</span>`:''}</strong></div>
-        ${r.pagado&&r.fechaPago?`<div><span>Pagado el</span><strong>${fechaCorta(r.fechaPago)}</strong></div>`:''}
-      </div>
-      <div class="row" style="margin-top:16px">
-        <button class="btn ${r.pagado?'':'primary'}" data-pagar="${r.id}">${r.pagado?'Marcar como pendiente':'Marcar como pagado'}</button>
-        <button class="btn" data-ver="${r.id}">Ver detalle</button>
-        ${r.pdfId?`<button class="btn" data-verpdf="${r.id}">Ver recibo</button>`:''}
-      </div>
-    </div>
-  </div>
-  <div class="kpis">
-    <div class="kpi"><div class="l">Consumo promedio</div><div class="v">${fmtN(totK/n)} kWh</div><div class="d">${prev?delta(r.kwh,prev.kwh,'vs recibo anterior'):`${n} recibo`}</div></div>
-    <div class="kpi"><div class="l">Gasto promedio al mes</div><div class="v">${fmtS(totM/n)}</div><div class="d">${prev?delta(r.totalMes,prev.totalMes,'vs recibo anterior'):''}</div></div>
-    <div class="kpi"><div class="l">Costo real por kWh</div><div class="v">S/ ${fmtN(totM/totK,3)}</div><div class="d">La tarifa sola es S/ ${r.precioKwh??'—'}; el resto son cargos e impuestos</div></div>
-    <div class="kpi"><div class="l">Intereses por pagar tarde</div><div class="v">${fmtS(intTot)}</div><div class="d">Suma de ${n} recibo${n>1?'s':''}</div></div>
-  </div>
-  ${resumenAguaYCobros()}
+  ${panelRecibosDelMes(r,prev)}
   ${pend.length>1?`<div class="banner warn">Hay ${pend.length} recibos sin marcar como pagados: ${pend.map(x=>mesLargo(x.id)).join(', ')}.</div>`:''}`;
   conectarQueHacer();
 }
@@ -750,7 +717,7 @@ function renderReportes(){
   el.innerHTML=`<div class="panel"><div class="row" style="justify-content:space-between">
       <div class="row"><label for="anio" class="muted">Periodo</label><select id="anio"><option value="todos">Todos</option>${anios.map(a=>`<option ${a===sel?'selected':''}>${a}</option>`).join('')}</select></div>
       <button class="btn" id="csv" ${downloads?'':'hidden'}>Descargar CSV</button></div>
-      <p class="muted small" style="margin:10px 0 0">${n} recibo${n!==1?'s':''}: ${fmtN(tk)} kWh y ${fmtS(tm)} en total. Costo real promedio ${fmtS(tk?tm/tk:null)} por kWh, con impuestos y cargos.</p></div>
+      <p class="muted small" style="margin:10px 0 0">${n} recibo${n!==1?'s':''}: ${fmtN(tk)} kWh y ${fmtS(tm)} en total. Costo real promedio ${fmtS(tk?tm/tk:null)} por kWh, con impuestos y cargos. Promedio al mes: ${fmtN(n?tk/n:null)} kWh y ${fmtS(n?tm/n:null)}.${sum(rs,intereses)>0?` Intereses por pagar tarde: ${fmtS(sum(rs,intereses))}.`:''}</p></div>
     <div class="charts">
       <div class="panel"><h3>Consumo por mes (kWh)</h3><div class="chart-box"><canvas id="c1"></canvas></div></div>
       <div class="panel"><h3>Gasto del mes (S/)</h3><div class="chart-box"><canvas id="c2"></canvas></div>${Object.keys(hist).length?'<p class="muted small" style="margin:8px 0 0">En gris, importes de meses sin recibo subido, tomados de lo que informan los recibos siguientes.</p>':''}</div>
@@ -2033,21 +2000,15 @@ async function buscarPdfsDrive(tipos=['luz','agua']){
 }
 
 /* ---------- Resumen: agua y cobros del mes ---------- */
-function resumenAguaYCobros(){
-  const ua=aguaRecibos.slice().sort((a,b)=>a.id.localeCompare(b.id)).pop();
-  const meses=mesesCobro().filter(m=>recibos.some(r=>r.id===m)||aguaRecibos.some(r=>r.id===m));const mc=meses[meses.length-1];
-  if(!ua&&!mc)return'';
-  const a=ua?calcAgua(ua.id):null;
-  const filas=mc?cobrosDelMes(mc):[];const nOk=filas.filter(x=>x.estado.cls==='ok').length;const falta=r2(sum(filas,x=>x.falta));
-  return `<div class="charts">
-    ${ua?`<div class="panel"><div class="row" style="justify-content:space-between"><span class="muted">Agua de ${mesLargo(ua.id)}</span><span class="chip ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span></div>
-      <div class="amount" style="font-size:1.8rem;font-weight:800;font-stretch:72%;margin:6px 0 2px">${fmtS(ua.total)}</div>
-      <div class="muted small">${fmtN(ua.m3)} m³ · vence ${fechaCorta(ua.vencimiento)}${a&&!a.incompleto?` · sin medir ${fmtN(a.R,1)} m³${a.fueraDeLoNormal?' <span class="chip sm late">fuera de lo normal</span>':''}`:''}</div>
-      <div class="row" style="margin-top:12px"><button class="btn" data-veragua="${ua.id}">Ver reparto</button></div></div>`:''}
-    ${mc?`<div class="panel"><div class="row" style="justify-content:space-between"><span class="muted">Cobros de ${mesLargo(mc)}</span><span class="chip ${nOk===filas.length?'ok':'pend'}">${nOk} de ${filas.length}</span></div>
-      <div class="amount" style="font-size:1.8rem;font-weight:800;font-stretch:72%;margin:6px 0 2px">${fmtS(falta)}</div>
-      <div class="muted small">por cobrar · límite ${fechaCorta(fechaLimitePago(mc))}</div>
-      <div class="row" style="margin-top:12px"><button class="btn" onclick="irA('cobros')">Ver cobros</button></div></div>`:''}
+// Recibos del mes en el Resumen: una fila por servicio con monto, consumo (y variación), estado y vencimiento.
+// Tocar la fila abre el detalle (luz) o el reparto (agua), donde están el PDF y "marcar como pagado".
+function panelRecibosDelMes(r,prev){
+  const ua=aguaRecibos.slice().sort((a,b)=>a.id.localeCompare(b.id)).pop(),pa=ua?aguaRecibos.find(x=>x.id===mesAnterior(ua.id)):null;
+  const st=estado(r),dV=diasHasta(r.vencimiento),a=ua?calcAgua(ua.id):null;
+  const fila=(attr,ico,t,monto,det,chip)=>`<button class="rm-fila" ${attr}><span class="rm-ico" aria-hidden="true">${ico}</span><span class="rm-txt"><strong>${t}</strong><span class="small muted">${det}</span></span><span class="rm-der"><strong>${monto}</strong>${chip}</span></button>`;
+  return `<div class="panel"><h2 style="margin:0 0 6px">Recibos del mes</h2>
+    ${fila(`data-ver="${r.id}"`,'💡','Luz · '+mesLargo(r.id),fmtS(r.totalMes),fmtN(r.kwh)+' kWh'+variacion(r.kwh,prev&&prev.kwh)+(r.pagado?'':' · vence '+fechaCorta(r.vencimiento)+(dV!=null?' ('+enDias(dV)+')':'')),`<span class="chip sm ${st.cls}">${st.txt}</span>`)}
+    ${ua?fila(`data-veragua="${ua.id}"`,'💧','Agua · '+mesLargo(ua.id),fmtS(ua.total),fmtN(ua.m3)+' m³'+variacion(ua.m3,pa&&pa.m3)+(a&&!a.incompleto?' · sin medir '+fmtN(a.R,1)+' m³':'')+(ua.pagado?'':' · vence '+fechaCorta(ua.vencimiento)),`${a&&a.fueraDeLoNormal?'<span class="chip sm late">fuera de lo normal</span>':''}<span class="chip sm ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span>`):''}
   </div>`;
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-veragua]');if(b&&!b.closest('dialog')&&!b.closest('#tab-agua'))abrirDetalleAgua(b.dataset.veragua)});
