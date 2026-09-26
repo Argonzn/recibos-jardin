@@ -594,7 +594,7 @@ function renderRecibos(){
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
     <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
-    <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh</div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
+    <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh<span class="muted small" title="Variación frente al mes anterior" style="font-weight:400">${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</span></div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
     <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
     <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
   </button>`}).join('');
@@ -1853,7 +1853,7 @@ function renderAgua(){
       :`<span class="small">Sin medir ${fmtN(a.R,1)} m³ (${fmtN(a.pct*100,0)} %)</span> ${a.fueraDeLoNormal?`<span class="chip sm late">Fuera de lo normal</span>`:''}`;
     return `<button class="rec" data-veragua="${r.id}">
       <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.total)}</strong> · ${fmtN(r.m3)} m³${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
-      <div class="hide-s"><div class="n">${fmtN(r.m3)} m³</div><div class="muted small">${info}</div></div>
+      <div class="hide-s"><div class="n">${fmtN(r.m3)} m³<span class="muted small" title="Variación frente al mes anterior" style="font-weight:400">${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</span></div><div class="muted small">${info}</div></div>
       <div class="hide-s"><div class="n">${fmtS(r.total)}</div><div class="muted small">${atrasoDe(r)?'incluye '+fmtS(atrasoDe(r))+' por atraso':'sin cargos por atraso'}</div></div>
       <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div></button>`}).join('')
     :'<div class="panel empty muted">Aún no hay recibos de agua.</div>'}</div>`;
