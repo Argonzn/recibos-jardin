@@ -192,31 +192,6 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .menu-pie{padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
 .rec-switch{max-width:320px}.rec-switch button{flex:1}
 nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--bg)}
-/* Hoja de ruta */
-.ruta-metricas{display:flex;flex-wrap:wrap;gap:14px 26px;margin-top:12px}
-.ruta-metricas .l{font-size:.8rem;color:var(--muted);margin-bottom:4px}
-.ruta-metricas .odo{margin:0}
-.ruta-metricas .odo span{min-width:1.55rem;height:2.2rem;font-size:1.4rem}
-.progreso{display:flex;align-items:center;gap:12px;margin:2px 0 14px}
-.progreso .barra{flex:1;max-width:300px;height:8px;background:var(--line);border-radius:99px;overflow:hidden}
-.progreso .barra i{display:block;height:100%;background:var(--amber)}
-.tareas{display:grid;gap:8px;list-style:none;margin:0 0 18px;padding:0}
-.tarea{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;background:var(--surface-2);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:11px 13px}
-.tarea.p-alta{border-left-color:var(--red)}.tarea.p-media{border-left-color:var(--amber)}.tarea.p-baja{border-left-color:var(--blue)}
-.tarea input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--amber);cursor:pointer}
-.tarea label{font-weight:650;cursor:pointer}
-.tarea .d{grid-column:2;font-size:.88rem;color:var(--muted);margin:0}
-.tarea .meta{grid-column:2;display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}
-.tarea.hecha label{text-decoration:line-through;color:var(--muted)}
-.chip.tu{background:var(--amber-soft);color:var(--ink)}
-.chip.claude{background:var(--blue-soft);color:var(--ink)}
-.chip.auto{background:var(--green-soft);color:var(--green)}
-.diag{overflow-x:auto;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
-.diag pre.mermaid{margin:0;text-align:center;font-family:var(--font);white-space:pre}
-.diag svg{max-width:none!important;height:auto} /* tamaño natural; el recuadro se desplaza de lado en pantallas angostas */
-.arbol{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;overflow-x:auto}
-.arbol pre{margin:0;font-size:.8rem;line-height:1.65;font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
-.ruta-tabla td,.ruta-tabla th{text-align:left;white-space:normal}
 .form-rec{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .form-rec select,.form-rec input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
 /* Agua y cobros */
@@ -317,7 +292,6 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
   <section id="tab-agua" class="stack" hidden></section>
   <section id="tab-cobros" class="stack" hidden></section>
   <section id="tab-reportes" class="stack" hidden></section>
-  <section id="tab-ruta" class="stack" hidden></section>
   <section id="tab-inquilino" class="stack" hidden></section>
 </div>
 
@@ -869,8 +843,7 @@ function renderDeptos(){
   if(!deptos.length&&!datosListos){el.innerHTML=panelCargando();return}
   const mesRef=ultimoMesConDatos();
   const su=sinUbicar();
-  const pc=cobrosPendientesTodos();
-  el.innerHTML=panelLecturasDelMes()+`<div class="panel"><div class="row" style="justify-content:space-between"><div><h2 style="margin:0">Cobros</h2><p class="muted small" style="margin:4px 0 0">${pc.length?pc.length+' pendientes · '+fmtS(sum(pc,x=>x.falta))+' por cobrar':'Todo cobrado'}</p></div><button class="btn primary" onclick="irA(\'cobros\')">Ver cobros</button></div></div><div class="panel">
+  el.innerHTML=panelLecturasDelMes()+`<div class="panel">
     <div class="row" style="justify-content:space-between">
       <h2 style="margin:0">Departamentos</h2>
       <button class="btn primary" id="btn-add-depto">Agregar departamento</button>
@@ -2328,7 +2301,7 @@ function abrirHistorialInquilino(dep,meses){
 }
 
 /* ---------- Navegación ---------- */
-const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes','ruta'];
+const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes'];
 function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)history.pushState({tab},'');tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab||b.dataset.tab2===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"],nav.tabs button[data-tab2="${tab}"]`));document.querySelectorAll('.rec-switch [data-ir-rec]').forEach(b=>b.classList.toggle('on',b.dataset.irRec===tab));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0);try{sessionStorage.setItem('recibos_tab',tab)}catch(e){}}
 window.irA=irA;
 // Botón «atrás» del celular: cierra la ventana abierta o vuelve a la pestaña anterior, en vez de salir de la app.
@@ -2360,7 +2333,7 @@ function renderTodo(){
   if(esInquilino()){renderInquilino();return}
   const r=recibos[recibos.length-1];
   $('#subtitulo').textContent='Luz del Sur'+(r&&r.suministro?' '+r.suministro:'')+' · Sedapal'+(aguaRecibos[0]&&aguaRecibos[0].suministro?' '+aguaRecibos[0].suministro:'');
-  renderResumen();renderRecibos();if(tabActual==='reportes')renderReportes();if(tabActual==='deptos')renderDeptos();if(tabActual==='ruta')renderRuta();if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();
+  renderResumen();renderRecibos();if(tabActual==='reportes')renderReportes();if(tabActual==='deptos')renderDeptos();if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();
 }
 document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.onclick=()=>irA(b.dataset.tab));
 document.addEventListener('click',e=>{const sb=e.target.closest('[data-subir]');if(sb){if(sb.dataset.subir==='luz'){irA('recibos');$('#file').click()}else{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}return}
@@ -2427,11 +2400,8 @@ function abrirMenu(){
       item('reportes','Reportes','Cobranza, consumos y gráficos')+
       '<div class="menu-sep"></div>'+
       '<div class="menu-titulo">Administración</div>'+
-      '<button data-accion="enviar">Enviar cobros por WhatsApp<small>Mensaje del mes listo para cada depto</small></button>'+
-      '<button data-accion="recordar">Recordar pagos pendientes<small>A quienes deben, con todos sus meses</small></button>'+
       '<button data-accion="recordatorio">Recordatorio de lecturas<small>'+esc(rec)+'</small></button>'+
       '<button data-accion="vincular">Buscar PDF en Drive<small>Vincula los PDF de luz y de agua dejados en Drive</small></button>'+
-      item('ruta','Hoja de ruta','Pendientes, diagramas y recursos')+
       '<button data-accion="salir">Cerrar sesión<small>Borra el acceso y la copia de este dispositivo</small></button>'+
     '</nav>'+
     '<div class="menu-pie">'+(datosListos?'Datos al día':'Actualizando datos…')+'</div>';
@@ -2439,8 +2409,6 @@ function abrirMenu(){
   c.querySelectorAll('[data-ir]').forEach(b=>b.onclick=()=>{c.close();irA(b.dataset.ir)});
   c.querySelector('[data-accion="recordatorio"]').onclick=()=>{c.close();abrirRecordatorio()};
   c.querySelector('[data-accion="vincular"]').onclick=()=>{c.close();buscarPdfsDrive()};
-  c.querySelector('[data-accion="enviar"]').onclick=()=>{c.close();abrirEnvioCobros(mesDeLecturas())};
-  c.querySelector('[data-accion="recordar"]').onclick=()=>{c.close();abrirRecordatorios()};
   c.querySelector('[data-accion="salir"]').onclick=()=>{c.close();cerrarSesion()};
   c.addEventListener('click',e=>{if(e.target===c)c.close()}); // tocar fuera cierra
   c.showModal();
@@ -2474,7 +2442,7 @@ async function abrirRecordatorio(){
     c.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>c.close());
     const accion=async(op,btn,txt)=>{btn.disabled=true;btn.textContent=txt;
       try{estadoRec=await db._post({action:'recordatorio',op,dia:Number(c.querySelector('#rec-dia').value),hora:Number(c.querySelector('#rec-hora').value)});
-        toast(op==='quitar'?'Recordatorio quitado':'Recordatorio guardado en Google Calendar');pintar();if(tabActual==='ruta')renderRuta()}
+        toast(op==='quitar'?'Recordatorio quitado':'Recordatorio guardado en Google Calendar');pintar()}
       catch(e){pintar(mensajeRec(e))}};
     c.querySelector('#rec-guardar').onclick=e=>accion('crear',e.currentTarget,'Guardando…');
     const q=c.querySelector('#rec-quitar');if(q)q.onclick=e=>accion('quitar',e.currentTarget,'Quitando…');
@@ -2485,116 +2453,9 @@ async function abrirRecordatorio(){
   pintar();
 }
 
-/* ---------- Hoja de ruta ---------- */
-let tareasHechas={},infoLinks=null,rutaArmada=false;
+/* ---------- Tareas marcadas (envíos por WhatsApp) y enlaces del proyecto ---------- */
+let tareasHechas={},infoLinks=null;
 async function cargarInfo(){if(infoLinks||!db)return infoLinks;try{infoLinks=await db._post({action:'info'})}catch(e){}return infoLinks}
-function recibosSinPdf(){return recibos.filter(r=>!r.pdfId)}
-function cobrosPendientes(){const p=cobrosPendientesTodos();return{n:p.length,total:sum(p,x=>x.falta)}}
-// auto(): la app marca la tarea sola cuando los datos lo confirman.
-const TAREAS=[
- {g:'tu',id:'t-pdf',p:'alta',t:'Subir los recibos PDF que faltan',d:()=>{const s=recibosSinPdf();return s.length?'Faltan: '+s.map(r=>mesLargo(r.id)).join(', ')+'. Déjalos en Drive → Recibos PDF y usa Menú → Buscar PDF en Drive.':'Todos los recibos tienen su PDF original.'},auto:()=>recibos.length&&!recibosSinPdf().length},
- {g:'tu',id:'t-pago',p:'alta',t:'Pagar el último recibo y marcarlo como pagado',d:()=>{const r=recibos[recibos.length-1];return r?mesLargo(r.id)+': '+fmtS(r.totalPagar)+', vence el '+fechaCorta(r.vencimiento)+'.':'Sin recibos.'},auto:()=>{const r=recibos[recibos.length-1];return !!(r&&r.pagado)}},
- {g:'tu',id:'t-cobros',p:'alta',t:'Revisar los cobros pendientes de los departamentos',d:()=>{const c=cobrosPendientes();return c.n?c.n+' cobros sin registrar, unos '+fmtS(c.total)+'. Confirma si se cobraron y no se anotaron; Claude puede registrarlos en bloque.':'No hay cobros pendientes.'},auto:()=>lecturas.length&&!cobrosPendientes().n},
- {g:'tu',id:'t-cerrar',p:'alta',t:'Cerrar enero–marzo y quitar diciembre',d:()=>'Sube el PDF de enero a Drive → RECIBOS_JARDIN → Recibos agua PDF con el nombre «Agua 2026-01.pdf» y ejecuta cerrarMesesHistoricos en el editor de Apps Script.',auto:()=>!recibos.some(r=>r.id==='2025-12')&&!!cobroDe('dep_2','2026-01')},
- {g:'tu',id:'t-telefonos',p:'media',t:'Anotar el celular de cada depto',d:()=>{const s=deptos.filter(d=>!d.telefono);return s.length?'Sin celular: '+s.map(tituloDepto).join(', ')+'. Deptos → toca el depto → ⚙ Datos del depto → Celular. Así WhatsApp abre su chat directo.':'Listo.'},auto:()=>deptos.length&&deptos.every(d=>d.telefono)},
- {g:'tu',id:'t-wa-admin',p:'media',t:'Poner tu WhatsApp de administración',d:()=>'Cobros → Más opciones → WhatsApp de la administración. Los inquilinos te escriben desde su vista.',auto:()=>!!config.telefonoAdmin},
- {g:'tu',id:'t-respaldo',p:'media',t:'Activar el respaldo semanal de la Hoja',d:()=>'En el editor de Apps Script ejecuta activarRespaldoSemanal una vez (pide permiso). Copia cada lunes, guarda las últimas 8.'},
- {g:'tu',id:'t-inquilinos',p:'baja',t:'Dar acceso a los inquilinos',d:()=>'Deptos → toca el depto → ⚙ Datos del depto → 🔑 Acceso del inquilino → Crear código → Enviar por WhatsApp.'},
- {g:'tu',id:'t-agua-junio',p:'media',t:'Subir el recibo de agua de junio 2026',d:()=>'Es el único mes de agua sin recibo (70 m³ según el medidor). Agua → Subir recibo PDF.',auto:()=>aguaRecibos.some(r=>r.id==='2026-06')},
- {g:'tu',id:'t-general',p:'media',t:'Fotografiar el medidor general de agua el día 12',d:()=>'Junto con los demás medidores. Así el agua sin medir se calcula con las mismas fechas y el método de Yeni es más preciso.',auto:()=>lecturasAgua.some(l=>l.deptoId==='general')},
- {g:'tu',id:'t-pdf-agua',p:'baja',t:'Subir los PDF de los recibos de agua',d:()=>{const s=aguaRecibos.filter(r=>!r.pdfId);return s.length?'Sin PDF: '+s.map(r=>mesLargo(r.id)).join(', ')+'. Déjalos en Drive → Recibos agua PDF y usa Menú → Buscar PDF en Drive.':'Todos los recibos de agua tienen su PDF.'},auto:()=>aguaRecibos.length&&!aguaRecibos.some(r=>!r.pdfId)},
- {g:'tu',id:'t-recordatorio',p:'media',t:'Activar el recordatorio mensual en Google Calendar',d:()=>'Menú → Recordatorio de lecturas. La primera vez pide autorizar Calendar desde el editor de Apps Script.',auto:()=>!!(estadoRec&&estadoRec.activo)},
- {g:'tu',id:'t-fotos',p:'media',t:'Probar la lectura de medidores con fotos reales',d:()=>'Toma la foto de los 7 medidores desde el celular y anota cuáles lee mal. Con 2 o 3 fotos de ejemplo se ajusta el lector.'},
- {g:'tu',id:'t-codigo',p:'media',t:'Decidir quién tiene el código de administración',d:()=>'Los inquilinos ya tienen su propio código de solo lectura; el de administración (ACCESS_CODE) da acceso a todo. Cambiar ACCESS_CODE en Apps Script cierra la sesión en todos los celulares.'},
- {g:'tu',id:'t-claudeai',p:'baja',t:'Dejar de usar la versión de claude.ai',d:()=>'Son dos bases de datos separadas: lo que se cambie allá no llega a esta app.'},
- {g:'tu',id:'t-limpieza',p:'baja',t:'Limpiar Descargas y la papelera de Drive',d:()=>'Borra el PDF de junio que es de otro suministro y vacía la papelera (Hoja vacía anterior, proyecto de diagnóstico, copias viejas).'},
- {g:'claude',id:'c-pruebas',p:'alta',t:'Guardar las pruebas automáticas dentro del proyecto',d:()=>'Hoy viven en una carpeta temporal. Moverlas a tools/pruebas/ con datos ficticios.'},
- {g:'claude',id:'c-ocr',p:'media',t:'Ajustar el lector de medidores con tus fotos',d:()=>'Depende de la prueba con fotos reales.'},
- {g:'idea',id:'i-vence',p:'baja',t:'Aviso antes del vencimiento y del corte del recibo',d:()=>'Evento o correo 3 días antes si el recibo sigue pendiente.'},
- {g:'idea',id:'i-correo',p:'baja',t:'Importar el recibo desde el correo de Luz del Sur',d:()=>'Buscar el correo mensual, guardar el PDF en Drive y crear el recibo para revisarlo.'},
-];
-const GRUPOS=[['tu','Te toca a ti','Acciones con tu cuenta o decisiones tuyas'],['claude','Mejoras técnicas','Las hace Claude cuando se lo pidas'],['idea','Ideas para después','Funciones nuevas cuando lo básico esté estable']];
-const QUIEN={tu:'<span class="chip tu">Tú</span>',claude:'<span class="chip claude">Claude</span>',idea:'<span class="chip">Idea</span>'};
-const odo=txt=>'<div class="odo">'+[...String(txt)].map(c=>c==='/'||c==='.'?'<span class="sep">'+c+'</span>':'<span>'+c+'</span>').join('')+'</div>';
-const DIAGRAMAS=[
- ['Arquitectura: quién habla con quién','La interfaz es pública y no guarda datos; todo pasa por la API, que exige el código de acceso en cada petición.',
- 'flowchart LR\n  cel["Celular o PC<br/>app instalada"] -->|abre| gh["GitHub Pages<br/>interfaz"]\n  cel -->|petición + token| api["Apps Script<br/>API"]\n  api --> hoja[("Hoja de cálculo")]\n  api --> drive[("Google Drive")]\n  api --> cal["Google Calendar<br/>recordatorio"]\n  drive --- pdf["Recibos PDF"]\n  drive --- fotos["Fotos medidores<br/>Depto 1 … 7"]'],
- ['El mes de un recibo','«Buscar PDF en Drive» solo vincula PDF a recibos que ya existen; el recibo nuevo se crea con «Subir recibo PDF».',
- 'flowchart TD\n  a["Llega el recibo de Luz del Sur"] --> b["Recibos → Subir recibo PDF"]\n  b --> c{"¿Las sumas cuadran?"}\n  c -->|sí| d["Guardar"]\n  c -->|no| e["Corregir campos marcados"] --> d\n  d --> f["PDF en Drive + datos en la Hoja"]\n  f --> g["Recordatorio en Calendar:<br/>foto del medidor de cada depto"]\n  g --> h["La app calcula el cargo de cada depto"]\n  h --> i["Registrar cobro al recibir el pago"]\n  i --> j["Pagar el recibo → Marcar como pagado"]'],
- ['Publicar un cambio en el código','El revisor es obligatorio: Apps Script corta los textos del JavaScript que llevan barra doble.',
- 'flowchart LR\n  e["Editar en la carpeta local"] --> r["Revisar HTML"]\n  r -->|falla| e\n  r -->|OK| p["clasp push"]\n  p --> dp["clasp deploy<br/>misma URL"]\n  dp --> gp["git push"]\n  gp --> pages["GitHub Pages<br/>publica en 1–2 min"]'],
-];
-let mermaidCargado=null;
-function cargarMermaid(){if(!mermaidCargado)mermaidCargado=cargarScript('https:\/\/cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js');return mermaidCargado}
-async function dibujarDiagramas(){
-  try{
-    await cargarMermaid();
-    const oscuro=matchMedia('(prefers-color-scheme: dark)').matches;
-    window.mermaid.initialize({startOnLoad:false,theme:oscuro?'dark':'neutral',fontFamily:'Archivo, system-ui, sans-serif',flowchart:{htmlLabels:true,curve:'basis'}});
-    await window.mermaid.run({nodes:[...document.querySelectorAll('#ruta-diagramas pre.mermaid:not([data-processed])')]});
-  }catch(e){const d=$('#ruta-diagramas');if(d)d.insertAdjacentHTML('afterbegin','<p class="muted small">No se pudieron dibujar los diagramas (revisa tu conexión).</p>')}
-}
-function armarRuta(){
-  const el=$('#tab-ruta');
-  el.innerHTML=
-  '<div class="panel"><h2 style="margin:0 0 4px">Hoja de ruta</h2><p class="muted small" style="margin:0">Pendientes del proyecto, cómo fluye la información, dónde vive cada pieza y con qué se mantiene. Las casillas se comparten entre todos los que usan la app.</p><div class="ruta-metricas" id="ruta-metricas"></div></div>'+
-  '<div class="panel"><h2>Pendientes</h2><div class="progreso"><div class="barra"><i id="ruta-barra"></i></div><span class="small muted" id="ruta-conteo"></span></div><div id="ruta-tareas"></div></div>'+
-  '<div class="panel"><h2>Diagramas de flujo</h2><div id="ruta-diagramas">'+DIAGRAMAS.map(([t,cap,code])=>'<h3>'+esc(t)+'</h3><div class="diag"><pre class="mermaid">'+esc(code)+'</pre></div><p class="muted small" style="margin:-4px 0 16px">'+esc(cap)+'</p>').join('')+'</div></div>'+
-  '<div class="panel"><h2>Estructura</h2><div class="charts">'+
-    '<div class="arbol"><h3>Proyecto (carpeta local y GitHub)</h3><pre>recibos-luz/\n├─ index.html        interfaz\n├─ Code.gs           API en Apps Script\n├─ appsscript.json\n├─ manifest.webmanifest · sw.js\n├─ icons/\n├─ tools/            revisor, íconos\n└─ README.md · INSTRUCCIONES.md\n── solo en tu PC ──\n   Datos.gs · datos/ · pdfs/</pre></div>'+
-    '<div class="arbol"><h3>Google Drive</h3><pre>RECIBOS_JARDIN/\n├─ RECIBOS_JARDIN — Datos  (Hoja)\n│  └─ Apps Script vinculado\n├─ Recibos PDF/\n│  └─ Recibo AAAA-MM.pdf\n└─ Fotos medidores/\n   └─ Depto 1 … Depto 7/\n      └─ AAAA-MM - Depto N -\n         lectura NNN.jpg</pre></div></div>'+
-    '<h3 style="margin-top:16px">Pestañas de la Hoja</h3><div class="scroll"><table class="ruta-tabla"><thead><tr><th>Pestaña</th><th>Una fila por</th><th>Contenido</th></tr></thead><tbody>'+
-    '<tr><td>recibos</td><td>Mes facturado</td><td>kWh, montos, fechas, pago y PDF</td></tr><tr><td>departamentos</td><td>Departamento</td><td>Número, encargado, estado, ubicación</td></tr><tr><td>lecturas</td><td>Depto y mes</td><td>Lecturas, kWh, cobro, foto, historial de cobro</td></tr><tr><td>config</td><td>Una fila</td><td>Corte interno de pago, mantenimiento</td></tr><tr><td>tareas</td><td>Tarea</td><td>Casillas de esta hoja de ruta</td></tr></tbody></table></div>'+
-    '<h3 style="margin-top:16px">Claves del script</h3><div class="scroll"><table class="ruta-tabla"><thead><tr><th>Propiedad</th><th>Para qué</th></tr></thead><tbody><tr><td>ACCESS_CODE</td><td>Entrar a la app. Cambiarlo cierra todas las sesiones.</td></tr><tr><td>ADMIN_PASSWORD</td><td>Borrar lecturas con cobros y reiniciar historiales.</td></tr><tr><td>RECORDATORIO_*</td><td>Día, hora y evento del recordatorio (los maneja la app).</td></tr></tbody></table></div></div>'+
-  '<div class="panel"><h2>Recursos</h2><div id="ruta-recursos"><p class="muted small">Cargando enlaces…</p></div></div>'+
-  '<div class="panel"><h2>Herramientas</h2><div class="scroll"><table class="ruta-tabla"><thead><tr><th>Herramienta</th><th>Papel</th></tr></thead><tbody>'+
-    [['Google Apps Script','API: Hoja, Drive, Calendar y código de acceso'],['Google Sheets y Drive','Datos, recibos PDF y fotos'],['Google Calendar','Recordatorio mensual de lecturas'],['GitHub Pages','Publica la interfaz sin el aviso de Google'],['clasp 3.4','Sube el código a Apps Script'],['git','Historial de cambios y subida a GitHub'],['pdf.js 3.11','Lee el texto del PDF del recibo'],['Tesseract.js 5.0','Lee los números de las fotos de los medidores'],['Chart.js 4.4','Gráficos'],['Mermaid 10.9','Estos diagramas'],['Claude Code','Desarrollo, pruebas y publicación']].map(([a,b])=>'<tr><td><strong>'+a+'</strong></td><td>'+b+'</td></tr>').join('')+
-  '</tbody></table></div></div>'+
-  '<div class="panel"><h2>Riesgos y límites</h2><div class="list">'+
-    [['Un código compartido','Todos usan el mismo código y la sesión no caduca. Cámbialo si alguien deja de administrar.'],['PDF y fotos por enlace','Cualquiera con el enlace exacto puede verlos; los enlaces no se adivinan y solo aparecen en la app.'],['Ediciones simultáneas','Si dos personas editan la misma lectura a la vez, gana la última.'],['Formato del recibo','El lector de PDF sigue el formato actual de Luz del Sur; si cambia, se ajusta. Siempre se puede escribir a mano.'],['Arranque de Google','La primera consulta tarda de 2 a 5 s; la copia local lo disimula.']].map(([a,b])=>'<div class="kpi"><strong>'+a+'</strong><div class="small muted">'+b+'</div></div>').join('')+
-  '</div></div>';
-  rutaArmada=true;
-  dibujarDiagramas();
-  Promise.all([cargarInfo(),estadoRec?null:cargarEstadoRec()]).then(()=>{pintarRecursos();pintarTareas()});
-}
-function pintarRecursos(){
-  const el=$('#ruta-recursos');if(!el)return;
-  const i=infoLinks;const r=recibos.find(x=>x.suministro);
-  const fila=(a,b)=>'<tr><td>'+a+'</td><td>'+b+'</td></tr>';
-  const link=(u,t)=>u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+t+'</a>':'—';
-  el.innerHTML='<div class="scroll"><table class="ruta-tabla"><tbody>'+
-    fila('App',link(location.protocol==='https:'&&!EN_APPS_SCRIPT?location.origin+location.pathname:'','Esta app'))+
-    fila('Hoja de datos',link(i&&i.hoja,'RECIBOS_JARDIN — Datos'))+
-    fila('Carpeta de Drive',link(i&&i.carpeta,'RECIBOS_JARDIN')+' · '+link(i&&i.recibosPdf,'Recibos PDF')+' · '+link(i&&i.fotos,'Fotos medidores'))+
-    fila('Apps Script',link(i&&i.editor,'Editor')+' · '+link(i&&i.propiedades,'Propiedades (claves)'))+
-    fila('Suministro',r?esc(r.suministro)+(r.tarifa?' · '+esc(r.tarifa):''):'—')+
-  '</tbody></table></div>'+(i?'':'<p class="muted small">No se pudieron cargar los enlaces; se reintenta al volver a abrir esta sección.</p>');
-}
-function pintarTareas(){
-  const el=$('#ruta-tareas');if(!el)return;
-  let hechas=0;
-  el.innerHTML=GRUPOS.map(([g,titulo,sub])=>{
-    const ts=TAREAS.filter(t=>t.g===g);
-    return '<h3 style="margin-top:6px">'+titulo+' <span class="muted small" style="font-weight:400">· '+sub+'</span></h3><ul class="tareas">'+ts.map(t=>{
-      const auto=!!(t.auto&&t.auto());const hecha=auto||!!tareasHechas[t.id];if(hecha)hechas++;
-      return '<li class="tarea p-'+t.p+(hecha?' hecha':'')+'"><input type="checkbox" id="tarea-'+t.id+'" data-tarea="'+t.id+'"'+(hecha?' checked':'')+(auto?' disabled':'')+'>'+
-        '<label for="tarea-'+t.id+'">'+esc(t.t)+'</label><p class="d">'+esc(t.d())+'</p><div class="meta">'+QUIEN[g]+(auto?'<span class="chip auto">Hecho: lo confirma la app</span>':'')+'</div></li>'}).join('')+'</ul>'}).join('');
-  $('#ruta-barra').style.width=(hechas/TAREAS.length*100)+'%';
-  $('#ruta-conteo').textContent=hechas+' de '+TAREAS.length+' hechas';
-  el.querySelectorAll('[data-tarea]').forEach(c=>c.onchange=async()=>{
-    const id=c.dataset.tarea,v=c.checked;tareasHechas[id]=v;c.closest('.tarea').classList.toggle('hecha',v);
-    try{await db.doc('tareas/'+id).set({hecho:v,fecha:v?hoyLocal():null,actualizado:new Date().toISOString()})}
-    catch(e){tareasHechas[id]=!v;c.checked=!v;c.closest('.tarea').classList.toggle('hecha',!v);toast('No se pudo guardar: '+mensajeError(e))}
-  });
-}
-function renderRuta(){
-  if(!rutaArmada)armarRuta();
-  const sinPdf=recibosSinPdf().length,c=cobrosPendientes();
-  const m=$('#ruta-metricas');
-  if(m)m.innerHTML=[['Recibos',recibos.length],['Con PDF original',(recibos.length-sinPdf)+'/'+recibos.length],['Departamentos',deptos.length],['Lecturas',lecturas.length],['Cobros por revisar',c.n]].map(([l,v])=>'<div><div class="l">'+l+'</div>'+odo(v)+'</div>').join('');
-  pintarTareas();
-  if(infoLinks)pintarRecursos();
-}
 
 /* ---------- Backend: Google Apps Script + Sheets + Drive ---------- */
 // En GitHub Pages → fetch a la API /exec. Servida por Apps Script (respaldo) → google.script.run.
@@ -2836,7 +2697,7 @@ async function conectar(){
   db.collection('lecturas_agua').onSnapshot(snap=>{lecturasAgua=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
   db.collection('cobros').onSnapshot(snap=>{cobros=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
   db.collection('cargos').onSnapshot(snap=>{cargosMes=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua()});
-  if(!esInquilino())db.collection('tareas').onSnapshot(snap=>{tareasHechas={};snap.docs.forEach(x=>{tareasHechas[x.id]=!!x.data().hecho});if(tabActual==='ruta')renderRuta();if(tabActual==='cobros')renderCobros();reVista()});
+  if(!esInquilino())db.collection('tareas').onSnapshot(snap=>{tareasHechas={};snap.docs.forEach(x=>{tareasHechas[x.id]=!!x.data().hecho});if(tabActual==='cobros')renderCobros();reVista()});
   renderTodo();db.mostrarCopiaLocal();marcarEstadoSync();
   if(tabActual==='reportes')renderReportes();
 }
@@ -2844,19 +2705,19 @@ async function conectar(){
 // una sola vez al terminar (renderTodo primero, porque ya dibuja el resumen, la luz y la pestaña activa).
 const redibujoAgrupado={activo:false,pendientes:new Set(),vaciar(){
   const p=this.pendientes;this.pendientes=new Set();if(!p.size)return;
-  const orden=['renderTodo','renderResumen','renderRecibos','renderAgua','renderDeptos','renderCobros','renderReportes','renderRuta','renderInquilino'];
+  const orden=['renderTodo','renderResumen','renderRecibos','renderAgua','renderDeptos','renderCobros','renderReportes','renderInquilino'];
   const hechos=new Set();
-  if(p.has('renderTodo')){REDIBUJOS.renderTodo();hechos.add('renderTodo');['renderResumen','renderRecibos'].forEach(n=>hechos.add(n));if(tabActual&&({agua:1,deptos:1,cobros:1,reportes:1,ruta:1,inquilino:1})[tabActual])hechos.add('render'+tabActual[0].toUpperCase()+tabActual.slice(1))}
+  if(p.has('renderTodo')){REDIBUJOS.renderTodo();hechos.add('renderTodo');['renderResumen','renderRecibos'].forEach(n=>hechos.add(n));if(tabActual&&({agua:1,deptos:1,cobros:1,reportes:1,inquilino:1})[tabActual])hechos.add('render'+tabActual[0].toUpperCase()+tabActual.slice(1))}
   orden.forEach(n=>{if(p.has(n)&&!hechos.has(n)){REDIBUJOS[n]();hechos.add(n)}});
 }};
 const REDIBUJOS={};
-[['renderTodo',renderTodo],['renderResumen',renderResumen],['renderRecibos',renderRecibos],['renderAgua',renderAgua],['renderDeptos',renderDeptos],['renderCobros',renderCobros],['renderReportes',renderReportes],['renderRuta',renderRuta],['renderInquilino',renderInquilino]].forEach(([n,f])=>{
+[['renderTodo',renderTodo],['renderResumen',renderResumen],['renderRecibos',renderRecibos],['renderAgua',renderAgua],['renderDeptos',renderDeptos],['renderCobros',renderCobros],['renderReportes',renderReportes],['renderInquilino',renderInquilino]].forEach(([n,f])=>{
   REDIBUJOS[n]=f;
   const envoltura=function(...a){if(redibujoAgrupado.activo&&!a.length){redibujoAgrupado.pendientes.add(n);return}return f.apply(this,a)};
   Object.assign(envoltura,f); // conserva propiedades guardadas en la función (p. ej. renderCobros.mes)
   window[n]=envoltura;
 });
-renderTodo=window.renderTodo;renderResumen=window.renderResumen;renderRecibos=window.renderRecibos;renderAgua=window.renderAgua;renderDeptos=window.renderDeptos;renderCobros=window.renderCobros;renderReportes=window.renderReportes;renderRuta=window.renderRuta;renderInquilino=window.renderInquilino;
+renderTodo=window.renderTodo;renderResumen=window.renderResumen;renderRecibos=window.renderRecibos;renderAgua=window.renderAgua;renderDeptos=window.renderDeptos;renderCobros=window.renderCobros;renderReportes=window.renderReportes;renderInquilino=window.renderInquilino;
 conectar();
 async function cerrarSesion(){
   if(!(await confirmar('¿Cerrar sesión en este dispositivo? Tendrás que volver a escribir el código de acceso.','Cerrar sesión')))return;
