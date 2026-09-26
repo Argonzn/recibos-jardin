@@ -63,6 +63,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,su
 .ic{width:1.1em;height:1.1em;flex:none;display:inline-block;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ic-luz{color:var(--amber)}.ic-agua{color:var(--accent-text)}
 .btn .ic{width:1.05em;height:1.05em}
+.sk{height:14px;border-radius:7px;background:var(--surface-2);margin:10px 0;animation:sk 1.4s ease-in-out infinite}.sk-t{height:20px;width:45%}.sk-c{width:65%}
+@keyframes sk{50%{opacity:.45}}@media (prefers-reduced-motion:reduce){.sk{animation:none}}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--sombra)}
 .stack>*+*{margin-top:16px}
 h2{font-size:1.15rem;font-weight:720;font-stretch:85%;margin:0 0 10px}
@@ -466,7 +468,7 @@ let recibos=[];let deptos=[],lecturas=[];let db=null,assets=null,sample=null,dow
 // dispositivo (o "Cargando…") y no se permite guardar: los chequeos de "ya existe" y la lectura anterior
 // dependen de tener los datos completos.
 let datosListos=false;
-const panelCargando=()=>`<div class="panel empty muted"><p style="margin:0">Cargando datos…</p></div>`;
+const panelCargando=()=>`<div class="panel cargando" aria-busy="true"><p class="muted small" style="margin:0 0 12px">Cargando datos…</p><div class="sk sk-t"></div><div class="sk"></div><div class="sk"></div><div class="sk sk-c"></div></div>`;
 function esperarDatos(){
   if(datosListos||!db)return Promise.resolve();
   toast('Cargando los datos más recientes…');
