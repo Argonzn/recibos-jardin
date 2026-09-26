@@ -361,11 +361,13 @@ const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agost
 // Fecha de hoy en la hora local (Lima). toISOString usa la hora universal: después de las 7 p. m. daría el día siguiente
 // y un pago del día límite contaría como tarde.
 function hoyLocal(dias=0){const d=new Date(Date.now()+dias*864e5);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function num(s){
+// miles=true (montos y luz): "1,234" o "12,345,678" son miles. Sin miles (agua): "1,234" es 1.234 (m³ con 3 decimales).
+function num(s,miles){
   if(s==null||s==='')return null;
   if(typeof s==='number')return isNaN(s)?null:s;
   let t=String(s).replace(/[^\d.,-]/g,'');
   if(!t||t==='-')return null;
+  if(miles&&/^-?[1-9]\d{0,2}(,\d{3})+$/.test(t))t=t.replace(/,/g,'');
   const c=t.lastIndexOf(','),p=t.lastIndexOf('.');
   if(c>=0&&p>=0)t=c>p?t.replace(/\./g,'').replace(',','.'):t.replace(/,/g,'');
   else if(c>=0)t=(t.match(/,/g).length===1)?t.replace(',','.'):t.replace(/,/g,'');
@@ -659,7 +661,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
       </div>
       <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Guardar recibo</button></div>`;
       dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{dlg.close()});
-      dlg.querySelectorAll('input[data-k]').forEach(inp=>inp.onchange=()=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v;pintar()});
+      dlg.querySelectorAll('input[data-k]').forEach(inp=>inp.onchange=()=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v,true):v;pintar()});
       const ia=dlg.querySelector('[data-ia]');
       if(ia)ia.onclick=async()=>{ia.disabled=true;ia.textContent='Leyendo con IA…';try{
         const prompt=`Extrae datos de un recibo de luz de Luz del Sur (Perú) a partir del texto de abajo. Responde SOLO con un objeto JSON, sin texto adicional. Números sin separador de miles y con punto decimal. Fechas en formato AAAA-MM-DD. "mes" es el mes facturado en formato AAAA-MM. Si un campo no aparece, usa null.\nCampos: ${CAMPOS.map(c=>`${c.k} (${c.l})`).join('; ')}\n\nTexto del recibo:\n${texto.slice(0,12000)}`;
@@ -668,7 +670,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
         toast(n?`La IA completó ${n} campo${n>1?'s':''}. Revísalos.`:'La IA no encontró más datos.');pintar();
       }catch(e){toast(e.code==='not_granted'?'Sin permiso para usar IA.':'No se pudo usar la IA.');ia.disabled=false;ia.textContent='Completar con IA'}};
       dlg.querySelector('[data-save]').onclick=async()=>{
-        dlg.querySelectorAll('input[data-k]').forEach(inp=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v});
+        dlg.querySelectorAll('input[data-k]').forEach(inp=>{const c=CAMPOS.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v,true):v});
         if(!data.mes||!/^\d{4}-\d{2}$/.test(data.mes)){toast('Indica el mes facturado.');return}
         const existe=recibos.find(x=>x.id===data.mes);
         if(existe&&!editando&&!(await confirmar(`Ya hay un recibo de ${mesLargo(data.mes)}. ¿Reemplazarlo?`,'Reemplazar')))return;
@@ -961,7 +963,7 @@ function renderDeptos(){
   };
   $('#btn-mant').onclick=async()=>{
     const v=await pedirTexto('¿Cuánto es el cargo de mantenimiento por depto al mes? (S/)',config.mantenimiento??5);
-    if(v==null||v==='')return;const n=num(v);if(n==null||n<0){toast('Ingresa un monto válido.');return}
+    if(v==null||v==='')return;const n=num(v,true);if(n==null||n<0){toast('Ingresa un monto válido.');return}
     guardarConfig({mantenimiento:n}).then(()=>toast('Mantenimiento actualizado')).catch(()=>toast('No se pudo guardar'));
   };
   document.querySelectorAll('[data-depto]').forEach(b=>b.onclick=()=>abrirDepto(b.dataset.depto));
@@ -1198,7 +1200,7 @@ async function abrirCobro(l,deptoId){
     </div>
     <div class="dlg-f">${l.montoCobrado!=null?'<button class="btn danger" id="c-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-close>Cancelar</button><button class="btn primary" id="c-save">Guardar</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-    dlg.querySelector('#c-monto').oninput=e=>{data.monto=num(e.target.value);pintar()};
+    dlg.querySelector('#c-monto').oninput=e=>{data.monto=num(e.target.value,true);pintar()};
     dlg.querySelector('#c-fecha').onchange=e=>{data.fecha=e.target.value};
     const vh=dlg.querySelector('#ver-historial');if(vh)vh.onclick=()=>abrirHistorialCobro(l,d);
     const q=dlg.querySelector('#c-quitar');if(q)q.onclick=async()=>{
@@ -1315,13 +1317,13 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       if(!existente&&!data.antManual&&data.mes){const prev=ls.filter(l=>l.mes<data.mes&&l.lecturaActual!=null).pop();data.lecturaAnterior=prev?prev.lecturaActual:null;pintar()}};
     const sl=dlg.querySelector('#f-saltar');if(sl)sl.onclick=()=>{dlg.close();opts.siguiente()};
     dlg.querySelectorAll('[data-origen]').forEach(b=>b.onclick=()=>{data.origen=b.dataset.origen;pintar()});
-    const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value);pintar()};
-    const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value);data.antManual=true;pintar()};
+    const fkwh=dlg.querySelector('#f-kwh');if(fkwh)fkwh.onchange=e=>{data.kwhDirecto=num(e.target.value,!AG);pintar()};
+    const fant=dlg.querySelector('#f-ant');if(fant)fant.onchange=e=>{data.lecturaAnterior=num(e.target.value,!AG);data.antManual=true;pintar()};
     // Enter (o «Ir» en el celular) en la lectura actual o en el consumo guarda sin buscar el botón.
-    [['#f-act','lecturaActual'],['#f-kwh','kwhDirecto']].forEach(([s,k])=>{const i=dlg.querySelector(s);if(i)i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();data[k]=num(i.value);dlg.querySelector('#f-save').click()}}});
-    const vivo=()=>{const v=dlg.querySelector('#f-vivo');if(!v)return;const ant=num((dlg.querySelector('#f-ant')||{}).value),act=num((dlg.querySelector('#f-act')||{}).value),kd=num((dlg.querySelector('#f-kwh')||{}).value);v.innerHTML=textoConsumo(data.origen==='directo'?kd:(ant!=null&&act!=null?Math.round((act-ant)*(AG?1000:100))/(AG?1000:100):null))};
+    [['#f-act','lecturaActual'],['#f-kwh','kwhDirecto']].forEach(([s,k])=>{const i=dlg.querySelector(s);if(i)i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();data[k]=num(i.value,!AG);dlg.querySelector('#f-save').click()}}});
+    const vivo=()=>{const v=dlg.querySelector('#f-vivo');if(!v)return;const ant=num((dlg.querySelector('#f-ant')||{}).value,!AG),act=num((dlg.querySelector('#f-act')||{}).value,!AG),kd=num((dlg.querySelector('#f-kwh')||{}).value,!AG);v.innerHTML=textoConsumo(data.origen==='directo'?kd:(ant!=null&&act!=null?Math.round((act-ant)*(AG?1000:100))/(AG?1000:100):null))};
     ['#f-ant','#f-act','#f-kwh'].forEach(s=>{const i=dlg.querySelector(s);if(i)i.addEventListener('input',vivo)});
-    const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value);pintar()};
+    const fact=dlg.querySelector('#f-act');if(fact)fact.onchange=e=>{data.lecturaActual=num(e.target.value,!AG);pintar()};
     const bCam=dlg.querySelector('#f-camara'),bGal=dlg.querySelector('#f-galeria');
     if(bCam)bCam.onclick=()=>dlg.querySelector('#f-foto-cam').click();
     if(bGal)bGal.onclick=()=>dlg.querySelector('#f-foto-gal').click();
@@ -1525,7 +1527,8 @@ function creditoEntrante(dep,mes,prof=0){
   if(k in m)return m[k];
   const prev=mesAnterior(mes),c=cobroDe(dep,prev);
   let v=0;
-  if(c&&c.montoCobrado!=null)v=c.tipoPago==='demas'?r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto)):0;
+  // Todo lo pagado de más (marcado "De más" o "Completo") pasa al mes siguiente; un pago parcial no deja saldo.
+  if(c&&c.montoCobrado!=null)v=c.tipoPago!=='parcial'?r2(Math.max(0,Number(c.montoCobrado)-detalleCobro(dep,prev,prof+1).neto)):0;
   else{const x=detalleCobro(dep,prev,prof+1);v=x.aFavor>0?r2(Math.max(0,x.aFavor-x.total)):0}
   return m[k]=v;
 }
@@ -1557,7 +1560,7 @@ function detalleCobro(dep,mes,prof=0){
   const tarde=c&&c.pagoTarde===true?' · fuera de fecha':'';
   let estado;
   if(cobrado!=null&&c.tipoPago==='parcial')estado={cls:'pend',txt:'Pago parcial'+tarde};
-  else if(cobrado!=null&&c.tipoPago==='demas')estado={cls:'ok',txt:'Cobrado · '+fmtS(Math.max(0,cobrado-neto))+' a favor'+tarde};
+  else if(cobrado!=null&&(c.tipoPago==='demas'||cobrado-neto>=0.005))estado={cls:'ok',txt:'Cobrado · '+fmtS(Math.max(0,cobrado-neto))+' a favor'+tarde};
   else if(cobrado!=null)estado={cls:'ok',txt:'Cobrado'+tarde};
   else if(legado!=null)estado=usaAgua?{cls:'pend',txt:'Solo luz cobrada'}:{cls:'ok',txt:'Cobrado'};
   else if(aFavor>0&&neto===0&&!faltan.length)estado={cls:'ok',txt:'Cubierto con saldo a favor'};
@@ -1566,7 +1569,7 @@ function detalleCobro(dep,mes,prof=0){
   const pagado=cobrado??legado??0;
   return{d,mes,partes,total,aFavor,neto,faltan,cobro:c,cobrado,legado,pagado,
     falta:estado.cls==='ok'?0:r2(Math.max(0,neto-pagado)),
-    diferencia:cobrado!=null&&c.tipoPago!=='parcial'&&c.tipoPago!=='demas'?r2(cobrado-neto):null,estado,participa:usaLuz||usaAgua};
+    diferencia:cobrado!=null&&c.tipoPago!=='parcial'&&c.tipoPago!=='demas'&&cobrado<neto?r2(cobrado-neto):null,estado,participa:usaLuz||usaAgua};
 }
 function cobrosDelMes(mes){return deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0)).map(d=>detalleCobro(d.id,mes)).filter(x=>x.participa)}
 function cobrosPendientesTodos(){const out=[];mesesCobro().forEach(m=>cobrosDelMes(m).forEach(x=>{if(x.estado.cls!=='ok')out.push(x)}));return out}
@@ -1615,13 +1618,13 @@ async function abrirPagoDepto(dep){
       +(resto>0?`<div class="banner info" style="margin-top:10px">Sobran <strong>${fmtS(resto)}</strong>: quedan a favor y se descuentan del cobro de ${mesLargo(siguienteMes(ultimo.p.mes))}.${plan.length>1?' Puede variar unos céntimos: al quedar pagados los meses atrasados se recalcula la mora de los siguientes.':''}</div>`:'')
       +(plan.length<base.ps.length&&!resto?`<p class="small muted" style="margin-top:8px">Después de este pago seguirá debiendo ${fmtS(r2(debe-data.monto))}.</p>`:'');
   };
-  inM.oninput=()=>{data.monto=num(inM.value);pintar()};
+  inM.oninput=()=>{data.monto=num(inM.value,true);pintar()};
   inM.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();dlg.querySelector('#pd-save').click()}};
   inF.oninput=()=>{data.fecha=inF.value||hoyLocal();pintar()};
   dlg.querySelector('#pd-todo').onclick=()=>{inM.value=debe;data.monto=debe;pintar()};
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
   dlg.querySelector('#pd-save').onclick=()=>unaVez('pago-depto-'+dep,async()=>{
-    const monto=num(inM.value);
+    const monto=num(inM.value,true);
     if(!monto||monto<=0){toast('Ingresa el monto que entregó.',{sinDeshacer:true});return}
     if(monto>Math.max(debe*3,debe+300)&&!(await confirmar('Registraste '+fmtS(monto)+' y debe '+fmtS(debe)+'. ¿Es correcto?','Sí, es correcto')))return;
     const {plan,resto}=planPago(dep,monto),ahora=new Date().toISOString(),fecha=data.fecha||hoyLocal(),previos=[];
@@ -1766,7 +1769,7 @@ async function cambiarValorConfig(k){
   await esperarDatos();
   const def={mantenimiento:5,admAgua:5,mantExtra:0,baseSinMedidor:7}[k];
   const v=await pedirTexto(ETIQUETA_CFG[k]+' — solo para los meses nuevos; los meses ya registrados conservan su valor',config[k]??def);
-  if(v==null||v==='')return;const n=num(v);if(n==null||n<0){toast('Ingresa un número válido.');return}
+  if(v==null||v==='')return;const n=num(v,true);if(n==null||n<0){toast('Ingresa un número válido.');return}
   try{
     // Fija los cargos vigentes en cada mes existente que aún usa el valor por defecto.
     const docs=mesesCobro().filter(m=>{const c=cargosMes.find(x=>x.id===m);return !c||['admLuz','admAgua','mant','base'].some(f=>c[f]==null||c[f]==='')})
@@ -1787,7 +1790,7 @@ async function abrirCargosMes(mes){
   <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
   c.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>c.close());
   c.querySelector('#cm-save').onclick=async()=>{
-    const vals=['luz','agua','mant'].map(k=>num(c.querySelector('#cm-'+k).value));
+    const vals=['luz','agua','mant'].map(k=>num(c.querySelector('#cm-'+k).value,true));
     const cb=c.querySelector('#cm-base');const base=cb?num(cb.value):car.base;
     if(vals.some(v=>v==null||v<0)||base==null||base<0){toast('Completa todos los montos (usa 0 si no corresponde); no pueden ser negativos.');return}
     try{await guardarCargosMes(mes,{admLuz:vals[0],admAgua:vals[1],mant:vals[2],base});c.close();toast('Cargos de '+mesLargo(mes)+' guardados')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}
@@ -1851,13 +1854,13 @@ async function abrirCobroMes(dep,mes){
     const m=data.monto;let txt;
     if(t==='parcial')txt=m!=null?`Queda pendiente <strong>${fmtS(Math.max(0,x.neto-m))}</strong> de ${mesLargo(mes)}; se podrá completar después. Mientras no lo complete, le toca una parte de la mora de ${mesLargo(mesSig)}.`:'Queda pendiente la diferencia; se podrá completar después.';
     else if(t==='demas')txt=m!=null?`<strong>${fmtS(Math.max(0,m-x.neto))}</strong> quedan a favor y se descuentan del cobro de ${mesLargo(mesSig)}.`:'Lo pagado de más se descuenta del cobro del mes siguiente.';
-    else txt=`${mesLargo(mes)} queda saldado${m!=null&&Math.abs(m-x.neto)>=0.5?` (diferencia de ${fmtS(m-x.neto)} con lo calculado)`:''}.`;
+    else txt=`${mesLargo(mes)} queda saldado${m!=null&&m-x.neto>=0.005?`; los <strong>${fmtS(m-x.neto)}</strong> de más quedan a favor para ${mesLargo(mesSig)}`:m!=null&&x.neto-m>=0.5?` (se da por pagado aunque faltan ${fmtS(x.neto-m)})`:''}.`;
     dlg.querySelector('#cm-tipo-info').innerHTML=txt+(data.tipo==null?' <span class="muted">(sugerido por el monto)</span>':'')};
   const pintarTarde=()=>{const t=tardeEfectivo();
     dlg.querySelector('[data-tarde="no"]').classList.toggle('on',!t);dlg.querySelector('[data-tarde="si"]').classList.toggle('on',t);
     dlg.querySelector('#cm-tarde-info').innerHTML=(t?`Pagó fuera de fecha. No carga la mora de <strong>${mesLargo(mesSig)}</strong> mientras haya deptos que aún no pagan ${mesLargo(mes)}; si al final todos pagan, la mora se reparte entre quienes pagaron tarde.`:`Pagó a tiempo: en <strong>${mesLargo(mesSig)}</strong> no le toca mora ni reconexión.`)
       +(data.tarde==null?' <span class="muted">(sugerido por la fecha)</span>':'')};
-  inMonto.oninput=()=>{data.monto=num(inMonto.value);pintarTipo()};
+  inMonto.oninput=()=>{data.monto=num(inMonto.value,true);pintarTipo()};
   inMonto.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();dlg.querySelector('#cm-save').click()}}; // Enter (o «Ir» en el celular) guarda
   dlg.querySelector('#cm-total').onclick=()=>{inMonto.value=x.neto;data.monto=x.neto;pintarTipo()};
   dlg.querySelectorAll('[data-tipo]').forEach(b=>b.onclick=()=>{data.tipo=b.dataset.tipo;pintarTipo()});
@@ -1871,7 +1874,7 @@ async function abrirCobroMes(dep,mes){
   };
   const q=dlg.querySelector('#cm-quitar');if(q)q.onclick=async()=>{if(!(await confirmar('¿Quitar el cobro de '+tituloDepto(x.d)+' de '+mesLargo(mes)+'? Queda en el historial.','Quitar',true)))return;try{await guardarCon(null,null,data.nota);dlg.close();toast('Cobro quitado')}catch(e){toast('No se pudo guardar: '+mensajeError(e))}};
   dlg.querySelector('#cm-save').onclick=async()=>{
-    const monto=num(inMonto.value),fecha=dlg.querySelector('#cm-fecha').value||null,nota=dlg.querySelector('#cm-nota').value.trim();
+    const monto=num(inMonto.value,true),fecha=dlg.querySelector('#cm-fecha').value||null,nota=dlg.querySelector('#cm-nota').value.trim();
     if(monto==null){toast('Ingresa el monto recibido.');return}
     if(monto<0){toast('El monto no puede ser negativo.');return}
     if(x.neto>0&&monto>Math.max(x.neto*3,x.neto+300)&&!(await confirmar('Registraste '+fmtS(monto)+' y lo que debe este mes es '+fmtS(x.neto)+'. ¿Es correcto?','Sí, es correcto')))return;
@@ -2043,9 +2046,9 @@ async function abrirFormAgua(data,{file=null,editando=false}={}){
       </div>
       <div class="dlg-f"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-save>Guardar recibo</button></div>`;
       dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
-      dlg.querySelectorAll('input[data-k]').forEach(inp=>inp.onchange=()=>{const c=CAMPOS_AGUA.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v;pintar()});
+      dlg.querySelectorAll('input[data-k]').forEach(inp=>inp.onchange=()=>{const c=CAMPOS_AGUA.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v,!['m3','lecturaAnterior','lecturaActual'].includes(c.k)):v;pintar()});
       dlg.querySelector('[data-save]').onclick=async()=>{
-        dlg.querySelectorAll('input[data-k]').forEach(inp=>{const c=CAMPOS_AGUA.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v):v});
+        dlg.querySelectorAll('input[data-k]').forEach(inp=>{const c=CAMPOS_AGUA.find(x=>x.k===inp.dataset.k);const v=inp.value.trim();data[c.k]=v===''?null:c.t==='num'?num(v,!['m3','lecturaAnterior','lecturaActual'].includes(c.k)):v});
         if(!data.mes||!/^\d{4}-\d{2}$/.test(data.mes)){toast('Indica el mes facturado.');return}
         const existe=aguaRecibos.find(x=>x.id===data.mes);
         if(existe&&!editando&&!(await confirmar(`Ya hay un recibo de agua de ${mesLargo(data.mes)}. ¿Reemplazarlo?`,'Reemplazar')))return;
@@ -2485,7 +2488,7 @@ if(historialActivo){
   let atrasPropios=0,colaHist=[],reloj=null;
   // Agrega una entrada al historial; si hay un "atrás" propio en curso, espera a que termine (si no, se desfasa).
   const vaciarCola=()=>{clearTimeout(reloj);reloj=null;colaHist.splice(0).forEach(s=>history.pushState(s,''))};
-  window.empujarHistorial=s=>{if(atrasPropios>0){colaHist.push(s);if(!reloj)reloj=setTimeout(()=>{atrasPropios=0;vaciarCola()},600)}else history.pushState(s,'')};
+  window.empujarHistorial=s=>{if(atrasPropios>0){colaHist.push(s);if(!reloj)reloj=setTimeout(()=>{atrasPropios=0;vaciarCola()},1500)}else history.pushState(s,'')};
   history.replaceState({tab:tabActual},'');
   // La app maneja el desplazamiento: al cerrar una ventana (que retrocede el historial) el navegador no debe devolver la página a otra posición.
   if('scrollRestoration' in history)history.scrollRestoration='manual';
@@ -2497,11 +2500,13 @@ if(historialActivo){
     this.addEventListener('close',()=>salirDeHistorial(this),{once:true}); // respaldo (p. ej. cierre con Esc)
   };
   // Al cerrar una ventana se quita su entrada del historial (si no se cerró justamente con «atrás»).
-  const salirDeHistorial=d=>{if(!d.__enHistorial)return;d.__enHistorial=false;if(!d.__cerradoConAtras){atrasPropios++;history.back()}d.__cerradoConAtras=false};
+  // Los 'atrás' propios van de a uno: si se cierran dos ventanas seguidas, el segundo se pide cuando termina el primero
+  // (pedir dos a la vez hacía que el navegador saliera de la app).
+  const salirDeHistorial=d=>{if(!d.__enHistorial)return;d.__enHistorial=false;if(!d.__cerradoConAtras){atrasPropios++;if(atrasPropios===1)history.back();clearTimeout(salirDeHistorial.t);salirDeHistorial.t=setTimeout(()=>{if(atrasPropios>0){atrasPropios=0;vaciarCola()}},1500)}d.__cerradoConAtras=false};
   const cerrarOrig=HTMLDialogElement.prototype.close;
   HTMLDialogElement.prototype.close=function(v){const estaba=this.open;cerrarOrig.call(this,v);if(estaba)salirDeHistorial(this)};
   window.addEventListener('popstate',e=>{
-    if(atrasPropios>0){atrasPropios--;if(!atrasPropios)vaciarCola();return}
+    if(atrasPropios>0){atrasPropios--;if(atrasPropios>0)setTimeout(()=>history.back(),30);else vaciarCola();return} // el siguiente "atrás", fuera de este evento
     const abiertos=[...document.querySelectorAll('dialog[open]')].filter(d=>d.id!=='dlgLogin');
     if(abiertos.length){const d=abiertos[abiertos.length-1];d.__cerradoConAtras=true;d.close();return}
     const tab=e.state&&e.state.tab;if(tab&&tab!==tabActual){irA.desdeAtras=true;try{irA(tab)}finally{irA.desdeAtras=false}}
