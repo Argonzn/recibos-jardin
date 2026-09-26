@@ -1276,10 +1276,11 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
         const con=deptosConMedidor(),ms=con.map(d=>m3De(lecturaAguaDe(d.id,data.mes)));
         if(ms.every(v=>v!=null)){const suma=ms.reduce((a,b)=>a+b,0);if(consumoNuevo<suma-0.5&&!(await confirmar('El medidor general da '+fmtN(consumoNuevo,2)+' m³, pero los medidores internos suman '+fmtN(suma,2)+' m³ este mes. El general no puede marcar menos: revisa el número. ¿Guardar igual?','Guardar igual')))return}
       }
+      let avisoRaro='';
       if(consumoNuevo!=null&&deptoId!=='general'){
         const normal=consumoNormal(deptoId,data.mes,AG?'agua':'luz');
         if(consumoNuevo<0&&!(await confirmar('La lectura actual es menor que la anterior (consumo '+fmtN(consumoNuevo,AG?3:0)+' '+unidad+'). ¿Guardar igual?','Guardar igual')))return;
-        if(normal&&consumoNuevo>=0&&(consumoNuevo>normal*2||consumoNuevo<normal/3)&&!(await confirmar('Este mes da '+fmtN(consumoNuevo,AG?2:0)+' '+unidad+' y lo normal de este depto es ~'+fmtN(normal,AG?1:0)+' '+unidad+'. Revisa que el número esté bien escrito. ¿Guardar igual?','Guardar igual')))return;
+        if(normal&&consumoNuevo>=0&&(consumoNuevo>normal*2||consumoNuevo<normal/3))avisoRaro=' · ⚠ revisa: lo normal es ~'+fmtN(normal,AG?1:0)+' '+unidad;
       }
       const btn=dlg.querySelector('#f-save');btn.disabled=true;btn.textContent='Guardando…';
       try{
@@ -1314,7 +1315,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             }
           }
         }
-        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:''),(()=>{if(opts.siguiente)return{};const q=pendientesLectura(data.mes).filter(p=>!(p.dep===deptoId&&p.serv===(AG?'agua':'luz')));return q.length?{accion:['▶ Siguiente: '+q[0].txt,()=>iniciarSecuenciaLecturas(data.mes)]}:{}})());renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
+        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:'')+avisoRaro,(()=>{if(opts.siguiente)return{};const q=pendientesLectura(data.mes).filter(p=>!(p.dep===deptoId&&p.serv===(AG?'agua':'luz')));return q.length?{accion:['▶ Siguiente: '+q[0].txt,()=>iniciarSecuenciaLecturas(data.mes)]}:{}})());renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
