@@ -2405,7 +2405,7 @@ function abrirMenu(){
   const c=$('#dlgMenu');
   const item=(tab,t,s)=>'<button data-ir="'+tab+'"'+(tabActual===tab?' aria-current="page"':'')+'>'+t+'<small>'+s+'</small></button>';
   const rec=estadoRec?(estadoRec.activo?'Día '+estadoRec.dia+' de cada mes, '+estadoRec.hora+':00 · Google Calendar':'Sin activar'):'Aviso mensual en Google Calendar';
-  c.innerHTML='<div class="menu-h"><strong>Recibos de luz</strong><button class="x" aria-label="Cerrar menú" data-close>×</button></div>'+
+  c.innerHTML='<div class="menu-h"><strong>Recibos Jardín</strong><button class="x" aria-label="Cerrar menú" data-close>×</button></div>'+
     '<nav class="menu-list" aria-label="Secciones">'+
       item('resumen','Resumen','Recibo del mes y consumo')+
       item('recibos','Luz','Recibos de Luz del Sur y sus PDF')+
