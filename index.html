@@ -683,6 +683,22 @@ function panelCobranza(){
     ${porMes.slice().reverse().map(x=>`<tr><td>${mesLargo(x.m)}${x.inc?' <span class="muted small">(incompleto)</span>':''}</td><td>${fmtS(x.fact)}</td><td>${fmtS(x.cob)} <span class="muted small">${pct(x.cob,x.fact)}</span></td><td>${x.pend?fmtS(x.pend):'—'}</td></tr>`).join('')}
     </tbody></table></div></div>`;
 }
+// Luz y agua de cada mes en una sola tabla: consumo, monto, total del mes y si ya se pagaron los recibos.
+function tablaLuzYAgua(rs,sel){
+  const ags=aguaRecibos.filter(a=>sel==='todos'||a.id.startsWith(sel));
+  const meses=[...new Set([...rs.map(r=>r.id),...ags.map(a=>a.id)])].sort();
+  if(!meses.length)return'';
+  const filas=meses.map(m=>{const l=rs.find(r=>r.id===m),a=ags.find(x=>x.id===m);
+    const falta=[l&&!l.pagado?'luz':'',a&&!a.pagado?'agua':''].filter(Boolean);
+    return `<tr><td>${mesLargo(m)}</td><td>${l?fmtN(l.kwh):'—'}</td><td>${l?fmtS(l.totalMes):'—'}</td><td>${a?fmtN(a.m3):'—'}</td><td>${a?fmtS(a.total):'—'}</td><td><strong>${fmtS((l?Number(l.totalMes)||0:0)+(a?Number(a.total)||0:0))}</strong>${!l||!a?'<div class="muted small">sin recibo de '+(!l?'luz':'agua')+'</div>':''}</td><td>${falta.length?'<span class="chip sm pend">falta pagar '+falta.join(' y ')+'</span>':'<span class="chip sm ok">Pagados</span>'}</td></tr>`}).join('');
+  const tl=sum(rs,r=>r.totalMes),ta=sum(ags,a=>a.total),nl=rs.length,na=ags.length;
+  return `<div class="panel"><h3>Recibos de luz y agua por mes</h3><div class="scroll"><table>
+    <thead><tr><th>Mes</th><th>💡 kWh</th><th>💡 Luz</th><th>💧 m³</th><th>💧 Agua</th><th>Total del mes</th><th>Recibos</th></tr></thead>
+    <tbody>${filas}</tbody>
+    <tfoot><tr><td>Total</td><td>${fmtN(sum(rs,r=>r.kwh))}</td><td>${fmtS(tl)}</td><td>${fmtN(sum(ags,a=>a.m3))}</td><td>${fmtS(ta)}</td><td>${fmtS(tl+ta)}</td><td></td></tr>
+    <tr><td>Promedio</td><td>${nl?fmtN(sum(rs,r=>r.kwh)/nl):'—'}</td><td>${nl?fmtS(tl/nl):'—'}</td><td>${na?fmtN(sum(ags,a=>a.m3)/na):'—'}</td><td>${na?fmtS(ta/na):'—'}</td><td></td><td></td></tr></tfoot>
+  </table></div></div>`;
+}
 function renderReportes(){
   charts.forEach(c=>c.destroy());charts=[];
   const el=$('#tab-reportes');
@@ -705,12 +721,13 @@ function renderReportes(){
       <div class="panel"><h3>Precio por kWh</h3><div class="chart-box"><canvas id="c3"></canvas></div></div>
       <div class="panel"><h3>En qué se va el dinero</h3><div class="chart-box"><canvas id="c4"></canvas></div></div>
     </div>
-    <div class="panel"><h3>Tabla de recibos</h3><div class="scroll"><table>
+    ${tablaLuzYAgua(rs,sel)}
+    <details class="panel mas-opciones"><summary><strong>Detalle de los recibos de luz</strong> <span class="muted small">energía, cargos fijos, alumbrado, impuestos, intereses, deuda previa</span></summary><div class="scroll" style="margin-top:10px"><table>
       <thead><tr><th>Mes</th><th>kWh</th><th>Precio kWh</th><th>Energía</th><th>Cargos fijos</th><th>Alumbrado</th><th>Impuestos</th><th>Intereses</th><th>Total del mes</th><th>Deuda previa</th><th>Total a pagar</th><th>Estado</th></tr></thead>
       <tbody>${rs.map(r=>`<tr><td>${mesLargo(r.id)}</td><td>${fmtN(r.kwh)}</td><td>${r.precioKwh??'—'}</td><td>${fmtS(r.consumoEnergia)}</td><td>${fmtS(cargosFijos(r))}</td><td>${fmtS(r.alumbrado)}</td><td>${fmtS(impuestos(r))}</td><td>${fmtS(intereses(r))}</td><td><strong>${fmtS(r.totalMes)}</strong></td><td>${fmtS(r.deudaVencida)}</td><td>${fmtS(r.totalPagar)}</td><td>${estado(r).txt}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtN(tk)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia))}</td><td>${fmtS(sum(rs,cargosFijos))}</td><td>${fmtS(sum(rs,r=>r.alumbrado))}</td><td>${fmtS(sum(rs,impuestos))}</td><td>${fmtS(sum(rs,intereses))}</td><td>${fmtS(tm)}</td><td></td><td></td><td></td></tr>
       <tr><td>Promedio</td><td>${fmtN(tk/n)}</td><td></td><td>${fmtS(sum(rs,r=>r.consumoEnergia)/n)}</td><td>${fmtS(sum(rs,cargosFijos)/n)}</td><td>${fmtS(sum(rs,r=>r.alumbrado)/n)}</td><td>${fmtS(sum(rs,impuestos)/n)}</td><td>${fmtS(sum(rs,intereses)/n)}</td><td>${fmtS(tm/n)}</td><td></td><td></td><td></td></tr></tfoot>
-    </table></div></div>`;
+    </table></div></details>`;
   el.insertAdjacentHTML('afterbegin',panelCobranza());
   $('#anio').onchange=e=>{renderReportes.anio=e.target.value;renderReportes()};
   const csvBtn=$('#csv');if(csvBtn)csvBtn.onclick=()=>exportarCSV(rs,sel);
@@ -2692,7 +2709,7 @@ async function conectar(){
   db.collection('departamentos').onSnapshot(snap=>{deptos=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();if(tabActual==='cobros')renderCobros();reVista()});
   db.collection('lecturas').onSnapshot(snap=>{lecturas=snap.docs.map(x=>({id:x.id,...x.data()}));if(tabActual==='deptos')renderDeptos();reVista()});
   db.collection('config').onSnapshot(snap=>{const c=snap.docs.find(x=>x.id==='general');config=c?{diaCorte:12,mantenimiento:5,...c.data()}:{diaCorte:12,mantenimiento:5};if(tabActual==='deptos')renderDeptos();reAgua()});
-  const reAgua=()=>{if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();reVista()};
+  const reAgua=()=>{if(tabActual==='agua')renderAgua();if(tabActual==='cobros')renderCobros();if(tabActual==='reportes')renderReportes();reVista()};
   db.collection('agua_recibos').onSnapshot(snap=>{aguaRecibos=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua()});
   db.collection('lecturas_agua').onSnapshot(snap=>{lecturasAgua=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
   db.collection('cobros').onSnapshot(snap=>{cobros=snap.docs.map(x=>({id:x.id,...x.data()}));reAgua();if(tabActual==='deptos')renderDeptos()});
