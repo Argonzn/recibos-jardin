@@ -19,16 +19,17 @@
   --bg:#EEF1F4;--surface:#FFFFFF;--surface-2:#F6F8FA;--ink:#1D2733;--muted:#5B6775;--line:#D5DBE2;
   --amber:#D99A06;--amber-soft:#FCEFC7;--blue:#2B5FB4;--blue-soft:#DCE7F8;--red:#C2412D;--red-soft:#F8DDD7;--green:#2E7D4F;--green-soft:#D8EFE1;
   --grey-bar:#B8C1CC;
+  --accent:#2456C7;--accent-text:#2456C7;--accent-soft:#E3ECFB;--sombra:0 1px 2px rgba(16,24,40,.06);
   --font:"Archivo",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#12171D;--surface:#1B222B;--surface-2:#222A34;--ink:#E6EBF0;--muted:#9AA6B2;--line:#2E3844;
-  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;color-scheme:dark}}
+  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;--accent:#3565D0;--accent-text:#8AB0F5;--accent-soft:#1D2C47;--sombra:none;color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12171D;--surface:#1B222B;--surface-2:#222A34;--ink:#E6EBF0;--muted:#9AA6B2;--line:#2E3844;
-  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;color-scheme:dark}
+  --amber:#F0B429;--amber-soft:#3A2F12;--blue:#7EA6E8;--blue-soft:#1E2E48;--red:#EF7A64;--red-soft:#43221C;--green:#5CC28A;--green-soft:#173826;--grey-bar:#4A5563;--accent:#3565D0;--accent-text:#8AB0F5;--accent-soft:#1D2C47;--sombra:none;color-scheme:dark}
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.5;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
@@ -46,25 +47,32 @@ body.modo-ayudante :is([data-pago-rapido],[data-pago-depto],[data-ed-pago],#btn-
 .explica{text-align:left;margin:12px 0 0;padding:10px 12px;border-radius:10px;background:var(--surface-2);display:grid;gap:4px}
 .aviso-version{position:fixed;left:50%;transform:translateX(-50%);top:calc(10px + env(safe-area-inset-top,0px));z-index:60;border:0;border-radius:999px;padding:10px 18px;background:var(--blue);color:#fff;font:inherit;font-weight:650;box-shadow:0 4px 16px rgba(0,0,0,.3);cursor:pointer}.avatar.grande{width:56px;height:56px;font-size:1.2rem}
 .perfil{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-@media (max-width:640px){header.top{flex-wrap:nowrap;align-items:center}.usuario{max-width:160px;padding-right:10px}.usuario .u-txt span{display:none}}
+@media (max-width:640px){header.top{flex-wrap:nowrap;align-items:center}.brand{min-width:0}.brand p#subtitulo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.usuario{padding:3px;border-radius:50%;min-height:0}.usuario .u-txt{display:none}.usuario .avatar{width:38px;height:38px}}
 .brand h1{margin:0;font-size:1.6rem;line-height:1.1;font-weight:760;font-stretch:78%;letter-spacing:-.01em}
 .brand p{margin:2px 0 0;color:var(--muted);font-size:.9rem}
 nav.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
 nav.tabs button{border:0;background:none;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:600;color:var(--muted)}
-nav.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+nav.tabs button{display:inline-flex;align-items:center;gap:6px}
+nav.tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
 @media (max-width:640px){
   nav.tabs{position:fixed;left:0;right:0;bottom:0;border-radius:0;border-width:1px 0 0;justify-content:space-around;z-index:20;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
-  nav.tabs button{flex:1;padding:8px 4px;font-size:.86rem;white-space:nowrap}
+  nav.tabs button{flex:1;padding:6px 2px 5px;font-size:.72rem;white-space:nowrap;flex-direction:column;gap:2px;min-height:52px}
+  nav.tabs button .ic{width:22px;height:22px}
 }
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent-text);outline-offset:2px}
+.ic{width:1.1em;height:1.1em;flex:none;display:inline-block;vertical-align:-.18em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic-luz{color:var(--amber)}.ic-agua{color:var(--accent-text)}
+.btn .ic{width:1.05em;height:1.05em}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--sombra)}
 .stack>*+*{margin-top:16px}
 h2{font-size:1.15rem;font-weight:720;font-stretch:85%;margin:0 0 10px}
 h3{font-size:1rem;font-weight:700;margin:0 0 8px}
 .muted{color:var(--muted)}
 .small{font-size:.86rem}
 .btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink)}
-.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.primary .ic-luz,.btn.primary .ic-agua{color:inherit}
+.btn:not(:disabled):hover{filter:brightness(1.06)}.btn:not(:disabled):active{transform:translateY(1px)}
+.btn.danger.primary{background:var(--red);border-color:var(--red);color:#fff}
 .btn.danger{color:var(--red);border-color:var(--red)}
 .btn:disabled{opacity:.5;cursor:default}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -157,7 +165,8 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .seg button.on{background:var(--ink);color:var(--bg)}
 .lect-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:.92rem}
 .lect-row:last-child{border-bottom:0}
-.iconbtn{border:0;background:none;color:var(--muted);cursor:pointer;padding:4px 6px;font-size:.85rem;text-decoration:underline}
+@media (max-width:560px){.lect-row{grid-template-columns:1fr auto;row-gap:2px}.lect-row>div:nth-child(2){grid-column:2;grid-row:1;text-align:right}.lect-row>div:nth-child(3){grid-column:1/-1}.lect-row>div:nth-child(3):empty{display:none}.lect-row>div:last-child{grid-column:1/-1}}
+.iconbtn{border:0;background:none;color:var(--accent-text);cursor:pointer;padding:4px 6px;font-size:.85rem;font-weight:600;text-decoration:none;border-radius:6px}.iconbtn:hover{text-decoration:underline}
 .diff-pos{color:var(--green)}.diff-neg{color:var(--red)}
 .edificio{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;max-width:480px;margin:0 auto}
 .piso-row{display:grid;grid-template-columns:2.4rem 1fr 1fr;gap:8px;padding:7px 0;border-top:1px dashed var(--line)}
@@ -203,7 +212,7 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .menu-sep{height:1px;background:var(--line);margin:8px 6px}
 .menu-pie{padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line);font-size:.8rem;color:var(--muted)}
 .rec-switch{display:flex;width:100%;max-width:320px}.rec-switch button{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-height:40px;padding:8px 10px}
-nav.tabs button.menu-btn[data-activo="true"]{background:var(--ink);color:var(--bg)}
+nav.tabs button.menu-btn[data-activo="true"]{background:var(--accent-soft);color:var(--accent-text)}
 .form-rec{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
 .form-rec select,.form-rec input{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:8px 10px;font-size:1rem;color:var(--ink);width:100%}
 /* Agua y cobros */
@@ -277,11 +286,11 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
       <p class="muted small" style="margin:2px 0 0" id="estado-sync" aria-live="polite"></p>
     </div>
     <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="resumen" aria-selected="true">Inicio</button>
-      <button role="tab" data-tab="deptos" aria-selected="false">Lecturas</button>
-      <button role="tab" data-tab="cobros" aria-selected="false">Cobros</button>
-      <button role="tab" data-tab="recibos" data-tab2="agua" aria-selected="false">Recibos</button>
-      <button type="button" class="menu-btn" id="btn-menu" aria-haspopup="dialog" aria-label="Más opciones">⋯ Más</button>
+      <button role="tab" data-tab="resumen" aria-selected="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Inicio</span></button>
+      <button role="tab" data-tab="deptos" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 14 4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/></svg><span>Lecturas</span></button>
+      <button role="tab" data-tab="cobros" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg><span>Cobros</span></button>
+      <button role="tab" data-tab="recibos" data-tab2="agua" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></svg><span>Recibos</span></button>
+      <button type="button" class="menu-btn" id="btn-menu" aria-haspopup="dialog" aria-label="Más opciones"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg><span>Más</span></button>
     </nav>
     <button type="button" class="usuario" id="btn-usuario" hidden aria-haspopup="dialog"></button>
   </header>
@@ -290,7 +299,7 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 
   <section id="tab-resumen" class="stack"></section>
   <section id="tab-recibos" class="stack" hidden>
-    <div class="seg rec-switch" role="tablist" aria-label="Servicio"><button type="button" data-ir-rec="recibos" class="on">💡 Luz</button><button type="button" data-ir-rec="agua">💧 Agua</button></div>
+    <div class="seg rec-switch" role="tablist" aria-label="Servicio"><button type="button" data-ir-rec="recibos" class="on"><svg class="ic ic-luz" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Luz</button><button type="button" data-ir-rec="agua"><svg class="ic ic-agua" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.7 17.7 8.4a8 8 0 1 1-11.3 0z"/></svg>Agua</button></div>
     <div class="panel">
       <div class="row" style="justify-content:space-between">
         <h2 style="margin:0">Todos los recibos</h2>
@@ -331,6 +340,9 @@ window.addEventListener('unhandledrejection',e=>{const m=String(e.reason&&(e.rea
   if(!/no_autorizado|failed to fetch|networkerror|load failed|conflicto|solo_lectura|codigo_incorrecto|demasiados_intentos/i.test(m))anotarErrorApp('Promesa: '+m,e.reason&&e.reason.stack||'')});
 </script>
 <script>
+// Íconos de la interfaz (línea, mismo estilo en todos los celulares). Los mensajes de WhatsApp conservan sus emojis.
+const ICONOS={"luz":"<path d=\"M13 2 3 14h9l-1 8 10-12h-9l1-8z\"/>","agua":"<path d=\"M12 2.7 17.7 8.4a8 8 0 1 1-11.3 0z\"/>","camara":"<path d=\"M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z\"/><circle cx=\"12\" cy=\"13\" r=\"3\"/>","enviar":"<path d=\"m22 2-7 20-4-9-9-4z\"/><path d=\"M22 2 11 13\"/>","pago":"<rect x=\"2\" y=\"6\" width=\"20\" height=\"12\" rx=\"2\"/><circle cx=\"12\" cy=\"12\" r=\"2.2\"/><path d=\"M6 12h.01M18 12h.01\"/>","ajustes":"<path d=\"M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4\"/>","grafico":"<path d=\"M3 3v18h18\"/><path d=\"M18 17V9M13 17V5M8 17v-3\"/>","candado":"<rect x=\"4\" y=\"11\" width=\"16\" height=\"10\" rx=\"2\"/><path d=\"M8 11V7a4 4 0 0 1 8 0v4\"/>","archivo":"<path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M16 13H8M16 17H8\"/>","llave":"<circle cx=\"7.5\" cy=\"15.5\" r=\"5.5\"/><path d=\"m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3\"/>","descargar":"<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3\"/>","check":"<path d=\"M20 6 9 17l-5-5\"/>","chat":"<path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22z\"/>","alerta":"<path d=\"m21.7 18-8-14a2 2 0 0 0-3.5 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3z\"/><path d=\"M12 9v4M12 17h.01\"/>","mas":"<circle cx=\"5\" cy=\"12\" r=\"1.2\"/><circle cx=\"12\" cy=\"12\" r=\"1.2\"/><circle cx=\"19\" cy=\"12\" r=\"1.2\"/>","inicio":"<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>","lecturas":"<path d=\"m12 14 4-4\"/><path d=\"M3.3 19a10 10 0 1 1 17.4 0\"/>","cobros":"<path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2\"/><path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\"/>"};
+const ico=(n,cls)=>'<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" aria-hidden="true">'+(ICONOS[n]||'')+'</svg>';
 const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const MES_LARGO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','setiembre','octubre','noviembre','diciembre'];
 // Convierte lo escrito (o leído de un PDF) en número. Acepta coma o punto decimal: "12,5" y "12.5" → 12.5;
@@ -565,7 +577,7 @@ function renderRecibos(){
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
-    <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
+    <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · '+ico('archivo')+' PDF':''}</div></div>
     <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh<span class="muted small" title="Variación frente al mes anterior" style="font-weight:400">${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</span></div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
     <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
     <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
@@ -580,7 +592,7 @@ function abrirDetalle(id){
   dlg.innerHTML=`<div class="dlg-h"><h2>${mesLargo(r.id)} <span class="chip ${st.cls}" style="vertical-align:middle">${st.txt}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')}${r.suministro?`, suministro ${esc(r.suministro)}`:''}. Emitido el ${fechaCorta(r.emision)}.</p>
-    ${(s=>s?'<div class="banner warn">⚠ '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('luz',r.id))}
+    ${(s=>s?'<div class="banner warn">'+ico('alerta')+' '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('luz',r.id))}
     ${r.pdfId?`<button class="pdf-mini" data-verpdf="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
     <h3>Lectura</h3>
     <p style="margin-top:0">${fmtN(r.lecturaActual,2)} − ${fmtN(r.lecturaAnterior,2)} = <strong>${fmtN(r.kwh)} kWh</strong> × ${r.precioKwh??'—'} = ${fmtS(r.consumoEnergia)}<br><span class="muted small">Del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}</span></p>
@@ -716,7 +728,7 @@ function tablaLuzYAgua(rs,sel){
     return `<tr><td>${mesLargo(m)}</td><td>${l?fmtN(l.kwh):'—'}</td><td>${l?fmtS(l.totalMes):'—'}</td><td>${a?fmtN(a.m3):'—'}</td><td>${a?fmtS(a.total):'—'}</td><td><strong>${fmtS((l?Number(l.totalMes)||0:0)+(a?Number(a.total)||0:0))}</strong>${!l||!a?'<div class="muted small">sin recibo de '+(!l?'luz':'agua')+'</div>':''}</td><td>${falta.length?'<span class="chip sm pend">falta pagar '+falta.join(' y ')+'</span>':'<span class="chip sm ok">Pagados</span>'}</td></tr>`}).join('');
   const tl=sum(rs,r=>r.totalMes),ta=sum(ags,a=>a.total),nl=rs.length,na=ags.length;
   return `<div class="panel"><h3>Recibos de luz y agua por mes</h3><div class="scroll"><table>
-    <thead><tr><th>Mes</th><th>💡 kWh</th><th>💡 Luz</th><th>💧 m³</th><th>💧 Agua</th><th>Total del mes</th><th>Recibos</th></tr></thead>
+    <thead><tr><th>Mes</th><th>${ico('luz','ic-luz')}kWh</th><th>${ico('luz','ic-luz')}Luz</th><th>${ico('agua','ic-agua')}m³</th><th>${ico('agua','ic-agua')}Agua</th><th>Total del mes</th><th>Recibos</th></tr></thead>
     <tbody>${filas}</tbody>
     <tfoot><tr><td>Total</td><td>${fmtN(sum(rs,r=>r.kwh))}</td><td>${fmtS(tl)}</td><td>${fmtN(sum(ags,a=>a.m3))}</td><td>${fmtS(ta)}</td><td>${fmtS(tl+ta)}</td><td></td></tr>
     <tr><td>Promedio</td><td>${nl?fmtN(sum(rs,r=>r.kwh)/nl):'—'}</td><td>${nl?fmtS(tl/nl):'—'}</td><td>${na?fmtN(sum(ags,a=>a.m3)/na):'—'}</td><td>${na?fmtS(ta/na):'—'}</td><td></td><td></td></tr></tfoot>
@@ -747,7 +759,7 @@ function explicaCambio(dep,mes){
     return '<div>'+ico+' Tu '+serv+(dS>0?' subió ':' bajó ')+'<strong>'+fmtS(Math.abs(dS))+'</strong> ('+fmtS(nAntes)+' → '+fmtS(nAhora)+'): '+tc+' y '+tp+'.</div>'};
   const la=lecturaDe(dep,mes),lp=lecturaDe(dep,prev),aa=calcAgua(mes),ap=calcAgua(prev);
   const ma=aa&&!aa.incompleto&&aa.porDepto[dep]?aa.porDepto[dep].m3:null,mp=ap&&!ap.incompleto&&ap.porDepto[dep]?ap.porDepto[dep].m3:null;
-  const t=linea('💡','luz',x.partes.luz,y.partes.luz,la&&la.kwh,lp&&lp.kwh,'kWh')+linea('💧','agua',x.partes.agua,y.partes.agua,ma,mp,'m³');
+  const t=linea(ico('luz','ic-luz'),'luz',x.partes.luz,y.partes.luz,la&&la.kwh,lp&&lp.kwh,'kWh')+linea(ico('agua','ic-agua'),'agua',x.partes.agua,y.partes.agua,ma,mp,'m³');
   return t?'<div class="explica small"><div class="muted" style="margin-bottom:4px">¿Por qué cambió respecto a '+mesLargo(prev)+'?</div>'+t+'</div>':'';
 }
 function renderReportes(){
@@ -922,7 +934,7 @@ function renderDeptos(){
   </div>
   <div class="edificio" id="edificio">${PISOS.map(p=>`<div class="piso-row"><div class="piso-num">P${p}</div>${LADOS.map(l=>{const d=deptoEnSlot(p,l);return d?miniUnidad(d,mesRef):`<button class="unidad vacio" data-slot="${p}-${l}">+ Vacío</button>`}).join('')}</div>`).join('')}</div>
   ${su.length?`<div class="panel"><h3>Sin ubicar en el plano</h3><div class="sinubicar">${su.map(d=>`<button data-ubicar="${d.id}">${tituloDepto(d)} — ${esc(d.encargado||'sin encargado')}</button>`).join('')}</div></div>`:''}
-  <details class="panel mas-opciones" id="comparativa-d" ${renderComparativa.abierta?'open':''}><summary><strong>📊 Comparativa del mes</strong> <span class="muted small">cuánto consume y paga cada depto</span></summary><div id="comparativa" style="margin-top:12px"></div></details>`;
+  <details class="panel mas-opciones" id="comparativa-d" ${renderComparativa.abierta?'open':''}><summary><strong>${ico('grafico')} Comparativa del mes</strong> <span class="muted small">cuánto consume y paga cada depto</span></summary><div id="comparativa" style="margin-top:12px"></div></details>`;
   renderComparativa(mesRef);conectarPanelLecturas();
   $('#comparativa-d').ontoggle=e=>{renderComparativa.abierta=e.target.open};
   document.querySelectorAll('[data-cobrar]').forEach(b=>b.onclick=()=>{const l=lecturas.find(x=>x.id===b.dataset.cobrar);if(l)abrirCobro(l,b.dataset.dep)});
@@ -1026,7 +1038,7 @@ function mesDeLecturas(){const d=new Date();const m=d.getFullYear()+'-'+String(d
 function panelLecturasDelMes(){
   const mes=renderDeptos.mesLect||mesDeLecturas();
   const ordenados=deptos.slice().sort((a,b)=>(a.numero||0)-(b.numero||0));
-  const celdaLuz=d=>{if(d.estado==='desocupado')return'<span class="muted small">sin luz</span>';const l=lecturaDe(d.id,mes);return l?`<span class="chip sm ok">✓ ${fmtN(l.kwh)} kWh</span>`:`<button class="btn sm primary" data-leer="${d.id}|luz">Luz</button>`};
+  const celdaLuz=d=>{if(d.estado==='desocupado')return'<span class="muted small">sin luz</span>';const l=lecturaDe(d.id,mes);return l?`<span class="chip sm ok">${ico('check')} ${fmtN(l.kwh)} kWh</span>`:`<button class="btn sm primary" data-leer="${d.id}|luz">Luz</button>`};
   const celdaAgua=d=>{const t=tipoAgua(d);if(t==='no')return'<span class="muted small">sin agua</span>';if(t==='sin_medidor')return'<span class="muted small">se estima</span>';const l=lecturaAguaDe(d.id,mes);return l?`<span class="chip sm ok">✓ ${fmtN(m3De(l),2)} m³</span>`:`<button class="btn sm primary" data-leer="${d.id}|agua">Agua</button>`};
   const gen=lecturaAguaDe('general',mes);
   const faltan=ordenados.filter(d=>d.estado!=='desocupado'&&!lecturaDe(d.id,mes)).length+ordenados.filter(d=>tipoAgua(d)==='medidor'&&!lecturaAguaDe(d.id,mes)).length+(gen?0:1);
@@ -1034,10 +1046,10 @@ function panelLecturasDelMes(){
       <span class="chip ${faltan?'pend':'ok'}">${faltan?faltan+' por tomar':'Completas'}</span></div>
     <p class="muted small" style="margin:6px 0 10px">Toma las fotos el día 12. Toca un botón para registrar esa lectura.</p>
     <label class="small muted" style="display:inline-flex;gap:8px;align-items:center;margin:0 0 10px">Mes <select id="sel-mes-lect" aria-label="Mes de las lecturas">${(()=>{const hoy=mesDeLecturas(),ms=[...new Set([...lecturas.map(l=>l.mes),...lecturasAgua.map(l=>l.mes),hoy,siguienteMes(hoy)])].filter(Boolean).sort().reverse().slice(0,14);return ms.map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}${m===hoy?' (este mes)':''}</option>`).join('')})()}</select></label>
-    ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">📷 ${faltan===1?'Tomar la que falta':'Tomar las '+faltan+' que faltan'}</button>`:''}
+    ${faltan?`<button class="btn primary" id="lect-secuencia" style="margin-bottom:12px">${ico('camara')} ${faltan===1?'Tomar la que falta':'Tomar las '+faltan+' que faltan'}</button>`:''}
     <div class="scroll"><table><thead><tr><th>Depto</th><th>Luz</th><th>Agua</th></tr></thead><tbody>
       ${ordenados.map(d=>`<tr><td>${esc(nombreDepto(d))}</td><td>${celdaLuz(d)}</td><td>${celdaAgua(d)}</td></tr>`).join('')}
-      <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">✓ ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
+      <tr><td><strong>Medidor general de agua</strong></td><td></td><td>${gen?`<span class="chip sm ok">${ico('check')} ${fmtN(gen.lecturaActual,3)}</span>`:'<button class="btn sm" data-leer="general|agua">General</button>'}</td></tr>
     </tbody></table></div></div>`;
 }
 function conectarPanelLecturas(){
@@ -1055,19 +1067,19 @@ function abrirDepto(id){
     const plegar=f=>f.slice(0,3).join('')+(f.length>3?`<details class="mas-meses"><summary class="small muted">Ver ${f.length-3} mes${f.length-3>1?'es':''} anteriores</summary>${f.slice(3).join('')}</details>`:'');
     const cuenta=(()=>{if(!mesesCobro().length)return'';const ps=cobrosPendientesTodos().filter(p=>p.d.id===id),debe=r2(sum(ps,p=>p.falta)),late=ps.some(p=>p.estado.cls==='late'),fav=creditoEntrante(id,siguienteMes(mesesCobro().slice(-1)[0]));
       const pagos=cobros.filter(c=>c.deptoId===id&&c.montoCobrado!=null&&Number(c.montoCobrado)>0).sort((a,b)=>b.mes.localeCompare(a.mes)).slice(0,3);
-      return `<div class="cuenta"><div class="row" style="justify-content:space-between"><div>${debe>0?`<span class="chip ${late?'late':'pend'}">Debe ${fmtS(debe)}</span> <span class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</span>`:fav>0?`<span class="chip ok">A favor ${fmtS(fav)}</span>`:'<span class="chip ok">Al día</span>'}</div>${debe>0?'<button class="btn sm primary" id="btn-pago-ficha">💵 Registrar pago</button>':''}</div>
+      return `<div class="cuenta"><div class="row" style="justify-content:space-between"><div>${debe>0?`<span class="chip ${late?'late':'pend'}">Debe ${fmtS(debe)}</span> <span class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</span>`:fav>0?`<span class="chip ok">A favor ${fmtS(fav)}</span>`:'<span class="chip ok">Al día</span>'}</div>${debe>0?'<button class="btn sm primary" id="btn-pago-ficha">'+ico('pago')+' Registrar pago</button>':''}</div>
         <div class="small muted" style="margin-top:6px">${pagos.length?'Últimos pagos: '+pagos.map(c=>mesCorto(c.mes)+' '+fmtS(Number(c.montoCobrado))+(c.fechaCobro?' ('+fechaCorta(c.fechaCobro)+')':'')).join(' · '):'Sin pagos registrados.'}</div></div>`})();
     dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       ${cuenta}
-      <details class="mas-opciones datos-depto" ${abrirDepto.datos||!d.encargado?'open':''}><summary><strong>⚙ Datos del depto</strong> <span class="muted small">encargado, celular, unidad, acceso, luz y agua</span></summary>
+      <details class="mas-opciones datos-depto" ${abrirDepto.datos||!d.encargado?'open':''}><summary><strong>${ico('ajustes')} Datos del depto</strong> <span class="muted small">encargado, celular, unidad, acceso, luz y agua</span></summary>
         <div style="margin-top:12px">
         <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
         <label class="f">Celular (WhatsApp)<input id="edit-telefono" type="tel" inputmode="tel" value="${esc(d.telefono||'')}" placeholder="987654321"></label></div>
         <div class="row" style="margin-bottom:14px">
           ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
           <button class="btn" id="btn-ver-cobros">Ver cobros</button>
-          <button class="btn" id="btn-acceso-inq">🔑 Acceso del inquilino</button>
+          <button class="btn" id="btn-acceso-inq">${ico('llave')} Acceso del inquilino</button>
         </div>
         <div class="row" style="margin-bottom:14px">
           <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
@@ -1075,14 +1087,14 @@ function abrirDepto(id){
           <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Agua con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Agua sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>
         </div></div></details>
       <div class="row" style="margin-bottom:16px">
-        ${d.estado!=='desocupado'?'<button class="btn primary" id="add-lectura-top">📷 Lectura de luz</button>':''}
-        ${ta==='medidor'?'<button class="btn primary" id="add-lectura-agua-top">📷 Lectura de agua</button>':''}
+        ${d.estado!=='desocupado'?'<button class="btn" id="add-lectura-top">'+ico('camara')+' Lectura de luz</button>':''}
+        ${ta==='medidor'?'<button class="btn" id="add-lectura-agua-top">'+ico('camara')+' Lectura de agua</button>':''}
       </div>
 
       <h3>Luz${d.estado==='desocupado'?' <span class="chip sm off">Sin luz</span>':''}</h3>
       ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
       ${ls.length?plegar(ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
-          <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">📷 ver foto</a>`:l.origen==='foto'?'📷':''}</div></div>
+          <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">${ico('camara')} ver foto</a>`:l.origen==='foto'?ico('camara'):''}</div></div>
           <div class="small">${v?fmtS(v.cargoElectricidad)+' de luz':'—'}</div>
           <div class="small">${l.montoCobrado!=null?'<span class="muted">cobro anterior '+fmtS(l.montoCobrado)+'</span>':''}</div>
           <div><button class="iconbtn" data-editl="${l.id}">Editar</button> <button class="iconbtn" data-dell="${l.id}" style="color:var(--red)">Eliminar</button></div>
@@ -1091,7 +1103,7 @@ function abrirDepto(id){
       <h3 style="margin-top:18px">Agua${ta!=='medidor'?' <span class="chip sm off">'+(ta==='no'?'sin servicio':'sin medidor')+'</span>':''}</h3>
       ${ta==='sin_medidor'?`<p class="muted small">Se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
       ${ta!=='no'?plegar(aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
-          <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
+          <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">${ico('camara')} ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
           <div class="small">${p?fmtN(p.m3,2)+' m³ asignados':'—'}</div>
           <div class="small">${p?fmtS(p.agua)+' de agua'+(p.atraso?' + '+fmtS(p.atraso)+' atraso':''):''}</div>
           <div>${l?`<button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button>`:''}</div>
@@ -1248,13 +1260,13 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
     const partes=['<strong>'+fmtN(k,AG?3:0)+' '+unidad+'</strong> este periodo'];
     if(cp!=null){const v=cp?Math.round((k-cp)/cp*100):null;partes.push('mes anterior '+fmtN(cp,dd)+(v!=null&&isFinite(v)?' ('+(v>0?'+':'')+v+'%)':''))}
     if(norm)partes.push('normal ~'+fmtN(norm,dd));
-    return '<span style="color:'+(raro?'var(--red)':'inherit')+'">'+(raro?'⚠ ':'')+partes.join(' · ')+(k<0?' — la actual es menor que la anterior':raro?' — revisa el número':'')+'</span>';
+    return '<span style="color:'+(raro?'var(--red)':'inherit')+'">'+(raro?ico('alerta')+' ':'')+partes.join(' · ')+(k<0?' — la actual es menor que la anterior':raro?' — revisa el número':'')+'</span>';
   };
   const pintar=()=>{
     const directo=data.origen==='directo';
     const kwh=directo?data.kwhDirecto:((data.lecturaActual!=null&&data.lecturaAnterior!=null)?data.lecturaActual-data.lecturaAnterior:null);
     const sospechosa=!directo&&kwh!=null&&kwh<0;
-    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${AG?'💧 ':'💡 '}${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    dlg.innerHTML=`<div class="dlg-h"><h2>${opts.progreso?`<span class="chip sm" style="vertical-align:middle">${opts.progreso}</span> `:''}${AG?ico('agua','ic-agua'):ico('luz','ic-luz')} ${existente?'Editar lectura':'Lectura'} de ${AG?'agua':'luz'} — ${nombre}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       <label class="f" style="margin-bottom:12px">Mes<input type="month" id="f-mes" value="${data.mes||''}"></label>
       <div class="seg" style="margin-bottom:14px">
@@ -1269,7 +1281,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       `:`
       <div id="foto-zona" ${data.origen==='foto'?'':'hidden'} style="margin-bottom:14px">
         <div class="row">
-          <button type="button" class="btn primary" id="f-camara">📷 Tomar foto</button>
+          <button type="button" class="btn primary" id="f-camara">${ico('camara')} Tomar foto</button>
           <button type="button" class="btn" id="f-galeria">Elegir de la galería</button>
         </div>
         <input type="file" id="f-foto-cam" accept="image\/*" capture="environment" hidden>
@@ -1286,7 +1298,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       `}
       <p class="muted small" style="margin-top:14px">${AG?'Los m³ del medidor de agua tienen 3 decimales (litros). ':''}El cobro del mes se registra en la pestaña Cobros.</p>
     </div>
-    <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${AG?'💧 ':'💡 '}${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
+    <div class="dlg-f">${opts.siguiente?'<button class="btn" data-close style="margin-right:auto">Terminar</button><button class="btn" id="f-saltar">Saltar</button>':'<button class="btn" data-close>Cancelar</button>'}<button class="btn primary" id="f-save">${ico('check')} ${opts.siguiente?'Guardar y seguir':'Guardar lectura'}</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelector('#f-mes').onchange=e=>{data.mes=e.target.value;
       if(!existente&&!data.antManual&&data.mes){const prev=ls.filter(l=>l.mes<data.mes&&l.lecturaActual!=null).pop();data.lecturaAnterior=prev?prev.lecturaActual:null;pintar()}};
@@ -1338,7 +1350,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
       if(consumoNuevo!=null&&deptoId!=='general'){
         const normal=consumoNormal(deptoId,data.mes,AG?'agua':'luz');
         if(consumoNuevo<0&&!(await confirmar('La lectura actual es menor que la anterior (consumo '+fmtN(consumoNuevo,AG?3:0)+' '+unidad+'). ¿Guardar igual?','Guardar igual')))return;
-        if(normal&&consumoNuevo>=0&&(consumoNuevo>normal*2||consumoNuevo<normal/3))avisoRaro=' · ⚠ revisa: lo normal es ~'+fmtN(normal,AG?1:0)+' '+unidad;
+        if(normal&&consumoNuevo>=0&&(consumoNuevo>normal*2||consumoNuevo<normal/3))avisoRaro=' · revisa: lo normal es ~'+fmtN(normal,AG?1:0)+' '+unidad;
       }
       const btn=dlg.querySelector('#f-save');btn.disabled=true;btn.textContent='Guardando…';
       try{
@@ -1373,7 +1385,7 @@ async function abrirLecturaForm(deptoId,existente=null,servicio='luz',opts={}){
             }
           }
         }
-        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:'')+avisoRaro,(()=>{if(opts.siguiente)return{};const q=pendientesLectura(data.mes).filter(p=>!(p.dep===deptoId&&p.serv===(AG?'agua':'luz')));return q.length?{accion:['▶ Siguiente: '+q[0].txt,()=>iniciarSecuenciaLecturas(data.mes)]}:{}})());renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
+        dlg.close();toast('Lectura de '+(AG?'agua':'luz')+' guardada: '+nombre+' · '+mesLargo(data.mes)+(consumoNuevo!=null?' · '+fmtN(consumoNuevo,AG?2:0)+' '+unidad:'')+avisoRaro,(()=>{if(opts.siguiente)return{};const q=pendientesLectura(data.mes).filter(p=>!(p.dep===deptoId&&p.serv===(AG?'agua':'luz')));return q.length?{accion:['Siguiente: '+q[0].txt,()=>iniciarSecuenciaLecturas(data.mes)]}:{}})());renderDeptos();if(tabActual==='agua')renderAgua();if(opts.siguiente)setTimeout(opts.siguiente,120);
       }catch(e){btn.disabled=false;btn.textContent='Guardar lectura';toast('No se pudo guardar: '+mensajeError(e))}
     };
   };
@@ -1573,7 +1585,7 @@ async function abrirPagoDepto(dep){
   const base=planPago(dep,0),debe=r2(sum(base.ps,p=>p.falta));
   if(!base.ps.length){toast(tituloDepto(d)+' no tiene meses pendientes con datos completos.',{sinDeshacer:true});return}
   const data={monto:null,fecha:hoyLocal()};
-  dlg.innerHTML=`<div class="dlg-h"><h2>💵 Registrar pago — ${esc(nombreDepto(d))}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
+  dlg.innerHTML=`<div class="dlg-h"><h2>Registrar pago — ${esc(nombreDepto(d))}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <div class="banner info" style="margin-bottom:12px">Debe <strong>${fmtS(debe)}</strong> en ${base.ps.length} mes${base.ps.length>1?'es':''}: ${base.ps.map(p=>mesCorto(p.mes)+' '+fmtS(p.falta)).join(' · ')}</div>
     ${base.incompletos.length?`<p class="small muted">No incluye ${base.incompletos.map(p=>mesLargo(p.mes)).join(', ')} (faltan datos de ese mes).</p>`:''}
@@ -1641,7 +1653,7 @@ async function pagoRapidoAhora(dep,mes){
   const hist=(c0&&Array.isArray(c0.historialCobro)?c0.historialCobro:[]).concat([{cuando:new Date().toISOString(),anterior:{monto:c0?c0.montoCobrado??null:null,fecha:c0?c0.fechaCobro??null:null},nuevo:{monto,fecha:hoy}}]);
   try{
     await guardarCobro(dep+'_'+mes,{deptoId:dep,mes,montoCobrado:monto,fechaCobro:hoy,nota:(c0&&c0.nota)||'',historialCobro:hist,pagoTarde:hoy>fechaLimitePago(mes),tipoPago:'completo'},null,{esperado:c0?c0.actualizado:''});
-    toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado',{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]});
+    toast(tituloDepto(x.d)+': '+fmtS(monto)+' cobrado',{accion:['Enviar comprobante',()=>enviarComprobante(dep,mes)]});
   }catch(e){toast('No se pudo guardar: '+mensajeError(e))}
 }
 
@@ -1660,14 +1672,14 @@ function renderCobros(){
   const pend=cobrosPendientesTodos();
   const enviados=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
   const acciones=(x,m)=>`<div class="row" style="gap:6px;flex-wrap:nowrap">
-    ${x.estado.cls!=='ok'&&!x.faltan.length?`<button class="btn sm primary" data-pago-rapido="${x.d.id}|${m}" title="Registrar el pago completo con fecha de hoy">✓ Pagó</button>`:''}
+    ${x.estado.cls!=='ok'&&!x.faltan.length?`<button class="btn sm primary" data-pago-rapido="${x.d.id}|${m}" title="Registrar el pago completo con fecha de hoy">${ico('check')} Pagó</button>`:''}
     <button class="btn sm" data-cobrar-mes="${x.d.id}|${m}">${x.cobrado!=null?'Editar':'Detalle'}</button>
-    <button class="btn sm" data-wa="${x.d.id}|${m}" title="Enviar el cobro por WhatsApp" aria-label="Enviar por WhatsApp">📲</button></div>`;
+    <button class="btn sm" data-wa="${x.d.id}|${m}" title="Enviar el cobro por WhatsApp" aria-label="Enviar por WhatsApp">${ico('enviar')}</button></div>`;
   el.innerHTML=`<div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Cobro del mes</h2>
       <select id="sel-mes-cobro" aria-label="Mes">${meses.slice().reverse().map(m=>`<option value="${m}" ${m===mes?'selected':''}>${mesLargo(m)}</option>`).join('')}</select></div>
     <div class="avance"><div class="row" style="justify-content:space-between"><span><strong>${fmtS(cobrado)}</strong> <span class="muted">de ${fmtS(esperado)} cobrados</span></span><span class="small muted">${nOk} de ${filas.length} deptos</span></div><div class="barra"><i style="width:${esperado?Math.min(100,Math.round(cobrado/esperado*100)):0}%"></i></div><div class="small muted">Límite de pago: ${fechaCorta(fechaLimitePago(mes))}</div></div>
-    <div class="row" style="margin:12px 0"><button class="btn" id="btn-enviar-todos">📲 Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
+    <div class="row" style="margin:12px 0"><button class="btn" id="btn-enviar-todos">${ico('enviar')} Enviar cobros por WhatsApp</button><span class="small muted">${enviados?`Enviados: ${enviados} de ${filas.length}`:''}</span></div>
     ${mes!==mesActual?`<div class="banner info" style="margin-bottom:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span>Estás viendo <strong>${mesLargo(mes)}</strong>, no el mes actual.</span><button class="btn sm" id="cobro-mes-actual">Ir a ${mesLargo(mesActual)}</button></div>`:''}
     ${faltanDatos.length?`<div class="banner warn" style="margin-bottom:12px">Falta ${faltanDatos.join(' y ')} de ${mesLargo(mes)}: esos montos aparecen con «—» y el total todavía no está completo.</div>`:''}
     ${mesCerrado(mes)?(()=>{const rl0=recibos.find(x=>x.id===mes),ra0=aguaRecibos.find(x=>x.id===mes);return `<div class="banner info" style="margin-bottom:12px">Mes cerrado (antes de ${mesLargo(MES_INICIO_CALCULO)}): se muestra lo que pagó cada depto, sin recalcular y sin administración. Suman ${fmtS(sum(filas,x=>x.cobrado))}${rl0&&ra0?' = luz '+fmtS(rl0.totalMes)+' + agua '+fmtS(ra0.total):''}.</div>`})():''}
@@ -1691,30 +1703,30 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
         <td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td>
         <td><strong>${fmtS(x.neto)}</strong>${x.aFavor?`<div class="small muted">${fmtS(x.total)} − ${fmtS(x.aFavor)} a favor</div>`:''}${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td>
         <td>${x.cobrado!=null?fmtS(x.cobrado)+(x.diferencia&&Math.abs(x.diferencia)>=0.5?`<div class="small ${x.diferencia>0?'diff-pos':'diff-neg'}">${x.diferencia>0?'+':''}${fmtS(x.diferencia)}</div>`:'')+(x.estado.txt.startsWith('Pago parcial')?`<div class="small diff-neg">falta ${fmtS(x.falta)}</div>`:''):x.legado!=null?fmtS(x.legado)+'<div class="small muted">solo luz</div>':'—'}</td>
-        <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${enviadoCobro(x.d.id,mes)?'<div class="small muted">📲 enviado</div>':''}</td>
+        <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${enviadoCobro(x.d.id,mes)?'<div class="small muted">'+ico('check')+' enviado</div>':''}</td>
         <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>x.partes.admLuz))}</td><td>${fmtS(sum(filas,x=>x.partes.admAgua))}</td><td>${fmtS(sum(filas,x=>x.partes.mant))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
-    <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";if(ok)return `<div class="cobro-card pagado"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap"><div><strong>${tituloDepto(x.d)}</strong> <span class="chip sm ok">${x.estado.txt}</span><div class="small muted">${fmtS(x.cobrado??x.neto)}${x.cobro&&x.cobro.fechaCobro?" · "+fechaCorta(x.cobro.fechaCobro):""}${enviadoCobro(x.d.id,mes)?" · 📲 enviado":""}</div></div><button class="btn sm" data-cobrar-mes="${x.d.id}|${mes}">Editar</button></div></div>`;return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
+    <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";if(ok)return `<div class="cobro-card pagado"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap"><div><strong>${tituloDepto(x.d)}</strong> <span class="chip sm ok">${x.estado.txt}</span><div class="small muted">${fmtS(x.cobrado??x.neto)}${x.cobro&&x.cobro.fechaCobro?" · "+fechaCorta(x.cobro.fechaCobro):""}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div></div><button class="btn sm" data-cobrar-mes="${x.d.id}|${mes}">Editar</button></div></div>`;return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
       <div class="row" style="justify-content:space-between;gap:8px"><div><strong>${tituloDepto(x.d)}</strong> <span class="muted small">${esc(x.d.encargado||"")}</span></div><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
       <div class="cc-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)} <span class="small muted">${ok?"cobrado":"por cobrar"}${x.faltan.length?" · incompleto":""}</span></div>
-      <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · 📲 enviado":""}</div>
+      <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div>
       ${acciones(x,mes)}</div>`}).join("")}</div>
-    <p class="muted small" style="margin:10px 0 0">«✓ Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
+    <p class="muted small" style="margin:10px 0 0">«Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
-  <div class="panel" id="panel-pendientes"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">📲 Recordar a todos</button>`:''}</div>
+  <div class="panel" id="panel-pendientes"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Pendientes de todos los meses</h2>${pend.length?`<button class="btn sm" id="btn-recordar-todos">${ico('enviar')} Recordar a todos</button>`:''}</div>
     ${pend.length?`<p class="muted small" style="margin:8px 0 10px">Falta cobrar en total: <strong>${fmtS(sum(pend,p=>p.falta))}</strong>${pend.some(p=>p.faltan.length)?' (algunos meses aún incompletos)':''}.</p>
     <div class="stack" style="gap:0">${[...new Set(pend.map(p=>p.d.id))].map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d,late=ps.some(p=>p.estado.cls==='late');return `<details data-dep="${id}" class="pend-depto ${late?'atrasado':''}"><summary>
       <div><strong>${tituloDepto(d)}</strong>${d.encargado?' · '+esc(d.encargado):''}<div class="muted small">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</div></div>
       <div class="pend-total">${fmtS(sum(ps,p=>p.falta))}${late?'<div class="small">vencido</div>':''}</div>
-      <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" data-pago-depto="${id}">💵 Pago</button><button class="btn sm" data-recordar="${id}">📲 Recordar</button></div></summary>
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn sm primary" data-pago-depto="${id}">${ico('pago')} Pago</button><button class="btn sm" data-recordar="${id}">${ico('enviar')} Recordar</button></div></summary>
       <div class="stack" style="gap:0;margin-top:6px">${ps.slice().reverse().map(p=>`<div class="pago-row ${p.estado.cls==='late'?'atrasado':''}">
         <div>${mesLargo(p.mes)}<div class="muted small">Límite: ${fechaCorta(fechaLimitePago(p.mes))}</div></div>
         <div class="small">${fmtS(p.falta)}${p.legado!=null?'<div class="muted small">ya pagó '+fmtS(p.legado)+' de luz</div>':''}</div>
         <div class="small"><span class="chip sm ${p.estado.cls}">${p.estado.txt}</span></div>
         ${acciones(p,p.mes)}</div>`).join('')}</div></details>`}).join('')}</div>`:'<p class="muted small" style="margin:8px 0 0">No hay cobros pendientes.</p>'}
   </div>
-  <details class="panel mas-opciones"><summary><strong>⚙ Más opciones</strong> <span class="muted small">valores por defecto, WhatsApp de la administración, descargar CSV</span></summary>
+  <details class="panel mas-opciones"><summary><strong>${ico('ajustes')} Más opciones</strong> <span class="muted small">valores por defecto, WhatsApp de la administración, descargar CSV</span></summary>
     <h2 style="margin:14px 0 6px">Valores por defecto</h2><p class="muted small" style="margin:0 0 10px">Se usan en los meses nuevos. Al cambiarlos, los meses ya registrados conservan su valor; cada mes se ajusta con «Cambiar para …» arriba.</p>
     <div class="list">
       <div class="row" style="justify-content:space-between"><span>Administración de luz (por depto con luz)</span><span><strong>${fmtS(config.mantenimiento??5)}</strong> <button class="iconbtn" data-cfg="mantenimiento">Cambiar</button></span></div>
@@ -1723,7 +1735,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       <div class="row" style="justify-content:space-between"><span>Mantenimiento (por depto)</span><span><strong>${fmtS(config.mantExtra??0)}</strong> <button class="iconbtn" data-cfg="mantExtra">Cambiar</button></span></div>
       ${deptosSinMedidor().length?`<div class="row" style="justify-content:space-between"><span>Agua sin medidor: base (m³ al mes)</span><span><strong>${fmtN(config.baseSinMedidor??7,1)}</strong> <button class="iconbtn" data-cfg="baseSinMedidor">Cambiar</button></span></div>`:''}
     </div>
-    <div class="row" style="margin-top:14px"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">⬇ Descargar cobros (CSV)</button></div></details>`;
+    <div class="row" style="margin-top:14px"><button class="btn" id="btn-csv-cobros" title="Descargar todos los cobros en una planilla">${ico('descargar')} Descargar cobros (CSV)</button></div></details>`;
   const cma=$('#cobro-mes-actual');if(cma)cma.onclick=()=>{renderCobros.mes=null;try{sessionStorage.removeItem('recibos_mes_cobro')}catch(er){}renderCobros()};
   $('#sel-mes-cobro').onchange=e=>{renderCobros.mes=e.target.value;try{sessionStorage.setItem('recibos_mes_cobro',e.target.value)}catch(er){}renderCobros()};
   $('#btn-cargos-mes').onclick=()=>abrirCargosMes(mes);
@@ -1812,13 +1824,13 @@ async function abrirCobroMes(dep,mes){
     <label class="f" style="margin-top:12px">Fecha de cobro<input type="date" id="cm-fecha" value="${data.fecha}"></label>
     <div style="margin-top:12px">
       <div class="small muted" style="margin-bottom:6px">¿Pagó a tiempo? Fecha límite: <strong>${fechaCorta(lim)}</strong></div>
-      <div class="seg" role="group" aria-label="¿Pagó a tiempo?"><button type="button" data-tarde="no">✓ A tiempo</button><button type="button" data-tarde="si">⏰ Fuera de fecha</button></div>
+      <div class="seg" role="group" aria-label="¿Pagó a tiempo?"><button type="button" data-tarde="no">${ico('check')} A tiempo</button><button type="button" data-tarde="si">⏰ Fuera de fecha</button></div>
       <p class="small" id="cm-tarde-info" style="margin:6px 0 0"></p>
     </div>
     <label class="f" style="margin-top:10px">Nota (opcional)<input type="text" id="cm-nota" value="${esc(data.nota)}"></label>
     ${hist.length?`<details class="small" style="margin-top:12px"><summary class="muted">Historial de cambios (${hist.length})</summary><ul class="hist-cobro">${hist.slice().reverse().map(lineaHistorial).join('')}</ul></details>`:'<p class="muted small" style="margin-top:12px">Cada cambio queda en el historial.</p>'}
   </div>
-  <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>📲 WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
+  <div class="dlg-f">${c0&&c0.montoCobrado!=null?'<button class="btn danger" id="cm-quitar" style="margin-right:auto">Quitar cobro</button>':''}<button class="btn" data-wa-dlg>${ico('enviar')} WhatsApp</button><button class="btn" data-close>Cancelar</button><button class="btn primary" id="cm-save">Guardar</button></div>`;
   dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
   dlg.querySelector('[data-wa-dlg]').onclick=()=>enviarCobroWhatsApp(dep,mes);
   const cv=dlg.querySelector('#cm-varios');if(cv)cv.onclick=()=>abrirPagoDepto(dep);
@@ -1855,7 +1867,7 @@ async function abrirCobroMes(dep,mes){
     if(fecha&&fecha>hoyLocal(1)&&!(await confirmar('La fecha de cobro ('+fechaCorta(fecha)+') es futura. ¿Guardar igual?','Guardar igual')))return;
     data.monto=monto;
     const btn=dlg.querySelector('#cm-save');btn.disabled=true;btn.textContent='Guardando…';
-    try{await guardarCon(monto,fecha,nota);dlg.close();const dif=Math.round((monto-x.neto)*100)/100,t=tipoEfectivo();toast('Cobro registrado: '+tituloDepto(x.d)+' · '+mesLargo(mes)+' · '+fmtS(monto)+(t==='parcial'&&dif<0?' · falta '+fmtS(-dif):t==='demas'&&dif>0?' · '+fmtS(dif)+' a favor':' · al día'),{accion:['📲 Comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
+    try{await guardarCon(monto,fecha,nota);dlg.close();const dif=Math.round((monto-x.neto)*100)/100,t=tipoEfectivo();toast('Cobro registrado: '+tituloDepto(x.d)+' · '+mesLargo(mes)+' · '+fmtS(monto)+(t==='parcial'&&dif<0?' · falta '+fmtS(-dif):t==='demas'&&dif>0?' · '+fmtS(dif)+' a favor':' · al día'),{accion:['Enviar comprobante',()=>enviarComprobante(dep,mes)]})}catch(e){btn.disabled=false;btn.textContent='Guardar';toast('No se pudo guardar: '+mensajeError(e))}
   };
   dlg.showModal();
 }
@@ -1867,7 +1879,7 @@ function renderAgua(){
   const gen=lecturasAguaDe('general');const ug=gen[gen.length-1];
   const sm=deptosSinMedidor();
   const lista=aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id));
-  el.innerHTML=`<div class="seg rec-switch" role="tablist" aria-label="Servicio"><button type="button" data-ir-rec="recibos">💡 Luz</button><button type="button" data-ir-rec="agua" class="on">💧 Agua</button></div><div class="panel">
+  el.innerHTML=`<div class="seg rec-switch" role="tablist" aria-label="Servicio"><button type="button" data-ir-rec="recibos">${ico('luz','ic-luz')}Luz</button><button type="button" data-ir-rec="agua" class="on">${ico('agua','ic-agua')}Agua</button></div><div class="panel">
     <div class="row" style="justify-content:space-between"><h2 style="margin:0">Agua · Sedapal</h2>
       <div class="row"><button class="btn primary" id="btn-subir-agua">Subir recibo PDF</button><span class="sec-acc">o <button class="iconbtn" id="btn-manual-agua">agregar a mano</button> · <button class="iconbtn" id="btn-vincular-agua">buscar PDF en Drive</button></span></div></div>
     <input type="file" id="file-agua" accept="application/pdf,.pdf" multiple hidden>
@@ -1885,7 +1897,7 @@ function renderAgua(){
     const info=!a||a.incompleto?`<span class="chip sm miss">Faltan lecturas${a&&a.faltan&&a.faltan.length?': '+a.faltan.map(d=>tituloDepto(d)).join(', '):''}</span>`
       :`<span class="small">Sin medir ${fmtN(a.R,1)} m³ (${fmtN(a.pct*100,0)} %)</span> ${a.fueraDeLoNormal?`<span class="chip sm late">Fuera de lo normal</span>`:''}`;
     return `<button class="rec" data-veragua="${r.id}">
-      <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.total)}</strong> · ${fmtN(r.m3)} m³${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · 📄 PDF':''}</div></div>
+      <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.total)}</strong> · ${fmtN(r.m3)} m³${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · '+ico('archivo')+' PDF':''}</div></div>
       <div class="hide-s"><div class="n">${fmtN(r.m3)} m³<span class="muted small" title="Variación frente al mes anterior" style="font-weight:400">${variacion(r.m3,(aguaRecibos.find(x=>x.id===mesAnterior(r.id))||{}).m3)}</span></div><div class="muted small">${info}</div></div>
       <div class="hide-s"><div class="n">${fmtS(r.total)}</div><div class="muted small">${atrasoDe(r)?'incluye '+fmtS(atrasoDe(r))+' por atraso':'sin cargos por atraso'}</div></div>
       <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div></button>`}).join('')
@@ -1908,7 +1920,7 @@ function abrirDetalleAgua(mes){
     dlg.innerHTML=`<div class="dlg-h"><h2>Agua · ${mesLargo(mes)} <span class="chip ${r.pagado?'ok':'pend'}" style="vertical-align:middle">${r.pagado?'Pagado':'Pendiente'}</span></h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')} · periodo ${fechaCorta(r.periodoInicio)} al ${fechaCorta(r.periodoFin)} · vence ${fechaCorta(r.vencimiento)}.</p>
-      ${(s=>s?'<div class="banner warn">⚠ '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('agua',mes))}
+      ${(s=>s?'<div class="banner warn">'+ico('alerta')+' '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('agua',mes))}
       ${r.pdfId?`<button class="pdf-mini" data-verpdfagua="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
       <h3>Recibo</h3>
       <p style="margin-top:0">Medidor general: ${fmtN(r.lecturaAnterior)} → ${fmtN(r.lecturaActual)} = <strong>${fmtN(r.m3)} m³</strong></p>
@@ -2054,9 +2066,9 @@ async function buscarPdfsDrive(tipos=['luz','agua']){
       const r=await db._post({action:'vincularPdfs',tipo});
       const meses=a=>a.map(m=>esc(/^\d{4}-\d{2}$/.test(m)?mesLargo(m):m)).join(', ');
       const p=[];
-      if(r.vinculados.length)p.push('✅ vinculados: '+meses(r.vinculados));
-      if(r.sinRecibo.length)p.push('⚠️ sin recibo en la app: '+r.sinRecibo.map(esc).join(', '));
-      if(r.noReconocidos.length)p.push('⚠️ sin mes reconocible: '+r.noReconocidos.map(esc).join(', ')+' (renómbralos como «2026-03.pdf»)');
+      if(r.vinculados.length)p.push('Vinculados: '+meses(r.vinculados));
+      if(r.sinRecibo.length)p.push('Sin recibo en la app: '+r.sinRecibo.map(esc).join(', '));
+      if(r.noReconocidos.length)p.push('Sin mes reconocible: '+r.noReconocidos.map(esc).join(', ')+' (renómbralos como «2026-03.pdf»)');
       if(!p.length)p.push(r.yaEstaban.length?'todo al día ('+r.yaEstaban.length+' ya vinculados)':'no hay PDF en la carpeta');
       l.push('<strong>'+nombres[tipo]+'</strong> ('+(tipo==='luz'?'Recibos PDF':'Recibos agua PDF')+'): '+p.join('; ')+'.');
     }catch(e){l.push('<strong>'+nombres[tipo]+'</strong>: no se pudo revisar ('+esc(mensajeError(e))+').')}
@@ -2072,8 +2084,8 @@ function panelRecibosDelMes(r,prev){
   const st=estado(r),dV=diasHasta(r.vencimiento),a=ua?calcAgua(ua.id):null;
   const fila=(attr,ico,t,monto,det,chip)=>`<button class="rm-fila" ${attr}><span class="rm-ico" aria-hidden="true">${ico}</span><span class="rm-txt"><strong>${t}</strong><span class="small muted">${det}</span></span><span class="rm-der"><strong>${monto}</strong>${chip}</span></button>`;
   return `<div class="panel"><h2 style="margin:0 0 6px">Recibos del mes</h2>
-    ${fila(`data-ver="${r.id}"`,'💡','Luz · '+mesLargo(r.id),fmtS(r.totalMes),fmtN(r.kwh)+' kWh'+variacion(r.kwh,prev&&prev.kwh)+(subidaTarifa('luz',r.id)?' · ⚠ tarifa +'+fmtN(subidaTarifa('luz',r.id).pct*100,0)+'%':'')+(r.pagado?'':' · vence '+fechaCorta(r.vencimiento)+(dV!=null?' ('+enDias(dV)+')':'')),`<span class="chip sm ${st.cls}">${st.txt}</span>`)}
-    ${ua?fila(`data-veragua="${ua.id}"`,'💧','Agua · '+mesLargo(ua.id),fmtS(ua.total),fmtN(ua.m3)+' m³'+variacion(ua.m3,pa&&pa.m3)+(subidaTarifa('agua',ua.id)?' · ⚠ tarifa +'+fmtN(subidaTarifa('agua',ua.id).pct*100,0)+'%':'')+(a&&!a.incompleto?' · sin medir '+fmtN(a.R,1)+' m³':'')+(ua.pagado?'':' · vence '+fechaCorta(ua.vencimiento)),`${a&&a.fueraDeLoNormal?'<span class="chip sm late">fuera de lo normal</span>':''}<span class="chip sm ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span>`):''}
+    ${fila(`data-ver="${r.id}"`,ico('luz','ic-luz'),'Luz · '+mesLargo(r.id),fmtS(r.totalMes),fmtN(r.kwh)+' kWh'+variacion(r.kwh,prev&&prev.kwh)+(subidaTarifa('luz',r.id)?' · '+ico('alerta')+' tarifa +'+fmtN(subidaTarifa('luz',r.id).pct*100,0)+'%':'')+(r.pagado?'':' · vence '+fechaCorta(r.vencimiento)+(dV!=null?' ('+enDias(dV)+')':'')),`<span class="chip sm ${st.cls}">${st.txt}</span>`)}
+    ${ua?fila(`data-veragua="${ua.id}"`,ico('agua','ic-agua'),'Agua · '+mesLargo(ua.id),fmtS(ua.total),fmtN(ua.m3)+' m³'+variacion(ua.m3,pa&&pa.m3)+(subidaTarifa('agua',ua.id)?' · '+ico('alerta')+' tarifa +'+fmtN(subidaTarifa('agua',ua.id).pct*100,0)+'%':'')+(a&&!a.incompleto?' · sin medir '+fmtN(a.R,1)+' m³':'')+(ua.pagado?'':' · vence '+fechaCorta(ua.vencimiento)),`${a&&a.fueraDeLoNormal?'<span class="chip sm late">fuera de lo normal</span>':''}<span class="chip sm ${ua.pagado?'ok':'pend'}">${ua.pagado?'Pagado':'Pendiente'}</span>`):''}
   </div>`;
 }
 document.addEventListener('click',e=>{const s=e.target.closest('[data-ir-rec]');if(s)irA(s.dataset.irRec)});
@@ -2150,8 +2162,8 @@ function abrirRecordatorios(){
     dlg.innerHTML=`<div class="dlg-h"><h2>Recordar pagos pendientes</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b"><p class="muted small" style="margin-top:0">Toca «Recordar» en cada uno: se abre WhatsApp con la lista de meses que debe y el total.</p>
       ${ids.length?`<div class="stack" style="gap:0">${ids.map(id=>{const ps=pend.filter(p=>p.d.id===id),d=ps[0].d;return `<div class="pago-row"><div><strong>${esc(nombreDepto(d))}</strong><div class="muted small">${d.telefono?esc(d.telefono):'sin celular'} · ${ps.length} mes${ps.length>1?'es':''}</div></div>
-        <div class="small"><strong>${fmtS(sum(ps,p=>p.falta))}</strong></div><div class="small">${enviados[id]?'<span class="chip sm ok">✓ Enviado</span>':''}</div>
-        <button class="btn sm ${enviados[id]?'':'primary'}" data-rec="${id}">${enviados[id]?'Reenviar':'📲 Recordar'}</button></div>`}).join('')}</div>`:'<p>No hay pagos pendientes. 🎉</p>'}</div>
+        <div class="small"><strong>${fmtS(sum(ps,p=>p.falta))}</strong></div><div class="small">${enviados[id]?'<span class="chip sm ok">'+ico('check')+' Enviado</span>':''}</div>
+        <button class="btn sm ${enviados[id]?'':'primary'}" data-rec="${id}">${enviados[id]?'Reenviar':ico('enviar')+' Recordar'}</button></div>`}).join('')}</div>`:'<p>No hay pagos pendientes.</p>'}</div>
     <div class="dlg-f"><button class="btn primary" data-close>Listo</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelectorAll('[data-rec]').forEach(b=>b.onclick=()=>{recordarPago(b.dataset.rec);enviados[b.dataset.rec]=hoy;setTimeout(pintar,200)});
@@ -2168,8 +2180,8 @@ function abrirEnvioCobros(mes){
     <div class="dlg-b"><p class="muted small" style="margin-top:0">Toca «Enviar» en cada uno: se abre WhatsApp con el mensaje listo. Revisa y envía.</p>
       <div class="stack" style="gap:0">${filas.map(x=>`<div class="pago-row"><div><strong>${esc(nombreDepto(x.d))}</strong><div class="muted small">${x.d.telefono?esc(x.d.telefono):'sin teléfono'}</div></div>
         <div class="small">${fmtS(x.estado.cls==='ok'?x.neto:x.falta)}<div class="muted small">${x.estado.txt}</div></div>
-        <div class="small">${enviadoCobro(x.d.id,mes)?'<span class="chip sm ok">✓ Enviado</span>':''}</div>
-        <button class="btn sm ${enviadoCobro(x.d.id,mes)?'':'primary'}" data-env="${x.d.id}">${enviadoCobro(x.d.id,mes)?'Reenviar':'📲 Enviar'}</button></div>`).join('')}</div></div>
+        <div class="small">${enviadoCobro(x.d.id,mes)?'<span class="chip sm ok">'+ico('check')+' Enviado</span>':''}</div>
+        <button class="btn sm ${enviadoCobro(x.d.id,mes)?'':'primary'}" data-env="${x.d.id}">${enviadoCobro(x.d.id,mes)?'Reenviar':ico('enviar')+' Enviar'}</button></div>`).join('')}</div></div>
     <div class="dlg-f"><button class="btn primary" data-close>Listo</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
     dlg.querySelectorAll('[data-env]').forEach(b=>b.onclick=async()=>{await enviarCobroWhatsApp(b.dataset.env,mes);setTimeout(pintar,200)});
@@ -2221,7 +2233,7 @@ function fechasCiclo(mes){return{lecturas:mes+'-12',agua:mes+'-10',luz:mes+'-15'
 function tareasDelMes(){
   const mes=mesDeLecturas(),hoy=hoyLocal(),T=[],fc=fechasCiclo(mes);
   const pend=pendientesLectura(mes);
-  T.push({id:'lect',ok:!pend.length,t:'Tomar las lecturas',desde:fc.lecturas,d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?['📷 Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
+  T.push({id:'lect',ok:!pend.length,t:'Tomar las lecturas',desde:fc.lecturas,d:pend.length?(pend.length===1?'Falta 1: ':'Faltan '+pend.length+': ')+pend.slice(0,4).map(p=>p.txt).join(', ')+(pend.length>4?'…':''):'Completas',btn:pend.length?[ico('camara')+' Tomar lecturas',()=>iniciarSecuenciaLecturas(mes)]:null});
   const rl=recibos.find(r=>r.id===mes),ra=aguaRecibos.find(r=>r.id===mes);
   T.push({id:'agua',ok:!!ra,t:'Subir el recibo de agua',desde:fc.agua,d:ra?'Cargado':'Sedapal lo emite alrededor del día 10',btn:ra?null:['Subir',()=>{irA('agua');setTimeout(()=>{const f=$('#file-agua');if(f)f.click()},60)}]});
   T.push({id:'luz',ok:!!rl,t:'Subir el recibo de luz',desde:fc.luz,d:rl?'Cargado':'Luz del Sur lo emite a mediados de mes',btn:rl?null:['Subir',()=>{irA('recibos');$('#file').click()}]});
@@ -2230,7 +2242,7 @@ function tareasDelMes(){
   if(altos.length)T.push({id:'altos',ok:false,t:'Revisar consumo alto',desde:hoy,d:altos.map(a=>tituloDepto(a.d)+' '+a.serv+': '+fmtN(a.v,a.serv==='agua'?2:0)+' '+a.u+' (lo normal ~'+fmtN(a.n,a.serv==='agua'?1:0)+')').join(' · ')+'. Podría ser una fuga o un error de lectura.',btn:altos.length===1?['Revisar lectura',()=>{const a=altos[0];abrirLecturaForm(a.d.id,(a.serv==='agua'?lecturaAguaDe:lecturaDe)(a.d.id,mes),a.serv)}]:['Ver lecturas',()=>{renderDeptos.mesLect=mes;irA('deptos')}]});
   const filas=cobrosDelMes(mes),listo=rl&&ra&&filas.length&&!filas.some(x=>x.faltan.length);
   const env=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
-  T.push({id:'enviar',ok:!!(listo&&env===filas.length),dep:['lect','agua','luz'].concat(T.some(x=>x.id==='revAgua')?['revAgua']:[]),t:'Enviar los cobros',desde:fc.envio,d:listo?env+' de '+filas.length+' enviados por WhatsApp':'Mensaje del mes para cada depto',btn:['📲 Enviar',()=>abrirEnvioCobros(mes)]});
+  T.push({id:'enviar',ok:!!(listo&&env===filas.length),dep:['lect','agua','luz'].concat(T.some(x=>x.id==='revAgua')?['revAgua']:[]),t:'Enviar los cobros',desde:fc.envio,d:listo?env+' de '+filas.length+' enviados por WhatsApp':'Mensaje del mes para cada depto',btn:[ico('enviar')+' Enviar',()=>abrirEnvioCobros(mes)]});
   const nOk=filas.filter(x=>x.estado.cls==='ok').length;
   T.push({id:'cobrar',ok:!!(filas.length&&nOk===filas.length),dep:['lect','agua','luz'],t:'Cobrar el mes',limite:fc.cobro,d:listo?nOk+' de '+filas.length+' cobrados · falta '+fmtS(sum(filas,x=>x.falta)):'Límite de pago de los deptos',btn:['Ver cobros',()=>{renderCobros.mes=mes;irA('cobros')}]});
   T.push(ra?{id:'pagarAgua',ok:!!ra.pagado,limite:ra.vencimiento,t:'Pagar el recibo de agua ('+fmtS(ra.total)+')',d:ra.pagado?'Pagado':'A Sedapal',
@@ -2263,12 +2275,12 @@ function panelQueHacer(){
   const {mes,T:T0,proximas}=tareasDelMes();const T=esAyudante()?T0.filter(x=>['lect','altos','revAgua'].includes(x.id)):T0;panelQueHacer.T=T;const hechas=T.filter(x=>x.ok).length;
   return `<div class="panel que-hacer"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Qué hacer este mes</h2><span class="chip ${hechas===T.length?'ok':'pend'}">${hechas} de ${T.length}</span></div>
     <p class="muted small" style="margin:4px 0 10px">${mesLargo(mes)}</p>
-    ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':x.bloq?'bloqueada':''}"><span class="qh-ico" aria-hidden="true">${x.ok?'✓':x.urgente?'!':x.bloq?'🔒':'○'}</span>
+    ${(()=>{const li=(x,i)=>`<li class="${x.ok?'hecho':x.urgente?'urgente':x.bloq?'bloqueada':''}"><span class="qh-ico" aria-hidden="true">${x.ok?ico('check'):x.urgente?'!':x.bloq?ico('candado'):''}</span>
       <div><strong>${esc(x.t)}</strong>${x.cuando?` <span class="qh-cuando ${x.cuando.c}">${esc(x.cuando.t)}</span>`:''}<div class="small muted">${esc(x.d)}</div></div>${x.btn&&!x.ok&&!x.bloq?`<button class="btn sm ${x.urgente||i===T.findIndex(y=>!y.ok&&!y.bloq)?'primary':''}" data-qh="${i}">${x.btn[0]}</button>`:''}</li>`;
       const pend=T.map((x,i)=>[x,i]).filter(([x])=>!x.ok),ok=T.map((x,i)=>[x,i]).filter(([x])=>x.ok);
       return (pend.length?`<ul class="qh">${pend.map(([x,i])=>li(x,i)).join('')}</ul>`:'<p style="margin:0 0 6px"><strong>Todo listo este mes.</strong></p>')
         +`<p class="small muted qh-proximas">Próximo mes: ${proximas.map(([t,f])=>t.toLowerCase()+' '+fechaCorta(f)).join(' · ')}</p>`
-        +(ok.length?`<details class="qh-hechas"><summary class="small muted">✓ ${ok.length} hecha${ok.length>1?'s':''}</summary><ul class="qh">${ok.map(([x,i])=>li(x,i)).join('')}</ul></details>`:'')})()}</div>`;
+        +(ok.length?`<details class="qh-hechas"><summary class="small muted">${ico('check')} ${ok.length} hecha${ok.length>1?'s':''}</summary><ul class="qh">${ok.map(([x,i])=>li(x,i)).join('')}</ul></details>`:'')})()}</div>`;
 }
 // Estado de cada depto de un vistazo: cuánto debe (y desde cuándo), al día o con saldo a favor.
 function panelEstadoDeptos(){
@@ -2278,7 +2290,7 @@ function panelEstadoDeptos(){
     const ps=pend.filter(p=>p.d.id===d.id),debe=r2(sum(ps,p=>p.falta)),late=ps.some(p=>p.estado.cls==='late'),favor=creditoEntrante(d.id,mesSig);
     const estado=debe>0?`<span class="chip sm ${late?'late':'pend'}">debe ${fmtS(debe)}</span><div class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}${(()=>{const inc=ps.filter(p=>p.faltan.length);return inc.length?' · '+fmtS(r2(sum(inc,p=>p.falta)))+' por confirmar ('+inc.map(p=>mesCorto(p.mes)).join(', ')+')':''})()}</div>`
       :favor>0?`<span class="chip sm ok">a favor ${fmtS(favor)}</span>`:'<span class="chip sm ok">al día</span>';
-    return {d,debe,alDia:!(debe>0)&&!(favor>0),html:`<div class="ed-fila"><button class="ed-nombre" data-ed-depto="${d.id}" aria-label="Abrir ficha de ${esc(tituloDepto(d))}"><strong>${tituloDepto(d)}</strong> <span class="muted small">${esc(d.encargado||'')}</span></button><div class="ed-estado">${estado}</div>${debe>0?`<button class="btn sm" data-ed-pago="${d.id}" aria-label="Registrar pago de ${esc(tituloDepto(d))}">💵</button>`:'<span></span>'}</div>`};
+    return {d,debe,alDia:!(debe>0)&&!(favor>0),html:`<div class="ed-fila"><button class="ed-nombre" data-ed-depto="${d.id}" aria-label="Abrir ficha de ${esc(tituloDepto(d))}"><strong>${tituloDepto(d)}</strong> <span class="muted small">${esc(d.encargado||'')}</span></button><div class="ed-estado">${estado}</div>${debe>0?`<button class="btn sm" data-ed-pago="${d.id}" aria-label="Registrar pago de ${esc(tituloDepto(d))}">${ico('pago')}</button>`:'<span></span>'}</div>`};
   });
   const total=r2(sum(filas,f=>f.debe)),n=filas.filter(f=>f.debe>0).length;
   return `<div class="panel"><div class="row" style="justify-content:space-between"><h2 style="margin:0">Estado por depto</h2><span class="small muted">${n?n+' con deuda · '+fmtS(total):'todos al día'}</span></div>
@@ -2294,7 +2306,7 @@ async function abrirAccesoInquilino(d){
     <div class="dlg-b"><p style="margin-top:0">Con un código propio, el inquilino entra a la app y ve <strong>solo su cuenta</strong>: lo que debe cada mes, cómo se calculó, sus pagos y las fotos de sus medidores. No puede cambiar nada ni ver los montos de los demás.</p>
       ${cargando?'<p class="muted">Consultando…</p>':cod?`<div class="banner info" style="text-align:center"><div class="small muted">Código de acceso</div><div style="font-size:2rem;font-weight:800;letter-spacing:.2em">${esc(cod)}</div></div>`:'<p class="muted">Este depto todavía no tiene acceso.</p>'}
       <p class="muted small">Si cambias el código, el anterior deja de funcionar al instante.</p></div>
-    <div class="dlg-f">${cod?'<button class="btn danger" id="ai-quitar" style="margin-right:auto">Quitar acceso</button>':''}${cod?'<button class="btn" id="ai-nuevo">Cambiar código</button><button class="btn primary" id="ai-wa">📲 Enviar por WhatsApp</button>':'<button class="btn primary" id="ai-nuevo">Crear código</button>'}</div>`;
+    <div class="dlg-f">${cod?'<button class="btn danger" id="ai-quitar" style="margin-right:auto">Quitar acceso</button>':''}${cod?'<button class="btn" id="ai-nuevo">Cambiar código</button><button class="btn primary" id="ai-wa">'+ico('enviar')+' Enviar por WhatsApp</button>':'<button class="btn primary" id="ai-nuevo">Crear código</button>'}</div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     const op=async o=>{try{const r=await db._post({action:'codigoInquilino',depto:d.id,op:o});pintar(r.codigo)}catch(e){toast('No se pudo: '+mensajeError(e))}};
     const n=dlg.querySelector('#ai-nuevo');if(n)n.onclick=()=>op('generar');
@@ -2313,7 +2325,7 @@ async function abrirAccesoAyudante(){
     <div class="dlg-b"><p style="margin-top:0">Con este código, otra persona entra a la app, <strong>ve todo y puede registrar lecturas</strong> de luz y agua con sus fotos. <strong>No puede</strong> registrar ni borrar pagos, cambiar recibos, montos ni configuración.</p>
       ${cargando?'<p class="muted">Consultando…</p>':cod?`<div class="banner info" style="text-align:center"><div class="small muted">Código de ayudante</div><div style="font-size:2rem;font-weight:800;letter-spacing:.2em">${esc(cod)}</div></div>`:'<p class="muted">Todavía no hay acceso de ayudante.</p>'}
       <p class="muted small">Si cambias o quitas el código, el anterior deja de funcionar al instante.</p></div>
-    <div class="dlg-f">${cod?'<button class="btn danger" id="aa-quitar" style="margin-right:auto">Quitar acceso</button><button class="btn" id="aa-nuevo">Cambiar código</button><button class="btn primary" id="aa-wa">📲 Enviar por WhatsApp</button>':'<button class="btn primary" id="aa-nuevo">Crear código</button>'}</div>`;
+    <div class="dlg-f">${cod?'<button class="btn danger" id="aa-quitar" style="margin-right:auto">Quitar acceso</button><button class="btn" id="aa-nuevo">Cambiar código</button><button class="btn primary" id="aa-wa">'+ico('enviar')+' Enviar por WhatsApp</button>':'<button class="btn primary" id="aa-nuevo">Crear código</button>'}</div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     const op=async o=>{try{const r=await db._post({action:'codigoAyudante',op:o});pintar(r.codigo);toast(o==='quitar'?'Acceso de ayudante quitado':'Código de ayudante listo',{sinDeshacer:true})}catch(e){toast('No se pudo: '+mensajeError(e))}};
     const n=dlg.querySelector('#aa-nuevo');if(n)n.onclick=()=>op('generar');
@@ -2338,7 +2350,7 @@ async function abrirErrores(){
   const dlg=$('#dlg');
   const pintar=(lista,cargando)=>{
     dlg.innerHTML=`<div class="dlg-h"><h2>Errores de la app</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
-    <div class="dlg-b">${cargando?'<p class="muted">Consultando…</p>':!lista.length?'<p class="muted" style="margin-top:0">No hay errores registrados. 🎉</p>':
+    <div class="dlg-b">${cargando?'<p class="muted">Consultando…</p>':!lista.length?'<p class="muted" style="margin-top:0">No hay errores registrados.</p>':
       '<p class="muted small" style="margin-top:0">Fallos que ocurrieron en los celulares (se guardan los últimos 300). Si ves uno repetido, avísale a Claude.</p>'+lista.map(e=>`<details class="err-item"><summary><strong>${esc(e.mensaje||'')}</strong><div class="small muted">${esc(fechaCorta(String(e.fecha||'').slice(0,10)))} ${esc(String(e.fecha||'').slice(11,16))} · ${esc(e.rol||'')}${e.depto?' '+esc(e.depto):''}${e.donde?' · '+esc(e.donde):''}</div></summary><pre class="err-det">${esc((e.detalle||'')+'\n'+(e.agente||'')+'\nversión: '+(e.version||''))}</pre></details>`).join('')}</div>
     <div class="dlg-f">${lista&&lista.length?'<button class="btn danger" id="er-vaciar" style="margin-right:auto">Vaciar registro</button>':''}<button class="btn primary" data-close>Cerrar</button></div>`;
     dlg.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>dlg.close());
@@ -2375,7 +2387,7 @@ function renderInquilino(){
   const mes=renderInquilino.mes&&meses.includes(renderInquilino.mes)?renderInquilino.mes:meses[0];
   const x=detalleCobro(dep,mes),ok=x.estado.cls==='ok';
   const otros=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant+x.partes.atraso-x.aFavor);
-  const resumen=[x.partes.luz!=null?'💡 Luz '+fmtS(x.partes.luz):'',x.partes.agua!=null?'💧 Agua '+fmtS(x.partes.agua):'',otros?'Otros '+fmtS(otros):''].filter(Boolean).map(t=>'<span style="white-space:nowrap">'+t+'</span>').join(' · ');
+  const resumen=[x.partes.luz!=null?ico('luz','ic-luz')+' Luz '+fmtS(x.partes.luz):'',x.partes.agua!=null?ico('agua','ic-agua')+' Agua '+fmtS(x.partes.agua):'',otros?'Otros '+fmtS(otros):''].filter(Boolean).map(t=>'<span style="white-space:nowrap">'+t+'</span>').join(' · ');
   const deudas=meses.filter(m=>m!==mes).map(m=>detalleCobro(dep,m)).filter(y=>y.estado.cls!=='ok'&&y.falta>0);
   el.innerHTML=`<div class="panel inq-card">
     <div class="row" style="justify-content:space-between">
@@ -2387,7 +2399,7 @@ function renderInquilino(){
     ${resumen?`<p class="small" style="margin:14px 0 0">${resumen}</p>`:''}
     ${explicaCambio(dep,mes)}
     <button class="btn primary inq-btn" id="inq-detalle">Ver detalle del cobro</button>
-    ${config.telefonoAdmin?`<div class="row inq-acciones">${ok?'':'<button class="btn" id="inq-pague">✅ Avisar que pagué</button>'}<button class="btn" id="inq-consulta">💬 Consultar</button></div>`:''}
+    ${config.telefonoAdmin?`<div class="row inq-acciones">${ok?'':'<button class="btn" id="inq-pague">'+ico('check')+' Avisar que pagué</button>'}<button class="btn" id="inq-consulta">${ico('chat')} Consultar</button></div>`:''}
   </div>
   ${deudas.length?`<div class="banner alert">Además debes <strong>${fmtS(sum(deudas,y=>y.falta))}</strong> de ${deudas.length>2?deudas.length+' meses anteriores':deudas.map(y=>mesLargo(y.mes)).join(' y ')}. <button class="iconbtn" id="inq-ver-deudas" style="color:inherit">Ver</button></div>`:''}
   <div class="row" style="justify-content:space-between">
@@ -2412,8 +2424,8 @@ function abrirDetalleInquilino(dep,mes){
   dlg.innerHTML=`<div class="dlg-h"><h2>Detalle de ${mesLargo(mes)}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
   <div class="dlg-b">
     <div class="scroll"><table class="detail"><tbody>
-      ${fila('💡 Luz',l?`${l.lecturaAnterior!=null?fmtN(l.lecturaAnterior,1)+' → '+fmtN(l.lecturaActual,1)+' = ':''}${fmtN(l.kwh,2)} kWh${v?' · '+fmtN(v.pct*100,2)+'% del consumo medido del edificio':''}`:'',x.partes.luz)}
-      ${fila('💧 Agua',p?(tipoAgua(d)==='sin_medidor'?'Consumo estimado: '+fmtN(p.m3,2)+' m³':`${la?fmtN(la.lecturaAnterior,3)+' → '+fmtN(la.lecturaActual,3)+' = '+fmtN(p.m3Leido,2)+' m³ medidos; ':''}${fmtN(p.m3,2)} m³ con tu parte del agua común`):'',x.partes.agua)}
+      ${fila(ico('luz','ic-luz')+' Luz',l?`${l.lecturaAnterior!=null?fmtN(l.lecturaAnterior,1)+' → '+fmtN(l.lecturaActual,1)+' = ':''}${fmtN(l.kwh,2)} kWh${v?' · '+fmtN(v.pct*100,2)+'% del consumo medido del edificio':''}`:'',x.partes.luz)}
+      ${fila(ico('agua','ic-agua')+' Agua',p?(tipoAgua(d)==='sin_medidor'?'Consumo estimado: '+fmtN(p.m3,2)+' m³':`${la?fmtN(la.lecturaAnterior,3)+' → '+fmtN(la.lecturaActual,3)+' = '+fmtN(p.m3Leido,2)+' m³ medidos; ':''}${fmtN(p.m3,2)} m³ con tu parte del agua común`):'',x.partes.agua)}
       ${fila('Administración de luz','',x.partes.admLuz||null)}${fila('Administración de agua','',x.partes.admAgua||null)}${fila('Mantenimiento','',x.partes.mant||null)}
       ${fila('Mora del agua','Se reparte entre quienes aún no pagan '+prev,x.partes.atrasoAgua||null)}${fila('Intereses de la luz','Se reparte entre quienes aún no pagan '+prev,x.partes.atrasoLuz||null)}
       ${x.aFavor?`<tr><td>Saldo a favor del mes anterior</td><td>− ${fmtS(x.aFavor)}</td></tr>`:''}
@@ -2424,8 +2436,8 @@ function abrirDetalleInquilino(dep,mes){
     ${x.cerrado?`<p class="small muted" style="margin-top:10px">Mes anterior al sistema actual: se muestra lo que pagaste, sin desglose.</p>`:""}
     ${x.faltan.length?`<div class="banner warn" style="margin-top:10px">Monto provisional: falta ${x.faltan.join(' y ')}.</div>`:''}
     ${(l&&l.fotoUrl)||(la&&la.fotoUrl)||(rl&&rl.pdfId)||(ra&&ra.pdfId)?`<h3 style="margin-top:16px">Fotos y recibos</h3><div class="row">
-      ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 Medidor de luz</a>`:''}
-      ${la&&la.fotoUrl?`<a class="btn sm" href="${esc(la.fotoUrl)}" target="_blank" rel="noopener">📷 Medidor de agua</a>`:''}
+      ${l&&l.fotoUrl?`<a class="btn sm" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">${ico('camara')} Medidor de luz</a>`:''}
+      ${la&&la.fotoUrl?`<a class="btn sm" href="${esc(la.fotoUrl)}" target="_blank" rel="noopener">${ico('camara')} Medidor de agua</a>`:''}
       ${rl&&rl.pdfId?`<button class="btn sm" data-inq-pdf="luz">Recibo de luz del edificio</button>`:''}
       ${ra&&ra.pdfId?`<button class="btn sm" data-inq-pdf="agua">Recibo de agua del edificio</button>`:''}</div>`:''}
     <details style="margin-top:16px"><summary class="small"><strong>¿Cómo se calcula?</strong></summary>
@@ -2531,10 +2543,10 @@ $('#btn-vincular-viejo').onclick=async()=>{
     const r=await db._post({action:'vincularPdfs'});db._poll(true);
     const meses=a=>a.map(m=>esc(/^\d{4}-\d{2}$/.test(m)?mesLargo(m):m)).join(', ');
     const l=[];
-    if(r.vinculados.length)l.push('✅ <strong>Vinculados:</strong> '+meses(r.vinculados)+'.');
+    if(r.vinculados.length)l.push(ico('check')+' <strong>Vinculados:</strong> '+meses(r.vinculados)+'.');
     if(r.yaEstaban.length)l.push('Ya tenían PDF: '+meses(r.yaEstaban)+'.');
-    if(r.sinRecibo.length)l.push('⚠️ Sin recibo en la app para: '+r.sinRecibo.map(esc).join(', ')+'. Agrega primero el recibo de ese mes.');
-    if(r.noReconocidos.length)l.push('⚠️ No se reconoció el mes de: '+r.noReconocidos.map(esc).join(', ')+'. Renómbralos como «Recibo 2026-03.pdf».');
+    if(r.sinRecibo.length)l.push(ico('alerta')+' Sin recibo en la app para: '+r.sinRecibo.map(esc).join(', ')+'. Agrega primero el recibo de ese mes.');
+    if(r.noReconocidos.length)l.push(ico('alerta')+' No se reconoció el mes de: '+r.noReconocidos.map(esc).join(', ')+'. Renómbralos como «Recibo 2026-03.pdf».');
     if(!l.length)l.push('No hay PDF en la carpeta <strong>RECIBOS_JARDIN / Recibos PDF</strong> de tu Drive.');
     mostrarResultado('PDF en Drive',l);
   }catch(e){toast('No se pudo revisar Drive: '+mensajeError(e))}
