@@ -399,7 +399,7 @@ const MES_NOMBRE=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agos
 const MES_C=['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmtS=v=>v==null||isNaN(v)?'—':'S/ '+Number(v).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtS=v=>v==null||isNaN(v)?'—':'S/ '+(Math.abs(Number(v))<0.005?0:Number(v)).toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2}); // sin "S/ -0.00"
 const fmtN=(v,d=0)=>v==null||isNaN(v)?'—':Number(v).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d});
 const mesLargo=id=>{const [y,m]=id.split('-');return MES_NOMBRE[+m-1]+' '+y};
 const mesCorto=id=>{const [y,m]=id.split('-');return MES_C[+m-1]+' '+y.slice(2)};
@@ -1390,7 +1390,9 @@ function siguienteMes(m){const [y,mm]=m.split('-').map(Number);const d=new Date(
 //  · Cargos por pagar tarde (mora, corte, reapertura con IGV): aparte, solo a quienes pagaron tarde el mes anterior.
 let aguaRecibos=[],lecturasAgua=[],cobros=[],cargosMes=[];
 const IGV_ATRASO=0.18;
-const r2=n=>Math.round((Number(n)||0)*100)/100;
+// Redondeo a céntimos, mitad hacia arriba. toPrecision(15) quita el error de coma flotante (2.75×1.18 = 3.245 se guarda
+// como 3.24499999…; sin esto daba 3.24 en vez de 3.25).
+const r2=n=>{const c=Math.round(Number(((Number(n)||0)*100).toPrecision(15)));return c===0?0:c/100};
 const tipoAgua=d=>d&&d.agua?d.agua:'medidor'; // 'medidor' | 'sin_medidor' | 'no'
 const lecturaAguaDe=(dep,mes)=>lecturasAgua.find(l=>l.deptoId===dep&&l.mes===mes);
 const lecturasAguaDe=dep=>lecturasAgua.filter(l=>l.deptoId===dep).sort((a,b)=>a.mes.localeCompare(b.mes));
