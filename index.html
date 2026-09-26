@@ -146,7 +146,7 @@ dialog::backdrop{background:rgba(10,14,20,.55)}
 .dlg-h h2{margin:0}
 .dlg-b{padding:16px 18px}
 .dlg-f{position:sticky;bottom:0;background:var(--surface);padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
-@media (max-width:560px){.dlg-f{padding:10px 12px;gap:8px}.dlg-f .btn{flex:1 1 0;justify-content:center;padding-left:6px;padding-right:6px;min-width:0;white-space:nowrap;font-size:.92rem;gap:5px}.dlg-f .btn.primary{flex:1.4 1 0}}
+@media (max-width:560px){.dlg-f{padding:10px 12px;gap:8px}.dlg-f .btn{flex:1 1 auto;justify-content:center;padding-left:10px;padding-right:10px;min-width:max-content;white-space:nowrap;font-size:.92rem;gap:5px}}
 fieldset{border:0;padding:0;margin:0 0 18px}
 legend{font-weight:720;font-stretch:85%;margin-bottom:8px;padding:0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
@@ -194,6 +194,8 @@ label.f input.miss{border-color:var(--amber);background:var(--amber-soft)}
 .pago-row:last-child{border-bottom:0}
 .pago-row.atrasado{background:var(--red-soft);margin:0 -14px;padding:11px 14px;border-radius:8px}
 .btn.sm{padding:6px 12px;font-size:.85rem;white-space:nowrap}
+/* Pantallas táctiles (celular o tablet): botones pequeños con área de toque suficiente */
+@media (pointer:coarse){.btn.sm{min-height:40px}.iconbtn{min-height:36px}}
 @media (max-width:640px){.pago-row{grid-template-columns:1fr 1fr;row-gap:6px}.pago-row .btn.sm{grid-column:1/-1}}
 .pdf-mini{display:flex;gap:14px;align-items:center;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:10px;cursor:pointer;margin:0 0 16px;color:var(--ink)}
 .pdf-mini:hover{border-color:var(--muted)}
