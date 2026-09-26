@@ -1017,22 +1017,26 @@ function abrirDepto(id){
     dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
       ${cuenta}
-      <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
-      <label class="f">Celular (WhatsApp)<input id="edit-telefono" type="tel" inputmode="tel" value="${esc(d.telefono||'')}" placeholder="987654321"></label></div>
-      <div class="row" style="margin-bottom:14px">
-        ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
-        <button class="btn" id="btn-ver-cobros">Ver cobros</button>
-        <button class="btn" id="btn-acceso-inq">🔑 Acceso del inquilino</button>
-      </div>
+      <details class="mas-opciones datos-depto" ${abrirDepto.datos||!d.encargado?'open':''}><summary><strong>⚙ Datos del depto</strong> <span class="muted small">encargado, celular, unidad, acceso, luz y agua</span></summary>
+        <div style="margin-top:12px">
+        <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
+        <label class="f">Celular (WhatsApp)<input id="edit-telefono" type="tel" inputmode="tel" value="${esc(d.telefono||'')}" placeholder="987654321"></label></div>
+        <div class="row" style="margin-bottom:14px">
+          ${!d.piso?'<button class="btn" id="btn-ubicar-aqui">Ubicar en el plano</button>':'<button class="btn" id="btn-reubicar">Cambiar de unidad</button>'}
+          <button class="btn" id="btn-ver-cobros">Ver cobros</button>
+          <button class="btn" id="btn-acceso-inq">🔑 Acceso del inquilino</button>
+        </div>
+        <div class="row" style="margin-bottom:14px">
+          <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
+          <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>
+          <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Agua con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Agua sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>
+        </div></div></details>
       <div class="row" style="margin-bottom:16px">
         ${d.estado!=='desocupado'?'<button class="btn primary" id="add-lectura-top">📷 Lectura de luz</button>':''}
         ${ta==='medidor'?'<button class="btn primary" id="add-lectura-agua-top">📷 Lectura de agua</button>':''}
       </div>
 
-      <h3>Luz</h3>
-      <div class="row" style="margin-bottom:12px">
-        <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
-        <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>      </div>
+      <h3>Luz${d.estado==='desocupado'?' <span class="chip sm off">Sin luz</span>':''}</h3>
       ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
       ${ls.length?plegar(ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
           <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">📷 ver foto</a>`:l.origen==='foto'?'📷':''}</div></div>
@@ -1041,9 +1045,7 @@ function abrirDepto(id){
           <div><button class="iconbtn" data-editl="${l.id}">Editar</button> <button class="iconbtn" data-dell="${l.id}" style="color:var(--red)">Eliminar</button></div>
         </div>`})):'<p class="muted small">Sin lecturas de luz.</p>'}
 
-      <h3 style="margin-top:18px">Agua</h3>
-      <div class="row" style="margin-bottom:12px">
-        <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>      </div>
+      <h3 style="margin-top:18px">Agua${ta!=='medidor'?' <span class="chip sm off">'+(ta==='no'?'sin servicio':'sin medidor')+'</span>':''}</h3>
       ${ta==='sin_medidor'?`<p class="muted small">Se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
       ${ta!=='no'?plegar(aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
           <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
@@ -1057,6 +1059,7 @@ function abrirDepto(id){
     dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#edit-telefono').onchange=async e=>{const v=e.target.value.replace(/[^\d+ ]/g,'').trim();try{await guardarDepto(id,{...d,telefono:v});d.telefono=v;toast('Celular guardado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#btn-acceso-inq').onclick=()=>abrirAccesoInquilino(d);
+    dlg.querySelector('.datos-depto').ontoggle=e=>{abrirDepto.datos=e.target.open};
     const bpf=dlg.querySelector('#btn-pago-ficha');if(bpf)bpf.onclick=()=>{dlg.close();abrirPagoDepto(id)};
     dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar();toast(tituloDepto(d)+(ne==='desocupado'?': marcado sin luz':': marcado con luz'))}catch(e){toast('No se pudo actualizar')}};
     dlg.querySelector('#tipo-agua').onchange=async e=>{const v=e.target.value;try{await guardarDepto(id,{...d,agua:v});d.agua=v;pintar();toast(tituloDepto(d)+': agua '+({medidor:'con medidor',sin_medidor:'sin medidor (se estima)',no:'sin servicio'}[v]||v))}catch(err){toast('No se pudo actualizar')}};
