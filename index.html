@@ -2476,12 +2476,15 @@ function abrirHistorialInquilino(dep,meses){
 
 /* ---------- Navegación ---------- */
 const PESTANAS=['resumen','recibos','agua','deptos','cobros','reportes'];
-function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)history.pushState({tab},'');tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab||b.dataset.tab2===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"],nav.tabs button[data-tab2="${tab}"]`));document.querySelectorAll('.rec-switch [data-ir-rec]').forEach(b=>b.classList.toggle('on',b.dataset.irRec===tab));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0);try{sessionStorage.setItem('recibos_tab',tab)}catch(e){}}
+function irA(tab){if(historialActivo&&!irA.desdeAtras&&tab!==tabActual)(window.empujarHistorial||(s=>history.pushState(s,'')))({tab});tabActual=tab;document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab||b.dataset.tab2===tab));$('#btn-menu').dataset.activo=String(!document.querySelector(`nav.tabs button[data-tab="${tab}"],nav.tabs button[data-tab2="${tab}"]`));document.querySelectorAll('.rec-switch [data-ir-rec]').forEach(b=>b.classList.toggle('on',b.dataset.irRec===tab));PESTANAS.forEach(t=>$('#tab-'+t).hidden=t!==tab);if(tab==='reportes')renderReportes();if(tab==='deptos')renderDeptos();if(tab==='ruta')renderRuta();if(tab==='agua')renderAgua();if(tab==='cobros')renderCobros();window.scrollTo(0,0);try{sessionStorage.setItem('recibos_tab',tab)}catch(e){}}
 window.irA=irA;
 // Botón «atrás» del celular: cierra la ventana abierta o vuelve a la pestaña anterior, en vez de salir de la app.
 const historialActivo=!(typeof google!=='undefined'&&google.script&&google.script.run)&&!!(window.history&&history.pushState);
 if(historialActivo){
-  let atrasPropios=0;
+  let atrasPropios=0,colaHist=[],reloj=null;
+  // Agrega una entrada al historial; si hay un "atrás" propio en curso, espera a que termine (si no, se desfasa).
+  const vaciarCola=()=>{clearTimeout(reloj);reloj=null;colaHist.splice(0).forEach(s=>history.pushState(s,''))};
+  window.empujarHistorial=s=>{if(atrasPropios>0){colaHist.push(s);if(!reloj)reloj=setTimeout(()=>{atrasPropios=0;vaciarCola()},600)}else history.pushState(s,'')};
   history.replaceState({tab:tabActual},'');
   // La app maneja el desplazamiento: al cerrar una ventana (que retrocede el historial) el navegador no debe devolver la página a otra posición.
   if('scrollRestoration' in history)history.scrollRestoration='manual';
@@ -2489,7 +2492,7 @@ if(historialActivo){
   HTMLDialogElement.prototype.showModal=function(){
     mostrarOrig.call(this);
     if(this.id==='dlgLogin'||this.__enHistorial)return;
-    this.__enHistorial=true;history.pushState({dlg:this.id},'');
+    this.__enHistorial=true;window.empujarHistorial({dlg:this.id});
     this.addEventListener('close',()=>salirDeHistorial(this),{once:true}); // respaldo (p. ej. cierre con Esc)
   };
   // Al cerrar una ventana se quita su entrada del historial (si no se cerró justamente con «atrás»).
@@ -2497,7 +2500,7 @@ if(historialActivo){
   const cerrarOrig=HTMLDialogElement.prototype.close;
   HTMLDialogElement.prototype.close=function(v){const estaba=this.open;cerrarOrig.call(this,v);if(estaba)salirDeHistorial(this)};
   window.addEventListener('popstate',e=>{
-    if(atrasPropios>0){atrasPropios--;return}
+    if(atrasPropios>0){atrasPropios--;if(!atrasPropios)vaciarCola();return}
     const abiertos=[...document.querySelectorAll('dialog[open]')].filter(d=>d.id!=='dlgLogin');
     if(abiertos.length){const d=abiertos[abiertos.length-1];d.__cerradoConAtras=true;d.close();return}
     const tab=e.state&&e.state.tab;if(tab&&tab!==tabActual){irA.desdeAtras=true;try{irA(tab)}finally{irA.desdeAtras=false}}
