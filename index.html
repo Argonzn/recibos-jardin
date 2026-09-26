@@ -1498,16 +1498,18 @@ function calcAguaCalc(mes){
 // Los cargos por atraso del recibo de un mes se deben a pagar tarde el recibo anterior.
 // Automático: deptos que no pagaron, o pagaron después del corte interno, el cobro del mes anterior.
 // Manual: se guarda en el recibo como {manual:true, ids:[...]}.
-// ¿Canceló el depto ese mes? Solo cuenta el pago completo registrado (un pago parcial no).
+// ¿Canceló el depto ese mes (para el reparto de la mora)? Cuenta cualquier pago registrado mayor a 0.
+// Por ahora un pago parcial también cuenta (decisión 2026-09-26); para volver a excluirlo: MORA_PARCIAL_PAGA=false.
+const MORA_PARCIAL_PAGA=true;
 // En la luz también vale el cobro de solo luz de antes del módulo de agua; si no tuvo lectura de luz, no debía nada.
 function cancelo(dep,mes,servicio){
-  const c=cobroDe(dep,mes);if(c&&c.montoCobrado!=null)return c.tipoPago!=='parcial';
+  const c=cobroDe(dep,mes);if(c&&c.montoCobrado!=null)return c.tipoPago!=='parcial'||(MORA_PARCIAL_PAGA&&Number(c.montoCobrado)>0);
   if(servicio==='luz'){const l=lecturaDe(dep,mes);return !l||l.montoCobrado!=null}
   return false;
 }
 function pagoTardeDe(dep,mes){const c=cobroDe(dep,mes);if(!c||c.montoCobrado==null)return false;if(typeof c.pagoTarde==='boolean')return c.pagoTarde;return !!(c.fechaCobro&&c.fechaCobro>fechaLimitePago(mes))}
 // La mora de un recibo viene de no pagar a tiempo el anterior. Se reparte en partes iguales entre los deptos que todavía
-// no cancelan su cobro del mes anterior: en cuanto uno registra su pago completo, sale del reparto y los demás lo absorben.
+// no pagan su cobro del mes anterior: en cuanto uno registra un pago (aunque sea parcial), sale del reparto y los demás lo absorben.
 // Si ya todos pagaron, la cargan quienes pagaron fuera de fecha; si tampoco hay, no se cobra (lo asume la administración).
 function responsablesMora(mes,participantes,servicio){
   const prev=mesAnterior(mes);
@@ -1775,7 +1777,7 @@ function pdfDepto(doc,p,mesSig,y){
       if(c.section==='foot'&&c.column.index===9&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
   y=doc.lastAutoTable.finalY+7;
   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-  doc.text(doc.splitTextToSize('Montos en soles (S/). «A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no pagaron completo el mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
+  doc.text(doc.splitTextToSize('Montos en soles (S/). «A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no registraron ningún pago del mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
 }
 function pdfPies(doc,texto){
   const n=doc.getNumberOfPages(),W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
@@ -1903,7 +1905,7 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       const L=[];
       if(ag)L.push(ag.atrasoSinResponsable?nadie('agua '+fmtS(ag.atraso)):'agua '+fmtS(ag.atraso)+' '+quien(ag.resp));
       if(rl)L.push(rl.ids.length?'luz '+fmtS(al)+' '+quien(rl):nadie('luz '+fmtS(al)));
-      return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales; cuando alguien registra su pago completo de ${prev}, sale del reparto.</p>`:''})()}
+      return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales; cuando alguien registra un pago de ${prev} (aunque sea parcial), sale del reparto.</p>`:''})()}
     </details>
     <div class="scroll tabla-cobro-wrap"><table class="tabla-cobro">
       <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Mora</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
@@ -2150,7 +2152,7 @@ function abrirDetalleAgua(mes){
         ${deps.map(d=>{const p=aa.porDepto[d.id];return p?`<tr><td>${esc(nombreDepto(d))}${tipoAgua(d)==='sin_medidor'?' <span class="muted small">(sin medidor)</span>':''}</td><td>${p.m3Leido!=null?fmtN(p.m3Leido,2):'—'}</td><td>${fmtN(p.m3,2)}</td><td>${fmtS(p.agua)}</td><td>${p.atraso?fmtS(p.atraso):'—'}</td></tr>`:''}).join('')}
       </tbody><tfoot><tr><td>Total</td><td>${fmtN(aa.medidos,2)}</td><td>${fmtN(aa.general,2)}</td><td>${fmtS(aa.consumo)}</td><td>${aa.atraso?fmtS(aa.atraso):'—'}</td></tr></tfoot></table></div>`}
       ${atrasoDe(r)>0&&aa&&!aa.incompleto?`<h3 style="margin-top:16px">¿Quién paga el atraso?</h3>
-        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='pendientes'?'Automático: los deptos que aún no registran su pago completo de '+mesLargo(mesAnterior(mes))+'. Cuando uno paga, sale del reparto.':aa.resp.fuente==='tarde'?'Automático: ya todos pagaron '+mesLargo(mesAnterior(mes))+', así que lo cargan quienes pagaron fuera de fecha.':'Todos pagaron '+mesLargo(mesAnterior(mes))+' a tiempo: el atraso de '+fmtS(aa.atraso)+' no se cobra a ningún depto (lo asume la administración). Puedes elegir responsables aquí abajo.'}</p>
+        <p class="small muted" style="margin-top:0">${aa.resp.fuente==='manual'?'Elegido a mano.':aa.resp.fuente==='pendientes'?'Automático: los deptos que aún no registran ningún pago de '+mesLargo(mesAnterior(mes))+'. Cuando uno paga (aunque sea una parte), sale del reparto.':aa.resp.fuente==='tarde'?'Automático: ya todos pagaron '+mesLargo(mesAnterior(mes))+', así que lo cargan quienes pagaron fuera de fecha.':'Todos pagaron '+mesLargo(mesAnterior(mes))+' a tiempo: el atraso de '+fmtS(aa.atraso)+' no se cobra a ningún depto (lo asume la administración). Puedes elegir responsables aquí abajo.'}</p>
         <div class="list">${deps.map(d=>`<label class="row small" style="gap:8px"><input type="checkbox" data-resp="${d.id}" ${aa.resp.ids.includes(d.id)?'checked':''}> ${esc(nombreDepto(d))}</label>`).join('')}</div>
         <div class="row" style="margin-top:8px"><button class="btn sm" id="resp-guardar">Guardar responsables</button>${aa.resp.fuente==='manual'?'<button class="iconbtn" id="resp-auto">Volver a automático</button>':''}</div>`:''}
     </div>
