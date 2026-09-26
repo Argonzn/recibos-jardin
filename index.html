@@ -1538,6 +1538,7 @@ function detalleCobro(dep,mes,prof=0){
   else if(cobrado!=null)estado={cls:'ok',txt:'Cobrado'+tarde};
   else if(legado!=null)estado=usaAgua?{cls:'pend',txt:'Solo luz cobrada'}:{cls:'ok',txt:'Cobrado'};
   else if(aFavor>0&&neto===0&&!faltan.length)estado={cls:'ok',txt:'Cubierto con saldo a favor'};
+  else if(aFavor>0&&neto===0)estado={cls:'pend',txt:'Cubierto con saldo por ahora (falta '+faltan.join(' y ')+')'}; // el total aún puede subir
   else{const dh=diasHasta(fechaLimitePago(mes));estado=dh!=null&&dh<0?{cls:'late',txt:'Atrasado'}:{cls:'pend',txt:'Pendiente'}}
   const pagado=cobrado??legado??0;
   return{d,mes,partes,total,aFavor,neto,faltan,cobro:c,cobrado,legado,pagado,
