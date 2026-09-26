@@ -260,6 +260,8 @@ tr.clic{cursor:pointer}tr.clic:hover td{background:var(--surface-2)}
 .pend-depto>summary::-webkit-details-marker{display:none}.pend-depto.atrasado .pend-total{color:var(--red)}
 .pend-total{font-weight:800;text-align:right}
 .ed-lista{display:grid;margin-top:8px}
+.cuenta{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:14px}
+.mas-meses>summary{cursor:pointer;padding:8px 0;min-height:32px}
 .ed-aldia{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:8px 0}
 .ed-nombre{border:0;background:none;padding:6px 0;text-align:left;cursor:pointer;color:inherit;font:inherit;min-height:40px}
 .ed-fila{display:grid;grid-template-columns:1fr auto 44px;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
@@ -1007,8 +1009,14 @@ function abrirDepto(id){
   const dlg=$('#dlg');
   const pintar=()=>{
     const ls=lecturasDe(id);const la=lecturasAguaDe(id);const ta=tipoAgua(d);
+    const plegar=f=>f.slice(0,3).join('')+(f.length>3?`<details class="mas-meses"><summary class="small muted">Ver ${f.length-3} mes${f.length-3>1?'es':''} anteriores</summary>${f.slice(3).join('')}</details>`:'');
+    const cuenta=(()=>{if(!mesesCobro().length)return'';const ps=cobrosPendientesTodos().filter(p=>p.d.id===id),debe=r2(sum(ps,p=>p.falta)),late=ps.some(p=>p.estado.cls==='late'),fav=creditoEntrante(id,siguienteMes(mesesCobro().slice(-1)[0]));
+      const pagos=cobros.filter(c=>c.deptoId===id&&c.montoCobrado!=null&&Number(c.montoCobrado)>0).sort((a,b)=>b.mes.localeCompare(a.mes)).slice(0,3);
+      return `<div class="cuenta"><div class="row" style="justify-content:space-between"><div>${debe>0?`<span class="chip ${late?'late':'pend'}">Debe ${fmtS(debe)}</span> <span class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</span>`:fav>0?`<span class="chip ok">A favor ${fmtS(fav)}</span>`:'<span class="chip ok">Al día</span>'}</div>${debe>0?'<button class="btn sm primary" id="btn-pago-ficha">💵 Registrar pago</button>':''}</div>
+        <div class="small muted" style="margin-top:6px">${pagos.length?'Últimos pagos: '+pagos.map(c=>mesCorto(c.mes)+' '+fmtS(Number(c.montoCobrado))+(c.fechaCobro?' ('+fechaCorta(c.fechaCobro)+')':'')).join(' · '):'Sin pagos registrados.'}</div></div>`})();
     dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
     <div class="dlg-b">
+      ${cuenta}
       <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
       <label class="f">Celular (WhatsApp)<input id="edit-telefono" type="tel" inputmode="tel" value="${esc(d.telefono||'')}" placeholder="987654321"></label></div>
       <div class="row" style="margin-bottom:14px">
@@ -1026,29 +1034,30 @@ function abrirDepto(id){
         <span class="chip ${d.estado==='desocupado'?'off':'ok'}">${d.estado==='desocupado'?'Sin luz':'Con luz'}</span>
         <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>      </div>
       ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
-      ${ls.length?ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
+      ${ls.length?plegar(ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
           <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">📷 ver foto</a>`:l.origen==='foto'?'📷':''}</div></div>
           <div class="small">${v?fmtS(v.cargoElectricidad)+' de luz':'—'}</div>
           <div class="small">${l.montoCobrado!=null?'<span class="muted">cobro anterior '+fmtS(l.montoCobrado)+'</span>':''}</div>
           <div><button class="iconbtn" data-editl="${l.id}">Editar</button> <button class="iconbtn" data-dell="${l.id}" style="color:var(--red)">Eliminar</button></div>
-        </div>`}).join(''):'<p class="muted small">Sin lecturas de luz.</p>'}
+        </div>`})):'<p class="muted small">Sin lecturas de luz.</p>'}
 
       <h3 style="margin-top:18px">Agua</h3>
       <div class="row" style="margin-bottom:12px">
         <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>      </div>
       ${ta==='sin_medidor'?`<p class="muted small">Se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
-      ${ta!=='no'?aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
+      ${ta!=='no'?plegar(aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
           <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">📷 ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
           <div class="small">${p?fmtN(p.m3,2)+' m³ asignados':'—'}</div>
           <div class="small">${p?fmtS(p.agua)+' de agua'+(p.atraso?' + '+fmtS(p.atraso)+' atraso':''):''}</div>
           <div>${l?`<button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button>`:''}</div>
-        </div>`}).join('')+la.filter(l=>!aguaRecibos.some(r=>r.id===l.mes)).slice().reverse().map(l=>`<div class="lect-row"><div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${fmtN(m3De(l),3)} m³ · sin recibo de agua</div></div><div></div><div></div><div><button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button></div></div>`).join('')
+        </div>`}).concat(la.filter(l=>!aguaRecibos.some(r=>r.id===l.mes)).slice().reverse().map(l=>`<div class="lect-row"><div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${fmtN(m3De(l),3)} m³ · sin recibo de agua</div></div><div></div><div></div><div><button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button></div></div>`)))
         :'<p class="muted small">No participa del recibo de agua.</p>'}
     </div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
     dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#edit-telefono').onchange=async e=>{const v=e.target.value.replace(/[^\d+ ]/g,'').trim();try{await guardarDepto(id,{...d,telefono:v});d.telefono=v;toast('Celular guardado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#btn-acceso-inq').onclick=()=>abrirAccesoInquilino(d);
+    const bpf=dlg.querySelector('#btn-pago-ficha');if(bpf)bpf.onclick=()=>{dlg.close();abrirPagoDepto(id)};
     dlg.querySelector('#toggle-estado').onclick=async()=>{const ne=d.estado==='desocupado'?'activo':'desocupado';try{await guardarDepto(id,{...d,estado:ne});d.estado=ne;pintar();toast(tituloDepto(d)+(ne==='desocupado'?': marcado sin luz':': marcado con luz'))}catch(e){toast('No se pudo actualizar')}};
     dlg.querySelector('#tipo-agua').onchange=async e=>{const v=e.target.value;try{await guardarDepto(id,{...d,agua:v});d.agua=v;pintar();toast(tituloDepto(d)+': agua '+({medidor:'con medidor',sin_medidor:'sin medidor (se estima)',no:'sin servicio'}[v]||v))}catch(err){toast('No se pudo actualizar')}};
     const bu=dlg.querySelector('#btn-ubicar-aqui');if(bu)bu.onclick=()=>{dlg.close();abrirUbicar(id)};
