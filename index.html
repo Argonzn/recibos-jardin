@@ -391,19 +391,19 @@ function num(s,miles){
   else if((t.match(/\./g)||[]).length>1)t=t.replace(/\./g,'');
   const v=parseFloat(t);return isNaN(v)?null:v;
 }
-function fechaISO(s){if(!s)return null;const m=String(s).match(/(\d{1,2})[-\/]([A-Za-zé]{3})[a-z]*[-\/](\d{2,4})/);if(!m)return null;const mi=MESES.indexOf(m[2].toLowerCase().slice(0,3).replace('set','sep'));if(mi<0)return null;let y=+m[3];if(y<100)y+=2000;return `${y}-${String(mi+1).padStart(2,'0')}-${m[1].padStart(2,'0')}`}
+function fechaISO(s){if(!s)return null;const m=String(s).match(/(\d{1,2})[-\/]([A-Za-z0é]{3})[a-z]*[-\/](\d{2,4})/);if(!m)return null;const mi=MESES.indexOf(m[2].toLowerCase().replace('0','o').slice(0,3).replace('set','sep'));if(mi<0)return null;let y=+m[3];if(y<100)y+=2000;return `${y}-${String(mi+1).padStart(2,'0')}-${m[1].padStart(2,'0')}`}
 const CONCEPTOS=[
  ['Corte \\(\\d+\\)','otros:Corte'],
- ['Reconexi[oó]n \\(\\d+\\)','otros:Reconexión'],
- ['Cargo Fijo','cargoFijo'],
- ['Mant\\. y Reposici[oó]n de Conexi[oó]n','mantenimiento'],
- ['Alumbrado P[uú]blico','alumbrado'],
- ['Inter[eé]s Compensatorio','interesCompensatorio'],
+ ['Reconexi\\S+ \\(\\d+\\)','otros:Reconexión'],
+ ['Cargo F\\S*','cargoFijo'],
+ ['Mant\\. y Reposici\\S+ de Conexi\\S+','mantenimiento'],
+ ['Alumbrado P\\S+blico','alumbrado'],
+ ['Inter\\S+s Compensatorio','interesCompensatorio'],
  ['SUBTOTAL','subtotal'],
  ['IGV Nota D[eé]b\\.[^\\d]*[\\d\\/]+-\\d+','otros:IGV Nota de Débito'],
  ['IGV','igv'],
- ['Electrificaci[oó]n Rural \\(Ley N° ?\\d+\\)','electrificacion'],
- ['Inter[eé]s Moratorio','interesMoratorio'],
+ ['Electrificaci\\S+ Rural \\(Ley N° ?\\d+\\)','electrificacion'],
+ ['Inter\\S+s Moratorio','interesMoratorio'],
  ['TOTAL DEL MES','totalMes'],
  ['Nota D[eé]b\\.[^\\d]*[\\d\\/]+-\\d+','otros:Nota de Débito'],
  ['Ajuste redondeo mes anterior','ajusteAnterior'],
@@ -411,22 +411,23 @@ const CONCEPTOS=[
  ['Deuda vencida \\(\\d+ mes(?:es)?\\)','deudaVencida'],
 ];
 function parseRecibo(t){
-  t=t.replace(/\s+/g,' ');const r={otros:[],historial:[]};let m;
+  t=t.replace(/\s+/g,' ').replace(/[—–−]/g,'-');const r={otros:[],historial:[]};let m;
   if(m=t.match(/MES FACTURADO\s+([A-ZÁÉÍÓÚa-z]+)\s+(\d{4})/)){let n=m[1].toLowerCase();if(n==='septiembre')n='setiembre';const i=MES_LARGO.indexOf(n);if(i>=0)r.mes=`${m[2]}-${String(i+1).padStart(2,'0')}`}
-  if(m=t.match(/Recibo Nro\.\s*(\S+(?:\s+N-\S+)?)/))r.recibo=m[1];
+  if(m=t.match(/Recibo Nro\.\s*(\S+(?:\s+N-\S+)?)/))r.recibo=m[1].replace(/^[S5$]109/,'S109');
   if(m=t.match(/D\.N\.I\.\s*\d+\s+(\d{5,})\s+/)){r.suministro=m[1];const n=t.slice(m.index+m[0].length).match(/^([A-ZÁÉÍÓÚÑ ]+?)\s+(?:PLG|AV|JR|CALLE|CAL|MZ|URB|PSJ|ASOC|AAHH|AA\.HH|COOP|PJ)\b/);if(n)r.titular=n[1].trim()}
   if(m=t.match(/Tarifa\s+(BT\S+[^C]*?)\s+Conexi/))r.tarifa=m[1].trim();
-  if(m=t.match(/(-?[\d.]+)\s*-\s*(-?[\d.]+)\s*=\s*([\d.]+)\s*X\s*([\d.]+)\s*=\s*([\d.]+)\s*X\s*([\d.]+)\s*Consumo de energ[ií]a\s*([\d.,]+)/)){r.lecturaActual=num(m[1]);r.lecturaAnterior=num(m[2]);r.kwh=num(m[5]);r.precioKwh=num(m[6]);r.consumoEnergia=num(m[7])}
-  if(m=t.match(/[ÚU]ltima lectura\s+(\S+)/))r.fechaLectura=fechaISO(m[1]);
+  if(m=t.match(/(-?[\d.]+)\s*[-=]\s*(-?[\d.]+)\s*[=-]\s*([\d.]+)\s*[xX×]\s*([\d.]+)\s*[=-]\s*([\d.]+)\s*[xX×]\s*([\d.]+)\s*Consumo de energ\S*\s*([\d.,]+)/)){r.lecturaActual=num(m[1]);r.lecturaAnterior=num(m[2]);r.kwh=num(m[5]);r.precioKwh=num(m[6]);r.consumoEnergia=num(m[7])}
+  if(m=t.match(/[ÚU]ltim\S+ lectur\S*\s+(\S+)/))r.fechaLectura=fechaISO(m[1]);
   if(m=t.match(/Lectura anterior\s+(\S+)/))r.fechaLecturaAnterior=fechaISO(m[1]);
-  if(m=t.match(/Fecha de Emisi[oó]n:\s*(\S+)/))r.emision=fechaISO(m[1]);
+  if(m=t.match(/Fecha de Emisi\S*\s*(\S+)/))r.emision=fechaISO(m[1]);
   if(m=t.match(/Fecha de Corte:\s*(\S+)/))r.corte=fechaISO(m[1]);
   if(m=t.match(/Fecha de Vencimiento:\s*(\S+)/))r.vencimiento=fechaISO(m[1]);
   if(m=t.match(/(?<!\d)(\d{1,3}(?: \d{3})*\.\d{2})\s+Fecha de Emisi/))r.totalPagar=num(m[1]);
+  if(r.totalPagar==null&&(m=t.match(/TOTAL A PAGAR S\/\s*(\d{1,3}(?: \d{3})*\.\d{2})/)))r.totalPagar=num(m[1]);
   if(m=t.match(/FOSE \(Ley \d+\) S\/\s*([\d.]+)/))r.fose=num(m[1]);
-  const re=/Importe 2 [uú]ltimos meses facturados\s+(\w{3})-(\d{2}) S\/ ([\d.]+) - (\w{3})-(\d{2}) S\/ ([\d.]+)/;
+  const re=/Import\S* 2 [uúUÚ]ltimos meses facturados\s+(\w{3})-(\d{2}) [S8]\/\s*([\d.,]+) - (\w{3})-(\d{2}) [S8]\/\s*([\d.,]+)/;
   if(m=t.match(re)){for(const [a,b,c] of [[m[1],m[2],m[3]],[m[4],m[5],m[6]]]){const i=MESES.indexOf(a.toLowerCase().replace('set','sep'));if(i>=0)r.historial.push({mes:`20${b}-${String(i+1).padStart(2,'0')}`,total:num(c)})}}
-  if(m=t.match(/(Cargo Fijo[\s\S]*?)\s+((?:-?\d+\.\d{2}\s+)+)/)){
+  if(m=t.match(/(Cargo F\S*[\s\S]*?)\s+((?:-?\d+\.\d{2}\s+)+)/)){
     const labelsTxt=m[1],nums=m[2].trim().split(/\s+/).map(num);
     const alt=new RegExp(CONCEPTOS.map(c=>'('+c[0]+')').join('|'),'g');
     const labels=[];let last=0,x;
@@ -434,6 +435,22 @@ function parseRecibo(t){
     const tail=labelsTxt.slice(last).trim();if(tail)labels.push({label:tail});
     if(labels.length===nums.length){labels.forEach((l,i)=>{if(l.key&&l.key.startsWith('otros:'))r.otros.push({label:l.key.slice(6),monto:nums[i]});else if(l.key)r[l.key]=nums[i];else r.otros.push({label:l.label,monto:nums[i]})})}
   }
+  if(!r.fechaLectura||!r.fechaLecturaAnterior){const dm=t.match(/(\d{1,2}\/[A-Za-z0]{3}\/\d{2,4})\s*-*\s*(\d{1,2}\/[A-Za-z0]{3}\/\d{2,4})/);if(dm){if(!r.fechaLectura)r.fechaLectura=fechaISO(dm[1]);if(!r.fechaLecturaAnterior)r.fechaLecturaAnterior=fechaISO(dm[2])}}
+  if(!r.suministro&&(m=t.match(/SUMINISTRO\s+(\d{5,8})/)))r.suministro=m[1];
+  if(r.totalMes==null){ // texto en filas (PDF escaneado): "Concepto 12.34"
+    for(const [pat,key] of CONCEPTOS){
+      const mm=t.match(new RegExp('(?:'+pat+')\\s+(-?\\d+\\.\\d{2})','i'));
+      if(!mm)continue;const v=num(mm[1]);
+      if(key.startsWith('otros:'))r.otros.push({label:key.slice(6),monto:v});else r[key]=v;
+    }
+  }
+  if(!r.mes){
+    const mm=t.match(/MES FACTURADO\s+([A-Za-zÁÉÍÓÚ0-9]+)\s+(\d{4})/i);
+    if(mm){const pre=mm[1].toLowerCase().replace(/0/g,'o').slice(0,3);let i=MES_LARGO.findIndex(n=>n.slice(0,3)===pre);if(pre==='sep')i=8;if(i>=0)r.mes=`${mm[2]}-${String(i+1).padStart(2,'0')}`}
+  }
+  if(!r.mes&&r.fechaLectura)r.mes=r.fechaLectura.slice(0,7);
+  if(r.totalMes==null&&r.subtotal!=null&&r.igv!=null)r.totalMes=Math.round((r.subtotal+r.igv+(r.electrificacion||0)+(r.interesMoratorio||0))*100)/100;
+  if(r.totalMes==null&&r.totalPagar!=null)r.totalMes=Math.round((r.totalPagar-(r.deudaVencida||0)-(r.ajusteAnterior||0)-(r.ajusteActual||0))*100)/100;
   return r;
 }
 
@@ -483,7 +500,7 @@ const CAMPOS=[
  {g:'Total a pagar y fechas',k:'vencimiento',l:'Fecha de vencimiento',t:'date'},
  {g:'Total a pagar y fechas',k:'corte',l:'Fecha de corte',t:'date'},
 ];
-const REQUERIDOS=['mes','kwh','consumoEnergia','totalMes','totalPagar','vencimiento','corte'];
+const REQUERIDOS=['mes','kwh','consumoEnergia','totalMes','totalPagar','vencimiento'];
 
 let recibos=[];let deptos=[],lecturas=[];let db=null,assets=null,sample=null,downloads=null;let tabActual='resumen';let charts=[];let deptoChart=null;
 // true cuando llegaron los datos frescos del servidor. Antes de eso se muestra la copia guardada en el
@@ -607,7 +624,7 @@ function renderRecibos(){
   if(!recibos.length&&!datosListos){el.innerHTML=panelCargando();return}
   if(!recibos.length){el.innerHTML=`<div class="panel empty muted">Aún no hay recibos guardados.</div>`;return}
   el.innerHTML=[...recibos].reverse().map(r=>{const st=estado(r);return `<button class="rec" data-ver="${r.id}">
-    <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · '+ico('archivo')+' PDF':''}</div></div>
+    <div><div class="m">${mesLargo(r.id)}</div><div class="small solo-movil"><strong>${fmtS(r.totalMes)}</strong> · ${fmtN(r.kwh)} kWh${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</div><div class="muted small">${esc(r.recibo||'')}${r.pdfId?' · '+ico('archivo')+' PDF':''}${puntuar(r)>0?' <span class=\"chip sm miss\">Revisar datos</span>':''}</div></div>
     <div class="hide-s"><div class="n">${fmtN(r.kwh)} kWh<span class="muted small" title="Variación frente al mes anterior" style="font-weight:400">${variacion(r.kwh,(recibos.find(x=>x.id===mesAnterior(r.id))||{}).kwh)}</span></div><div class="muted small">${fmtS(r.precioKwh)} por kWh</div></div>
     <div class="hide-s"><div class="n">${fmtS(r.totalMes)}</div><div class="muted small">A pagar ${fmtS(r.totalPagar)}</div></div>
     <div style="text-align:right"><span class="chip ${st.cls}">${st.txt}</span><div class="muted small" style="margin-top:4px">${r.pagado?'':'Vence '+fechaCorta(r.vencimiento)}</div></div>
@@ -624,6 +641,7 @@ function abrirDetalle(id){
     <p class="muted small" style="margin-top:0">Recibo ${esc(r.recibo||'—')}${r.suministro?`, suministro ${esc(r.suministro)}`:''}. Emitido el ${fechaCorta(r.emision)}.</p>
     ${(s=>s?'<div class="banner warn">'+ico('alerta')+' '+esc(textoSubida(s))+'</div>':'')(subidaTarifa('luz',r.id))}
     ${r.pdfId?`<button class="pdf-mini" data-verpdf="${r.id}"><img src="${esc(pdfMiniUrl(r.pdfId))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span><strong>Ver recibo original</strong><span class="muted small">Toca para abrir el PDF de ${mesLargo(r.id)}</span></span></button>`:''}
+    ${puntuar(r)>0?`<div class="banner warn" style="margin-bottom:12px">Revisa este recibo: ${[...REQUERIDOS.filter(k=>r[k]==null||r[k]==='').map(k=>'falta '+CAMPOS.find(c=>c.k===k).l),...chequeos(r)].map(esc).join('; ')}. Usa Editar para corregirlo.</div>`:''}
     <h3>Lectura</h3>
     <p style="margin-top:0">${fmtN(r.lecturaActual,2)} − ${fmtN(r.lecturaAnterior,2)} = <strong>${fmtN(r.kwh)} kWh</strong> × ${r.precioKwh??'—'} = ${fmtS(r.consumoEnergia)}<br><span class="muted small">Del ${fechaCorta(r.fechaLecturaAnterior)} al ${fechaCorta(r.fechaLectura)}</span></p>
     <h3>Detalle</h3>
@@ -651,12 +669,12 @@ function abrirDetalle(id){
 
 /* ---------- Formulario ---------- */
 function chequeos(d){
-  const out=[];const near=(a,b)=>Math.abs(a-b)<=0.05;
+  const out=[];const near=(a,b)=>Math.abs(a-b)<=0.05;const opr=g=>sum(d.otros||[],o=>(/nota|d[eé]b|cr[eé]d/i.test(o.label||'')===(g==='pagar'))?o.monto:0);
   if(d.lecturaActual!=null&&d.lecturaAnterior!=null&&d.kwh!=null&&!near(d.lecturaActual-d.lecturaAnterior,d.kwh))out.push('La diferencia de lecturas no coincide con los kWh.');
   if(d.kwh!=null&&d.precioKwh!=null&&d.consumoEnergia!=null&&Math.abs(d.kwh*d.precioKwh-d.consumoEnergia)>0.1)out.push('kWh × precio no da el consumo de energía.');
-  if(d.subtotal!=null){const s=(d.consumoEnergia||0)+(d.cargoFijo||0)+(d.mantenimiento||0)+(d.alumbrado||0)+(d.interesCompensatorio||0);if(!near(s,d.subtotal))out.push(`Los conceptos suman ${fmtS(s)} y el subtotal dice ${fmtS(d.subtotal)}.`)}
-  if(d.totalMes!=null&&d.subtotal!=null){const s=d.subtotal+(d.igv||0)+(d.electrificacion||0)+(d.interesMoratorio||0)+sum(d.otros||[],o=>o.monto);if(!near(s,d.totalMes))out.push(`Subtotal + impuestos da ${fmtS(s)} y el total del mes dice ${fmtS(d.totalMes)}.`)}
-  if(d.totalPagar!=null&&d.totalMes!=null){const s=d.totalMes+(d.ajusteAnterior||0)+(d.ajusteActual||0)+(d.deudaVencida||0);if(!near(s,d.totalPagar))out.push(`Total del mes + ajustes + deuda da ${fmtS(s)} y el total a pagar dice ${fmtS(d.totalPagar)}.`)}
+  if(d.subtotal!=null){const s=(d.consumoEnergia||0)+(d.cargoFijo||0)+(d.mantenimiento||0)+(d.alumbrado||0)+(d.interesCompensatorio||0)+opr('subtotal');if(!near(s,d.subtotal))out.push(`Los conceptos suman ${fmtS(s)} y el subtotal dice ${fmtS(d.subtotal)}.`)}
+  if(d.totalMes!=null&&d.subtotal!=null){const s=d.subtotal+(d.igv||0)+(d.electrificacion||0)+(d.interesMoratorio||0);if(!near(s,d.totalMes))out.push(`Subtotal + impuestos da ${fmtS(s)} y el total del mes dice ${fmtS(d.totalMes)}.`)}
+  if(d.totalPagar!=null&&d.totalMes!=null){const s=d.totalMes+(d.ajusteAnterior||0)+(d.ajusteActual||0)+(d.deudaVencida||0)+opr('pagar');if(!near(s,d.totalPagar))out.push(`Total del mes + ajustes + deuda da ${fmtS(s)} y el total a pagar dice ${fmtS(d.totalPagar)}.`)}
   return out;
 }
 async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
@@ -716,11 +734,55 @@ let pdfjsPromise=null;
 function cargarScript(src){return new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('No se pudo cargar '+src));document.head.appendChild(s)})}
 function cargarPdfJs(){if(!pdfjsPromise){const b='https:\/\/cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';pdfjsPromise=cargarScript(b+'pdf.min.js').then(()=>cargarScript(b+'pdf.worker.min.js')).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=b+'pdf.worker.min.js';return window.pdfjsLib})}return pdfjsPromise}
 async function extraerTexto(file){const lib=await cargarPdfJs();const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let t='';for(let i=1;i<=Math.min(pdf.numPages,3);i++){const p=await pdf.getPage(i);const c=await p.getTextContent();t+=c.items.map(x=>x.str).join(' ')+' '}return t}
+function puntuar(d){return REQUERIDOS.filter(k=>d[k]==null||d[k]==='').length*10+chequeos(d).length}
+function fusionar(mejor,otro){const r={...mejor};for(const k of Object.keys(otro||{})){if((r[k]==null||r[k]==='')&&otro[k]!=null&&!Array.isArray(otro[k]))r[k]=otro[k]}return r}
+async function ocrPdfMejor(file){
+  const lib=await cargarPdfJs();
+  const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const page=await pdf.getPage(1);
+  const vp=page.getViewport({scale:3});
+  const base=document.createElement('canvas');base.width=Math.round(vp.width);base.height=Math.round(vp.height);
+  const bctx=base.getContext('2d',{willReadFrequently:true});
+  await page.render({canvasContext:bctx,viewport:vp}).promise;
+  const src=bctx.getImageData(0,0,base.width,base.height);
+  await cargarTesseract();
+  const worker=await window.Tesseract.createWorker('eng');
+  let mejor=null;
+  try{
+    await worker.setParameters({tessedit_pageseg_mode:'6'});
+    for(const umbral of [140,160,120,180]){
+      // blanco y negro: quita los fondos amarillo/gris que el OCR no puede leer
+      const c=document.createElement('canvas');c.width=base.width;c.height=base.height;
+      const ctx=c.getContext('2d');const img=ctx.createImageData(base.width,base.height);const s=src.data,d=img.data;
+      for(let i=0;i<s.length;i+=4){const g=0.299*s[i]+0.587*s[i+1]+0.114*s[i+2];const v=g<umbral?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
+      ctx.putImageData(img,0,0);
+      const {data}=await worker.recognize(c);
+      const texto=(data&&data.text)||'';const parsed=parseRecibo(texto);const score=puntuar(parsed);
+      if(!mejor||score<mejor.score)mejor={texto,data:parsed,score,umbral};
+      if(score===0)break;
+    }
+  }finally{await worker.terminate()}
+  return mejor;
+}
+async function leerRecibo(file){
+  let texto=await extraerTexto(file);
+  const sinTexto=texto.replace(/\s/g,'').length<80;
+  let data=sinTexto?{otros:[],historial:[]}:parseRecibo(texto);
+  if(sinTexto||puntuar(data)>0){
+    toast(sinTexto?'PDF escaneado (sin texto): leyendo con OCR, puede tardar un momento…':'Los datos no cuadran del todo: verificando con OCR…');
+    try{
+      const o=await ocrPdfMejor(file);
+      if(o&&(sinTexto||o.score<puntuar(data))){data=fusionar(o.data,data);texto=o.texto}
+    }catch(e){if(sinTexto)toast('No se pudo leer con OCR. Completa los datos a mano.')}
+  }
+  data.otros=data.otros||[];data.historial=data.historial||[];
+  return {texto,data};
+}
 async function procesar(files){
   for(const file of files){
     if(!/pdf$/i.test(file.type)&&!/\.pdf$/i.test(file.name)){toast(file.name+' no es un PDF.');continue}
     toast('Leyendo '+file.name+'…');let texto='',data={};
-    try{texto=await extraerTexto(file);data=parseRecibo(texto)}catch(e){toast('No se pudo leer el PDF. Completa los datos a mano.')}
+    try{const rr=await leerRecibo(file);texto=rr.texto;data=rr.data}catch(e){toast('No se pudo leer el PDF. Completa los datos a mano.')}
     await abrirFormulario(data,{file,texto});
   }
 }
