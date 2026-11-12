@@ -435,7 +435,7 @@ function parseRecibo(t){
     const tail=labelsTxt.slice(last).trim();if(tail)labels.push({label:tail});
     if(labels.length===nums.length){labels.forEach((l,i)=>{if(l.key&&l.key.startsWith('otros:'))r.otros.push({label:l.key.slice(6),monto:nums[i]});else if(l.key)r[l.key]=nums[i];else r.otros.push({label:l.label,monto:nums[i]})})}
   }
-  if(!r.fechaLectura||!r.fechaLecturaAnterior){const dm=t.match(/(\d{1,2}\/[A-Za-z0]{3}\/\d{2,4})\s*-*\s*(\d{1,2}\/[A-Za-z0]{3}\/\d{2,4})/);if(dm){if(!r.fechaLectura)r.fechaLectura=fechaISO(dm[1]);if(!r.fechaLecturaAnterior)r.fechaLecturaAnterior=fechaISO(dm[2])}}
+  if(!r.fechaLectura||!r.fechaLecturaAnterior){const dm=[...t.matchAll(/(\d{1,2})\/([A-Za-z0]{3})[\/il|!]?(\d{2,4})(?!\d)/g)];if(dm.length>=2){if(!r.fechaLectura)r.fechaLectura=fechaISO(`${dm[0][1]}/${dm[0][2]}/${dm[0][3]}`);if(!r.fechaLecturaAnterior)r.fechaLecturaAnterior=fechaISO(`${dm[1][1]}/${dm[1][2]}/${dm[1][3]}`)}}
   if(!r.suministro&&(m=t.match(/SUMINISTRO\s+(\d{5,8})/)))r.suministro=m[1];
   if(r.totalMes==null){ // texto en filas (PDF escaneado): "Concepto 12.34"
     for(const [pat,key] of CONCEPTOS){
@@ -451,6 +451,21 @@ function parseRecibo(t){
   if(!r.mes&&r.fechaLectura)r.mes=r.fechaLectura.slice(0,7);
   if(r.totalMes==null&&r.subtotal!=null&&r.igv!=null)r.totalMes=Math.round((r.subtotal+r.igv+(r.electrificacion||0)+(r.interesMoratorio||0))*100)/100;
   if(r.totalMes==null&&r.totalPagar!=null)r.totalMes=Math.round((r.totalPagar-(r.deudaVencida||0)-(r.ajusteAnterior||0)-(r.ajusteActual||0))*100)/100;
+  // Lo que el OCR no leyó se deduce con las sumas del propio recibo (se marca para que el usuario lo revise).
+  {const dec=[];const R=x=>Math.round(x*100)/100;const nul=k=>r[k]==null;
+   const opr=g=>sum(r.otros||[],o=>(/nota|d[eé]b|cr[eé]d/i.test(o.label||'')===(g==='pagar'))?o.monto:0);
+   for(let v=0;v<3;v++){
+     if(nul('kwh')&&r.lecturaActual!=null&&r.lecturaAnterior!=null){r.kwh=R(r.lecturaActual-r.lecturaAnterior);dec.push('kwh')}
+     if(nul('consumoEnergia')&&r.kwh!=null&&r.precioKwh!=null){r.consumoEnergia=R(r.kwh*r.precioKwh);dec.push('consumoEnergia')}
+     if(r.subtotal!=null){const f=['consumoEnergia','cargoFijo','mantenimiento','alumbrado'].filter(nul);
+       if(f.length===1){const k=f[0];const x=R(r.subtotal-sum(['consumoEnergia','cargoFijo','mantenimiento','alumbrado','interesCompensatorio'].filter(y=>y!==k),y=>r[y]||0)-opr('subtotal'));if(x>=0){r[k]=x;dec.push(k)}}}
+     if(r.totalMes!=null&&r.subtotal!=null){const f=['igv','electrificacion'].filter(nul);
+       if(f.length===1){const k=f[0];const x=R(r.totalMes-r.subtotal-sum(['igv','electrificacion','interesMoratorio'].filter(y=>y!==k),y=>r[y]||0));if(x>=0){r[k]=x;dec.push(k)}}
+       else if(f.length===2){r.igv=R(r.subtotal*0.18);dec.push('igv')}}
+     if(r.totalPagar!=null&&r.totalMes!=null){const f=['ajusteAnterior','ajusteActual'].filter(nul);
+       if(f.length===1){const k=f[0],o=k==='ajusteActual'?'ajusteAnterior':'ajusteActual';const x=R(r.totalPagar-r.totalMes-(r[o]||0)-(r.deudaVencida||0)-opr('pagar'));if(Math.abs(x)<=1){r[k]=x;dec.push(k)}}}
+   }
+   if(dec.length)r._deducidos=[...new Set(dec)];}
   return r;
 }
 
@@ -675,6 +690,7 @@ function chequeos(d){
   if(d.subtotal!=null){const s=(d.consumoEnergia||0)+(d.cargoFijo||0)+(d.mantenimiento||0)+(d.alumbrado||0)+(d.interesCompensatorio||0)+opr('subtotal');if(!near(s,d.subtotal))out.push(`Los conceptos suman ${fmtS(s)} y el subtotal dice ${fmtS(d.subtotal)}.`)}
   if(d.totalMes!=null&&d.subtotal!=null){const s=d.subtotal+(d.igv||0)+(d.electrificacion||0)+(d.interesMoratorio||0);if(!near(s,d.totalMes))out.push(`Subtotal + impuestos da ${fmtS(s)} y el total del mes dice ${fmtS(d.totalMes)}.`)}
   if(d.totalPagar!=null&&d.totalMes!=null){const s=d.totalMes+(d.ajusteAnterior||0)+(d.ajusteActual||0)+(d.deudaVencida||0)+opr('pagar');if(!near(s,d.totalPagar))out.push(`Total del mes + ajustes + deuda da ${fmtS(s)} y el total a pagar dice ${fmtS(d.totalPagar)}.`)}
+  if(d.subtotal!=null&&d.igv!=null&&Math.abs(d.igv-d.subtotal*0.18)>0.04)out.push(`El IGV (${fmtS(d.igv)}) no es el 18% del subtotal (${fmtS(d.subtotal*0.18)}).`);
   return out;
 }
 async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
@@ -691,6 +707,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
         ${f.length?`<div class="banner warn" style="margin-bottom:14px">Faltan: ${f.map(k=>CAMPOS.find(c=>c.k===k).l).join(', ')}.${sample&&texto&&!sample.soloOCR?' <button class="btn" data-ia style="margin-top:8px">Completar con IA</button>':''}</div>`:''}
         ${!editando&&data.mes&&recibos.some(x=>x.id===data.mes)?`<div class="banner warn" style="margin-bottom:14px">Ya hay un recibo de ${mesLargo(data.mes)}. Al guardar se reemplaza con estos datos; se conservan la marca de pagado y el PDF si no subes uno nuevo.</div>`:''}
         ${ch.length?`<div class="banner info" style="margin-bottom:14px">${ch.map(esc).join('<br>')}</div>`:(!f.length?`<div class="banner info" style="margin-bottom:14px">Las sumas del recibo cuadran.</div>`:'')}
+        ${(data._deducidos||[]).length?`<div class="banner warn" style="margin-bottom:14px">No se pudo leer bien: <strong>${data._deducidos.map(k=>(CAMPOS.find(c=>c.k===k)||{l:k}).l).join(', ')}</strong>. Se calculó con las sumas del recibo; compáralo con el papel antes de guardar.</div>`:''}
         ${grupos.map(g=>`<fieldset><legend>${g}</legend><div class="grid2">${CAMPOS.filter(c=>c.g===g).map(c=>{const v=data[c.k];const val=v==null?'':v;return `<label class="f">${c.l}<input data-k="${c.k}" ${c.t==='num'?'type="text" inputmode="decimal"':`type="${c.t}"`} value="${esc(val)}" class="${REQUERIDOS.includes(c.k)&&(v==null||v==='')?'miss':''}" ${editando&&c.k==='mes'?'readonly':''}></label>`}).join('')}</div></fieldset>`).join('')}
         ${(data.otros||[]).length?`<p class="small muted">Otros conceptos: ${data.otros.map(o=>esc(o.label)+' '+fmtS(o.monto)).join(', ')}</p>`:''}
       </div>
@@ -711,7 +728,7 @@ async function abrirFormulario(data,{file=null,texto='',editando=false}={}){
         if(existe&&!editando&&!(await confirmar(`Ya hay un recibo de ${mesLargo(data.mes)}. ¿Reemplazarlo?`,'Reemplazar')))return;
         const btn=dlg.querySelector('[data-save]');btn.disabled=true;btn.textContent='Guardando…';
         try{
-          const body={...data};delete body.id;
+          const body={...data};delete body.id;delete body._deducidos;
           if(existe){for(const k of ['pagado','fechaPago','pdfUrl','pdfId','pdfNombre'])if(body[k]===undefined)body[k]=existe[k]??null}
           if(file&&assets){const up=await assets.upload(file,{type:'application/pdf',nombre:`Recibo ${data.mes}.pdf`,carpeta:['Recibos PDF']});if(existe&&existe.pdfId&&existe.pdfId!==up.id){try{await assets.delete(existe.pdfId)}catch(e){}}body.pdfUrl=up.url;body.pdfId=up.id;body.pdfNombre=file.name}
           body.pagado=!!body.pagado;body.otros=body.otros||[];body.historial=body.historial||[];
@@ -734,46 +751,65 @@ let pdfjsPromise=null;
 function cargarScript(src){return new Promise((ok,err)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>err(new Error('No se pudo cargar '+src));document.head.appendChild(s)})}
 function cargarPdfJs(){if(!pdfjsPromise){const b='https:\/\/cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';pdfjsPromise=cargarScript(b+'pdf.min.js').then(()=>cargarScript(b+'pdf.worker.min.js')).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=b+'pdf.worker.min.js';return window.pdfjsLib})}return pdfjsPromise}
 async function extraerTexto(file){const lib=await cargarPdfJs();const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;let t='';for(let i=1;i<=Math.min(pdf.numPages,3);i++){const p=await pdf.getPage(i);const c=await p.getTextContent();t+=c.items.map(x=>x.str).join(' ')+' '}return t}
-function puntuar(d){return REQUERIDOS.filter(k=>d[k]==null||d[k]==='').length*10+chequeos(d).length}
+function puntuar(d){return REQUERIDOS.filter(k=>d[k]==null||d[k]==='').length*10+chequeos(d).length+(d._deducidos&&d._deducidos.length?0.5:0)}
 function fusionar(mejor,otro){const r={...mejor};for(const k of Object.keys(otro||{})){if((r[k]==null||r[k]==='')&&otro[k]!=null&&!Array.isArray(otro[k]))r[k]=otro[k]}return r}
-async function ocrPdfMejor(file){
+function panelOCR(){
+  const el=document.createElement('div');el.className='banner info';
+  el.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:70;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 4px 18px rgba(0,0,0,.25)';
+  el.innerHTML='<span class="txt">Leyendo el recibo…</span><button class="btn" type="button" style="white-space:nowrap">Llenar a mano</button>';
+  document.body.appendChild(el);
+  let cancelar;const cancelado=new Promise(r=>{cancelar=r});let fue=false;
+  el.querySelector('button').onclick=()=>{fue=true;cancelar(null)};
+  return{poner:t=>{const s=el.querySelector('.txt');if(s)s.textContent=t},cancelado,esCancelado:()=>fue,quitar:()=>el.remove()};
+}
+async function ocrPdfMejor(file,panel){
+  const t0=Date.now(),PRESUPUESTO=75000;
+  panel.poner('Preparando la imagen del recibo…');
   const lib=await cargarPdfJs();
   const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
   const page=await pdf.getPage(1);
-  const vp=page.getViewport({scale:3});
-  const base=document.createElement('canvas');base.width=Math.round(vp.width);base.height=Math.round(vp.height);
+  const vp=page.getViewport({scale:2.6});
+  const W=Math.round(vp.width),HT=Math.round(vp.height);
+  const base=document.createElement('canvas');base.width=W;base.height=HT;
   const bctx=base.getContext('2d',{willReadFrequently:true});
   await page.render({canvasContext:bctx,viewport:vp}).promise;
-  const src=bctx.getImageData(0,0,base.width,base.height);
+  const H=Math.round(HT*0.75); // los importes están en la parte de arriba: menos imagen = OCR más rápido
+  const src=bctx.getImageData(0,0,W,H).data;
+  const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d');const img=ctx.createImageData(W,H);
+  const umbrales=[140,160,120,180];let mejor=null,pasada=0;
+  panel.poner('Cargando el lector de texto (OCR)… la primera vez tarda un poco');
   await cargarTesseract();
-  const worker=await window.Tesseract.createWorker('eng');
-  let mejor=null;
+  const worker=await window.Tesseract.createWorker('eng',1,{logger:m=>{if(m&&m.status==='recognizing text')panel.poner(`Leyendo el recibo… pasada ${pasada} de ${umbrales.length} · ${Math.round((m.progress||0)*100)}%`)}});
   try{
     await worker.setParameters({tessedit_pageseg_mode:'6'});
-    for(const umbral of [140,160,120,180]){
+    for(const umbral of umbrales){
+      if(panel.esCancelado()||(mejor&&Date.now()-t0>PRESUPUESTO))break;
+      pasada++;panel.poner(`Leyendo el recibo… pasada ${pasada} de ${umbrales.length}`);
+      const d=img.data;
       // blanco y negro: quita los fondos amarillo/gris que el OCR no puede leer
-      const c=document.createElement('canvas');c.width=base.width;c.height=base.height;
-      const ctx=c.getContext('2d');const img=ctx.createImageData(base.width,base.height);const s=src.data,d=img.data;
-      for(let i=0;i<s.length;i+=4){const g=0.299*s[i]+0.587*s[i+1]+0.114*s[i+2];const v=g<umbral?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
+      for(let i=0;i<src.length;i+=4){const g=0.299*src[i]+0.587*src[i+1]+0.114*src[i+2];const v=g<umbral?0:255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}
       ctx.putImageData(img,0,0);
-      const {data}=await worker.recognize(c);
-      const texto=(data&&data.text)||'';const parsed=parseRecibo(texto);const score=puntuar(parsed);
+      const r=await Promise.race([worker.recognize(c),panel.cancelado,new Promise(ok=>setTimeout(()=>ok(null),Math.max(15000,PRESUPUESTO-(Date.now()-t0))))]);
+      if(!r)break;
+      const texto=(r.data&&r.data.text)||'';const parsed=parseRecibo(texto);const score=puntuar(parsed);
       if(!mejor||score<mejor.score)mejor={texto,data:parsed,score,umbral};
-      if(score===0)break;
+      if(score<1)break;
     }
-  }finally{await worker.terminate()}
+  }finally{try{await Promise.race([worker.terminate(),new Promise(ok=>setTimeout(ok,2000))])}catch(e){}}
   return mejor;
 }
 async function leerRecibo(file){
   let texto=await extraerTexto(file);
   const sinTexto=texto.replace(/\s/g,'').length<80;
   let data=sinTexto?{otros:[],historial:[]}:parseRecibo(texto);
-  if(sinTexto||puntuar(data)>0){
-    toast(sinTexto?'PDF escaneado (sin texto): leyendo con OCR, puede tardar un momento…':'Los datos no cuadran del todo: verificando con OCR…');
+  if(sinTexto||puntuar(data)>=1){
+    const panel=panelOCR();
     try{
-      const o=await ocrPdfMejor(file);
+      const o=await ocrPdfMejor(file,panel);
       if(o&&(sinTexto||o.score<puntuar(data))){data=fusionar(o.data,data);texto=o.texto}
+      else if(!o&&sinTexto)toast(panel.esCancelado()?'Llena los datos a mano.':'No se pudo leer el recibo a tiempo. Llena los datos a mano.');
     }catch(e){if(sinTexto)toast('No se pudo leer con OCR. Completa los datos a mano.')}
+    finally{panel.quitar()}
   }
   data.otros=data.otros||[];data.historial=data.historial||[];
   return {texto,data};
