@@ -303,6 +303,44 @@ table.ec td.ec-cons{color:var(--muted)}
 @media (min-width:641px) and (max-width:1000px){header.top{align-items:center}header.top .usuario{order:2}header.top nav.tabs{order:3;width:100%;justify-content:space-between}header.top nav.tabs button{flex:1;justify-content:center}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- Ventana del depto: luz (ámbar) y agua (azul) se distinguen en todo ---- */
+.svc-luz{--svc:var(--amber);--on-svc:#1D2733}
+.svc-agua{--svc:var(--blue);--on-svc:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .svc-agua{--on-svc:#12171D}}
+:root[data-theme="dark"] .svc-agua{--on-svc:#12171D}
+.dlg-b:focus{outline:none}
+.dep-id{min-width:0}.dep-id h2{line-height:1.15}
+.dep-sub{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-top:3px}
+.dep-enc{font-weight:600;font-size:.95rem}
+.dep-ubic{font-size:.78rem;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:1px 9px;white-space:nowrap}
+@media (max-width:560px){.cuenta>.row{flex-wrap:wrap}.cuenta>.row>.row{width:100%;flex-wrap:nowrap}.cuenta>.row>.row .btn{flex:1 1 0;min-width:0;padding-inline:8px;justify-content:center;text-align:center}}
+.svc-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 0 14px}
+.svc-tab{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;border:0;background:none;padding:8px 6px;min-height:46px;border-radius:9px;font-weight:700;color:var(--muted);cursor:pointer}
+.svc-tab .ic{width:1.2em;height:1.2em}
+.svc-tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:inset 0 -3px 0 var(--svc),0 1px 2px rgba(0,0,0,.14)}
+.svc-tab[aria-selected="true"] .ic{color:var(--svc)}
+.svc-falta{font-size:.7rem;font-weight:700;background:var(--red-soft);color:var(--red);border-radius:99px;padding:1px 8px}
+.svc-meta{font-size:.72rem;font-weight:500;color:var(--muted)}
+.svc-btn{background:var(--svc);border-color:var(--svc);color:var(--on-svc);font-weight:700}
+.svc-btn:hover{filter:brightness(1.06)}
+.svc-nota{margin:0 0 6px;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:.9rem}
+.mes-lista{margin-top:12px}
+.mes-fila{display:grid;grid-template-columns:1fr auto auto;gap:1px 10px;align-items:start;padding:10px 6px 10px 12px;margin-bottom:8px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--svc);border-radius:10px}
+.mes-fila .mf-mes{font-weight:700;grid-column:1;grid-row:1}
+.mes-fila .mf-det{grid-column:1;grid-row:2;color:var(--muted);font-size:.84rem;font-variant-numeric:tabular-nums}
+.mes-fila .mf-cons{grid-column:2;grid-row:1;text-align:right;font-weight:750;font-size:1.12rem;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mes-fila .mf-cons small{font-weight:500;color:var(--muted);font-size:.74rem;margin-left:3px}
+.mes-fila .mf-monto{grid-column:2;grid-row:2;text-align:right;font-size:.86rem;font-weight:650;font-variant-numeric:tabular-nums}
+.mes-fila>.mf-menu,.mes-fila>span:last-child{grid-column:3;grid-row:1/3;align-self:center}
+.mf-foto{margin-left:8px;white-space:nowrap}
+.mf-menu{position:relative}
+.mf-menu>summary{list-style:none;cursor:pointer;min-width:34px;min-height:34px;display:grid;place-items:center;border-radius:8px;color:var(--muted);font-size:1.35rem;line-height:1}
+.mf-menu>summary::-webkit-details-marker{display:none}
+.mf-menu>summary:hover,.mf-menu[open]>summary{background:var(--surface-2);color:var(--ink)}
+.mf-acc{position:absolute;right:0;top:100%;z-index:6;display:grid;min-width:112px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.mf-acc .iconbtn{text-align:left;padding:9px 10px;text-decoration:none}
+.mas-meses .mes-fila:last-child{margin-bottom:0}
 </style>
 </head>
 <body>
@@ -1190,6 +1228,7 @@ function conectarPanelLecturas(){
 function abrirDepto(id){
   const d=deptos.find(x=>x.id===id);if(!d)return;
   const dlg=$('#dlg');
+  let tab=(abrirDepto.ult&&abrirDepto.ult.id===id)?abrirDepto.ult.tab:((d.estado==='desocupado'&&tipoAgua(d)==='medidor')?'agua':'luz');
   const pintar=()=>{
     const ls=lecturasDe(id);const la=lecturasAguaDe(id);const ta=tipoAgua(d);
     const plegar=f=>f.slice(0,3).join('')+(f.length>3?`<details class="mas-meses"><summary class="small muted">Ver ${f.length-3} mes${f.length-3>1?'es':''} anteriores</summary>${f.slice(3).join('')}</details>`:'');
@@ -1197,9 +1236,35 @@ function abrirDepto(id){
       const pagos=cobros.filter(c=>c.deptoId===id&&c.montoCobrado!=null&&Number(c.montoCobrado)>0).sort((a,b)=>b.mes.localeCompare(a.mes)).slice(0,3);
       return `<div class="cuenta"><div class="row" style="justify-content:space-between"><div>${debe>0?`<span class="chip ${late?'late':'pend'}">Debe ${fmtS(debe)}</span> <span class="small muted">${ps.length} mes${ps.length>1?'es':''} · desde ${mesCorto(ps[0].mes)}</span>`:fav>0?`<span class="chip ok">A favor ${fmtS(fav)}</span>`:'<span class="chip ok">Al día</span>'}</div><div class="row" style="gap:6px"><button class="btn sm" id="btn-ec-ficha">Estado de cuenta</button>${debe>0?'<button class="btn sm primary" id="btn-pago-ficha">'+ico('pago')+' Registrar pago</button>':''}</div></div>
         <div class="small muted" style="margin-top:6px">${pagos.length?'Últimos pagos: '+pagos.map(c=>mesCorto(c.mes)+' '+fmtS(Number(c.montoCobrado))+(c.fechaCobro?' ('+fechaCorta(c.fechaCobro)+')':'')).join(' · '):'Sin pagos registrados.'}</div></div>`})();
-    dlg.innerHTML=`<div class="dlg-h"><h2 style="margin:0">${tituloDepto(d)}${d.piso?` <span class="muted small" style="font-weight:400">· Piso ${d.piso}, unidad ${d.lado}</span>`:''}</h2><button class="x" aria-label="Cerrar" data-close>×</button></div>
-    <div class="dlg-b">
+    const mesRefL=ultimoMesConDatos();
+    const luzFalta=d.estado!=='desocupado'&&mesRefL&&!lecturaDe(id,mesRefL);
+    const mesRefA=aguaRecibos.map(r=>r.id).sort().pop();
+    const aguaFalta=ta==='medidor'&&mesRefA&&!lecturaAguaDe(id,mesRefA);
+    const menuFila=(ed,del,rid,et)=>`<details class="mf-menu"><summary aria-label="Acciones de ${esc(et)}">⋯</summary><div class="mf-acc"><button type="button" class="iconbtn" ${ed}="${rid}">Editar</button><button type="button" class="iconbtn" ${del}="${rid}" style="color:var(--red)">Eliminar</button></div></details>`;
+    const foto=l=>l.fotoUrl?`<a class="mf-foto" href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">${ico('camara')} foto</a>`:'';
+    const filasLuz=ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="mes-fila svc-luz"><div class="mf-mes">${mesLargo(l.mes)}</div><div class="mf-cons">${fmtN(l.kwh)}<small>kWh</small></div><div class="mf-det">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'}${foto(l)||(l.origen==='foto'?'<span class="mf-foto">'+ico('camara')+'</span>':'')}${l.montoCobrado!=null?`<div class="muted">cobro anterior ${fmtS(l.montoCobrado)}</div>`:''}</div><div class="mf-monto">${v?fmtS(v.cargoElectricidad):'—'}</div>${menuFila('data-editl','data-dell',l.id,mesLargo(l.mes))}</div>`});
+    const filasAgua=aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);
+      const cons=l?`${fmtN(m3De(l),2)}<small>m³</small>`:(p&&ta==='sin_medidor'?`${fmtN(p.m3,2)}<small>m³ estimados</small>`:'');
+      const det=l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)}${foto(l)}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'<span class="muted">sin medidor</span>');
+      return `<div class="mes-fila svc-agua"><div class="mf-mes">${mesLargo(r.id)}</div><div class="mf-cons">${cons}</div><div class="mf-det">${det}${l&&p?`<div class="muted">${fmtN(p.m3,2)} m³ asignados</div>`:''}</div><div class="mf-monto">${p?fmtS(p.agua)+(p.atraso?` <span class="muted">+ ${fmtS(p.atraso)} atraso</span>`:''):'—'}</div>${l?menuFila('data-editla','data-della',l.id,mesLargo(r.id)):'<span></span>'}</div>`})
+      .concat(la.filter(l=>!aguaRecibos.some(r=>r.id===l.mes)).slice().reverse().map(l=>`<div class="mes-fila svc-agua"><div class="mf-mes">${mesLargo(l.mes)}</div><div class="mf-cons">${fmtN(m3De(l),2)}<small>m³</small></div><div class="mf-det">sin recibo de agua${foto(l)}</div><div class="mf-monto"></div>${menuFila('data-editla','data-della',l.id,mesLargo(l.mes))}</div>`));
+    dlg.innerHTML=`<div class="dlg-h"><div class="dep-id"><h2>${tituloDepto(d)}</h2><div class="dep-sub"><span class="dep-enc">${esc(d.encargado||'Sin encargado')}</span>${d.piso?`<span class="dep-ubic">Piso ${d.piso}, unidad ${d.lado}</span>`:''}</div></div><button class="x" aria-label="Cerrar" data-close>×</button></div>
+    <div class="dlg-b" tabindex="-1" autofocus>
       ${cuenta}
+      <div class="svc-tabs" role="tablist" aria-label="Servicio">
+        <button type="button" role="tab" class="svc-tab svc-luz" data-svc="luz" aria-selected="${tab==='luz'}">${ico('luz')}<span>Luz</span>${d.estado==='desocupado'?'<span class="svc-meta">sin luz</span>':luzFalta?`<span class="svc-falta">falta ${mesCorto(mesRefL)}</span>`:''}</button>
+        <button type="button" role="tab" class="svc-tab svc-agua" data-svc="agua" aria-selected="${tab==='agua'}">${ico('agua')}<span>Agua</span>${ta==='no'?'<span class="svc-meta">no aplica</span>':ta==='sin_medidor'?'<span class="svc-meta">sin medidor</span>':aguaFalta?`<span class="svc-falta">falta ${mesCorto(mesRefA)}</span>`:''}</button>
+      </div>
+      <section class="svc-panel svc-luz" data-panel="luz" ${tab==='luz'?'':'hidden'}>
+        ${d.estado==='desocupado'?'<p class="svc-nota">Este depto está marcado <strong>sin luz</strong> y no entra en el reparto de luz.</p>':'<button type="button" class="btn svc-btn" id="add-lectura-top">'+ico('camara')+' Lectura de luz</button>'}
+        ${ls.length?'<div class="chart-box" style="height:170px;margin:12px 0"><canvas id="dep-chart"></canvas></div>':''}
+        ${ls.length?`<div class="mes-lista">${plegar(filasLuz)}</div>`:'<p class="muted small" style="margin-top:12px">Sin lecturas de luz.</p>'}
+      </section>
+      <section class="svc-panel svc-agua" data-panel="agua" ${tab==='agua'?'':'hidden'}>
+        ${ta==='medidor'?'<button type="button" class="btn svc-btn" id="add-lectura-agua-top">'+ico('camara')+' Lectura de agua</button>':''}
+        ${ta==='sin_medidor'?`<p class="svc-nota">Sin medidor: se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
+        ${ta==='no'?'<p class="svc-nota">No participa del recibo de agua.</p>':(filasAgua.length?`<div class="mes-lista">${plegar(filasAgua)}</div>`:'<p class="muted small" style="margin-top:12px">Todavía no hay recibos de agua cargados.</p>')}
+      </section>
       <details class="mas-opciones datos-depto" ${abrirDepto.datos||!d.encargado?'open':''}><summary><strong>${ico('ajustes')} Datos del depto</strong> <span class="muted small">encargado, celular, unidad, acceso, luz y agua</span></summary>
         <div style="margin-top:12px">
         <div class="grid2" style="margin-bottom:14px"><label class="f">Encargado del departamento<input id="edit-encargado" value="${esc(d.encargado||'')}" placeholder="Nombre del encargado"></label>
@@ -1214,31 +1279,9 @@ function abrirDepto(id){
           <button class="btn sm" id="toggle-estado">${d.estado==='desocupado'?'Marcar con luz':'Marcar sin luz'}</button>
           <select id="tipo-agua" aria-label="Servicio de agua"><option value="medidor" ${ta==='medidor'?'selected':''}>Agua con medidor</option><option value="sin_medidor" ${ta==='sin_medidor'?'selected':''}>Agua sin medidor (se estima)</option><option value="no" ${ta==='no'?'selected':''}>Sin servicio de agua</option></select>
         </div></div></details>
-      <div class="row" style="margin-bottom:16px">
-        ${d.estado!=='desocupado'?'<button class="btn" id="add-lectura-top">'+ico('camara')+' Lectura de luz</button>':''}
-        ${ta==='medidor'?'<button class="btn" id="add-lectura-agua-top">'+ico('camara')+' Lectura de agua</button>':''}
-      </div>
-
-      <h3>Luz${d.estado==='desocupado'?' <span class="chip sm off">Sin luz</span>':''}</h3>
-      ${ls.length?'<div class="chart-box" style="height:170px;margin-bottom:12px"><canvas id="dep-chart"></canvas></div>':''}
-      ${ls.length?plegar(ls.slice().reverse().map(l=>{const v=calcVerif(id,l.mes);return `<div class="lect-row">
-          <div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${l.lecturaAnterior??'—'} → ${l.lecturaActual??'—'} = ${fmtN(l.kwh)} kWh ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener" title="Ver foto del medidor">${ico('camara')} ver foto</a>`:l.origen==='foto'?ico('camara'):''}</div></div>
-          <div class="small">${v?fmtS(v.cargoElectricidad)+' de luz':'—'}</div>
-          <div class="small">${l.montoCobrado!=null?'<span class="muted">cobro anterior '+fmtS(l.montoCobrado)+'</span>':''}</div>
-          <div><button class="iconbtn" data-editl="${l.id}">Editar</button> <button class="iconbtn" data-dell="${l.id}" style="color:var(--red)">Eliminar</button></div>
-        </div>`})):'<p class="muted small">Sin lecturas de luz.</p>'}
-
-      <h3 style="margin-top:18px">Agua${ta!=='medidor'?' <span class="chip sm off">'+(ta==='no'?'sin servicio':'sin medidor')+'</span>':''}</h3>
-      ${ta==='sin_medidor'?`<p class="muted small">Se le asigna la base de m³ de cada mes (se cambia por mes en Cobros → Cargos del mes), más el exceso cuando el agua sin medir del edificio se sale de lo normal.</p>`:''}
-      ${ta!=='no'?plegar(aguaRecibos.slice().sort((a,b)=>b.id.localeCompare(a.id)).map(r=>{const a=calcAgua(r.id);const p=a&&!a.incompleto?a.porDepto[id]:null;const l=lecturaAguaDe(id,r.id);return `<div class="lect-row">
-          <div><strong>${mesLargo(r.id)}</strong><div class="muted small">${l?`${fmtN(l.lecturaAnterior,3)} → ${fmtN(l.lecturaActual,3)} = ${fmtN(m3De(l),3)} m³ ${l.fotoUrl?`<a href="${esc(l.fotoUrl)}" target="_blank" rel="noopener">${ico('camara')} ver foto</a>`:''}`:(ta==='medidor'?'<span class="chip sm miss">Falta lectura</span>':'estimado')}</div></div>
-          <div class="small">${p?fmtN(p.m3,2)+' m³ asignados':'—'}</div>
-          <div class="small">${p?fmtS(p.agua)+' de agua'+(p.atraso?' + '+fmtS(p.atraso)+' atraso':''):''}</div>
-          <div>${l?`<button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button>`:''}</div>
-        </div>`}).concat(la.filter(l=>!aguaRecibos.some(r=>r.id===l.mes)).slice().reverse().map(l=>`<div class="lect-row"><div><strong>${mesLargo(l.mes)}</strong><div class="muted small">${fmtN(m3De(l),3)} m³ · sin recibo de agua</div></div><div></div><div></div><div><button class="iconbtn" data-editla="${l.id}">Editar</button> <button class="iconbtn" data-della="${l.id}" style="color:var(--red)">Eliminar</button></div></div>`)))
-        :'<p class="muted small">No participa del recibo de agua.</p>'}
     </div>`;
     dlg.querySelector('[data-close]').onclick=()=>dlg.close();
+    dlg.querySelectorAll('.svc-tab').forEach(t=>t.onclick=()=>{const s=t.dataset.svc;tab=s;abrirDepto.ult={id,tab:s};dlg.querySelectorAll('.svc-tab').forEach(x=>x.setAttribute('aria-selected',x===t));dlg.querySelectorAll('.svc-panel').forEach(pn=>pn.hidden=pn.dataset.panel!==s);if(s==='luz'&&deptoChart)deptoChart.resize()});
     dlg.querySelector('#edit-encargado').onchange=async e=>{const v=e.target.value.trim();try{await guardarDepto(id,{...d,encargado:v});d.encargado=v;toast('Encargado actualizado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#edit-telefono').onchange=async e=>{const v=e.target.value.replace(/[^\d+ ]/g,'').trim();try{await guardarDepto(id,{...d,telefono:v});d.telefono=v;toast('Celular guardado')}catch(err){toast('No se pudo guardar')}};
     dlg.querySelector('#btn-acceso-inq').onclick=()=>abrirAccesoInquilino(d);
