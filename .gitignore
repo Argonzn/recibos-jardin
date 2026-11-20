@@ -9,3 +9,6 @@ pdfs/
 
 # Configuración local de herramientas
 .impeccable/
+
+# Contexto privado para Claude Code (nombres y montos)
+CLAUDE.local.md

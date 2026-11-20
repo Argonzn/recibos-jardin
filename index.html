@@ -2065,6 +2065,8 @@ function renderCobros(){
   const esperado=r2(sum(filas,x=>x.neto)),cobrado=r2(sum(filas,x=>x.pagado)),nOk=filas.filter(x=>x.estado.cls==='ok').length;
   const faltanDatos=[...new Set(filas.flatMap(x=>x.faltan))];
   const celda=v=>v==null?'<span class="muted">—</span>':fmtS(v);
+  // Subtotal de servicios (luz + agua), antes de sumar administración, mantenimiento y mora
+  const subServ=x=>x.partes.luz==null&&x.partes.agua==null?null:r2((x.partes.luz||0)+(x.partes.agua||0));
   const pend=cobrosPendientesTodos();
   const enviados=filas.filter(x=>enviadoCobro(x.d.id,mes)).length;
   const acciones=(x,m)=>`<div class="row" style="gap:6px;flex-wrap:nowrap">
@@ -2092,21 +2094,21 @@ ${mesCerrado(mes)?'':(()=>{const a=calcAgua(mes),rl0=recibos.find(x=>x.id===mes)
       return L.length?`<p class="small muted" style="margin:0 0 10px">Moras de ${mesLargo(mes)} — ${L.join(' · ')}. Se reparten en partes iguales entre quienes no pagaron ${prev} a tiempo (no pagaron o pagaron fuera de fecha).</p>`:''})()}
     </details>
     <div class="scroll tabla-cobro-wrap"><table class="tabla-cobro">
-      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th>Adm. y mant.</th><th>Mora</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Depto</th><th>Luz</th><th>Agua</th><th title="Luz + agua, antes de administración, mantenimiento y mora">Subtotal servicios</th><th>Adm. y mant.</th><th>Mora</th><th>A pagar</th><th>Cobrado</th><th>Estado</th><th></th></tr></thead>
       <tbody>${filas.map(x=>`<tr>
         <td><strong>${tituloDepto(x.d)}</strong><div class="muted small">${esc(x.d.encargado||'')}</div></td>
-        <td>${celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td title="Adm. luz ${fmtS(x.partes.admLuz)} · adm. agua ${fmtS(x.partes.admAgua)} · mantenimiento ${fmtS(x.partes.mant)}">${fmtS(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant))}</td>
+        <td>${celda(x.partes.luz)}</td><td>${celda(x.partes.agua)}</td><td><strong>${celda(subServ(x))}</strong></td><td title="Adm. luz ${fmtS(x.partes.admLuz)} · adm. agua ${fmtS(x.partes.admAgua)} · mantenimiento ${fmtS(x.partes.mant)}">${fmtS(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant))}</td>
         <td>${x.partes.atraso?fmtS(x.partes.atraso):'—'}</td>
         <td><strong>${fmtS(x.neto)}</strong>${x.aFavor?`<div class="small muted">${fmtS(x.total)} − ${fmtS(x.aFavor)} a favor</div>`:''}${x.faltan.length?' <span class="muted small">(incompleto)</span>':''}</td>
         <td>${x.cobrado!=null?fmtS(x.cobrado)+(x.diferencia&&Math.abs(x.diferencia)>=0.5?`<div class="small ${x.diferencia>0?'diff-pos':'diff-neg'}">${x.diferencia>0?'+':''}${fmtS(x.diferencia)}</div>`:'')+(x.estado.txt.startsWith('Pago parcial')?`<div class="small diff-neg">falta ${fmtS(x.falta)}</div>`:''):x.legado!=null?fmtS(x.legado)+'<div class="small muted">solo luz</div>':'—'}</td>
         <td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${enviadoCobro(x.d.id,mes)?'<div class="small muted">'+ico('check')+' enviado</div>':''}</td>
         <td>${acciones(x,mes)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
+      <tfoot><tr><td>Total</td><td>${fmtS(sum(filas,x=>x.partes.luz))}</td><td>${fmtS(sum(filas,x=>x.partes.agua))}</td><td>${fmtS(sum(filas,x=>subServ(x)||0))}</td><td>${fmtS(sum(filas,x=>r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)))}</td><td>${fmtS(sum(filas,x=>x.partes.atraso))}</td><td>${fmtS(esperado)}</td><td>${fmtS(cobrado)}</td><td></td><td></td></tr></tfoot>
     </table></div>
     <div class="cobro-cards">${filas.map(x=>{const adm=r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant);const ok=x.estado.cls==="ok";if(ok)return `<div class="cobro-card pagado"><div class="row" style="justify-content:space-between;gap:8px;flex-wrap:nowrap"><div><strong>${tituloDepto(x.d)}</strong> <span class="chip sm ok">${x.estado.txt}</span><div class="small muted">${fmtS(x.cobrado??x.neto)}${x.cobro&&x.cobro.fechaCobro?" · "+fechaCorta(x.cobro.fechaCobro):""}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div></div><button class="btn sm" data-cobrar-mes="${x.d.id}|${mes}">Editar</button></div></div>`;return `<div class="cobro-card ${x.estado.cls==="late"?"atrasado":""}">
       <div class="row" style="justify-content:space-between;gap:8px"><div><strong>${tituloDepto(x.d)}</strong> <span class="muted small">${esc(x.d.encargado||"")}</span></div><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
       <div class="cc-monto">${fmtS(ok?(x.cobrado??x.neto):x.falta)} <span class="small muted">${ok?"cobrado":"por cobrar"}${x.faltan.length?" · incompleto":""}</span></div>
-      <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div>
+      <div class="small muted">${[x.partes.luz!=null?"Luz "+fmtS(x.partes.luz):"",x.partes.agua!=null?"Agua "+fmtS(x.partes.agua):"",x.partes.luz!=null&&x.partes.agua!=null?"Subtotal "+fmtS(subServ(x)):"",adm?"Adm. "+fmtS(adm):"",x.partes.atraso?"Mora "+fmtS(x.partes.atraso):"",x.aFavor?"A favor −"+fmtS(x.aFavor):""].filter(Boolean).join(" · ")}${enviadoCobro(x.d.id,mes)?" · "+ico('check')+" enviado":""}</div>
       ${acciones(x,mes)}</div>`}).join("")}</div>
     <p class="muted small" style="margin:10px 0 0">«Pagó» registra el pago completo con fecha de hoy (se puede deshacer). Para un pago parcial o de más, usa «Detalle».</p>
   </div>
