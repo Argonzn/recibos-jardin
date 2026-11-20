@@ -1897,6 +1897,56 @@ function mensajeEstadoCuenta(p,mesSig){
   if(p.debe>0)L.push('*Total pendiente: '+fmtS(p.debe)+'*');else L.push('Estás al día'+(p.favor>0?' y tienes '+fmtS(p.favor)+' a favor para '+mesLargo(mesSig):'')+'. ¡Gracias!');
   return L.join('\n');
 }
+// «Solo servicios»: el estado de cuenta sin administración ni mantenimiento, con la mora dentro del monto del mes.
+// Solo cambia lo que se muestra. Lo pagado (más el saldo a favor que venía) cubre primero los servicios.
+function soloServicios(p){
+  const filas=p.filas.map(x=>{const serv=r2((x.partes.luz||0)+(x.partes.agua||0)+(x.partes.atraso||0));
+    const cubre=r2(Math.min(serv,(x.pagado||0)+(x.aFavor||0))),falta=r2(Math.max(0,serv-cubre)),listo=falta<0.005&&!x.faltan.length;
+    return{...x,serv,cubre,falta,estado:listo?{cls:'ok',txt:x.estado.cls==='ok'?x.estado.txt:'Servicios pagados'}:x.estado}});
+  const pend=filas.filter(x=>x.estado.cls!=='ok');
+  return{...p,filas,servicios:true,debe:r2(sum(pend,x=>x.falta)),pagado:r2(sum(filas,x=>x.cubre)),late:pend.some(x=>x.estado.cls==='late'),favor:0};
+}
+const consumoTexto=(dep,mes)=>{const k=consumoMes(dep,mes);return[k.kwh!=null?fmtKwh(k.kwh)+' kWh':'',k.m3!=null?fmtN(k.m3,2)+' m³'+(k.est?' est.':''):''].filter(Boolean).join(' · ')||'—'};
+const notaServicios=est=>'«A pagar» es la luz y el agua del mes, con la mora incluida cuando la hubo. No incluye administración ni mantenimiento. «Pagó» es la parte de los pagos que cubrió estos servicios.'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
+function tablaSoloServicios(p,{clic=true}={}){
+  const S=v=>fmtS(v).replace('S/ ',''),tc=totalConsumo(p),ok=x=>x.estado.cls==='ok',m='<span class="muted">—</span>';
+  const fila=x=>`<tr${clic?` class="clic" data-ec-mes="${x.mes}" title="Ver o registrar el pago de ${mesLargo(x.mes)}"`:''}><td>${mesLargo(x.mes)}</td><td class="ec-cons">${consumoTexto(p.d.id,x.mes)}</td><td><strong>${S(x.serv)}</strong></td><td>${x.cubre?S(x.cubre):m}</td><td class="${!ok(x)&&x.falta?'ec-falta':''}">${!ok(x)&&x.falta?S(x.falta):m}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${x.faltan.length?'<div class="small muted">falta '+x.faltan.join(' y ')+'</div>':''}</td></tr>`;
+  const tarjeta=x=>`<div class="ec-card${clic?' clic':''}"${clic?` data-ec-mes="${x.mes}"`:''}><div class="ec-card-h"><strong>${mesLargo(x.mes)}</strong><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span></div>
+      <div class="ec-card-n"><span>A pagar <strong>${fmtS(x.serv)}</strong></span><span>Pagó <strong>${x.cubre?fmtS(x.cubre):'—'}</strong></span>${!ok(x)&&x.falta?`<span class="ec-falta">Falta ${fmtS(x.falta)}</span>`:''}</div>
+      <div class="small muted">${[consumoTexto(p.d.id,x.mes),x.faltan.length?'falta '+x.faltan.join(' y '):''].filter(v=>v&&v!=='—').join(' · ')}</div></div>`;
+  const tcT=[tc.kwh!=null?fmtKwh(tc.kwh)+' kWh':'',tc.m3!=null?fmtN(tc.m3,2)+' m³'+(tc.est?' est.':''):''].filter(Boolean).join(' · ')||'—';
+  return `<div class="ec-cards">${p.filas.map(tarjeta).join('')}<div class="ec-card ec-card-total"><span>Pagó en total <strong>${fmtS(p.pagado)}</strong></span><span class="${p.debe?'ec-falta':''}">Falta ${fmtS(p.debe)}</span></div></div>
+    <div class="scroll ec-tabla"><table class="ec"><thead><tr><th>Mes</th><th>Consumo</th><th>A pagar</th><th>Pagó</th><th>Falta</th><th>Estado</th></tr></thead>
+    <tbody>${p.filas.map(fila).join('')}</tbody>
+    <tfoot><tr><td>Total</td><td class="ec-cons">${tcT}</td><td>${S(r2(sum(p.filas,x=>x.serv)))}</td><td>${S(p.pagado)}</td><td class="${p.debe?'ec-falta':''}">${S(p.debe)}</td><td></td></tr></tfoot></table></div>
+    <p class="small muted ec-nota" style="margin:8px 0 0">Montos en soles (S/). ${notaServicios(tc.est)}</p>`;
+}
+function mensajeSoloServicios(p){
+  const d=p.d,L=['*Estado de cuenta (luz y agua) — '+tituloDepto(d)+(d.encargado?' ('+d.encargado+')':'')+'*',''];
+  p.filas.forEach(x=>{const ok=x.estado.cls==='ok';L.push(mesLargo(x.mes)+': a pagar '+fmtS(x.serv)+(x.cubre?' · pagó '+fmtS(x.cubre):'')+(!ok&&x.falta?' · *falta '+fmtS(x.falta)+'*':' ✅'))});
+  L.push('');
+  L.push(p.debe>0?'*Total pendiente: '+fmtS(p.debe)+'*':'Estás al día. ¡Gracias!');
+  L.push('','_No incluye administración. La mora, si hubo, va incluida en el monto del mes._');
+  return L.join('\n');
+}
+function pdfDeptoServicios(doc,p){
+  const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes,tc=totalConsumo(p),est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok';
+  let y=pdfTitulo(doc,'Estado de cuenta (luz y agua) — '+tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1)+' · emitido el '+fechaCorta(hoyLocal()));
+  doc.setFont('helvetica','bold');doc.setFontSize(12);
+  if(p.debe>0){doc.setTextColor(...PDF_ROJO);doc.text('Debe en total: '+fmtS(p.debe),14,y+2)}else{doc.setTextColor(...PDF_VERDE);doc.text('Al día',14,y+2)}
+  doc.autoTable({...pdfEstilo,startY:y+7,
+    head:[['Mes','Consumo','A pagar','Pagó','Falta','Estado']],
+    body:p.filas.map(x=>[mesLargo(x.mes),consumoTexto(p.d.id,x.mes),n2(x.serv),x.cubre?n2(x.cubre):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]),
+    foot:[['Total',[tc.kwh!=null?fmtKwh(tc.kwh)+' kWh':'',tc.m3!=null?fmtN(tc.m3,2)+' m³'+(tc.est?' est.':''):''].filter(Boolean).join(' · ')||'—',n2(r2(sum(p.filas,x=>x.serv))),n2(p.pagado),n2(p.debe),'']],
+    columnStyles:{2:{fontStyle:'bold'},4:{fontStyle:'bold'}},
+    didParseCell:c=>{c.cell.styles.halign=c.column.index===0||c.column.index===5?'left':'right';
+      if(c.column.index===1&&c.section!=='head')c.cell.styles.textColor=PDF_GRIS;
+      if(c.section==='body'&&c.column.index===4&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
+      if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
+      if(c.section==='foot'&&c.column.index===4&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
+  y=doc.lastAutoTable.finalY+7;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
+  doc.text(doc.splitTextToSize('Montos en soles (S/). '+notaServicios(tc.est),doc.internal.pageSize.getWidth()-28),14,y);
+}
 // Cuadre por mes: luz + agua + mora repartidas vs. recibos del edificio (la administración va aparte).
 function cuadreEstadoCuenta(E){
   return E.meses.map(m=>{const rl=recibos.find(x=>x.id===m),ra=aguaRecibos.find(x=>x.id===m),xs=E.por.map(p=>p.filas.find(y=>y.mes===m)).filter(Boolean);
@@ -1962,8 +2012,8 @@ async function guardarPdf(crear,archivo){
 }
 function descargarPdfDepto(p,mesSig){
   const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes;
-  return unaVez('pdf-'+p.d.id,()=>guardarPdf(doc=>{pdfDepto(doc,p,mesSig);pdfPies(doc,'Estado de cuenta · '+tituloDepto(p.d)+' · '+(config.nombreEdificio||'Recibos Jardín'))},
-    nombreArchivo('Estado de cuenta '+tituloDepto(p.d)+(p.d.encargado?' '+p.d.encargado:'')+' - '+periodoTexto(M0,M1))));
+  return unaVez('pdf-'+p.d.id+(p.servicios?'-s':''),()=>guardarPdf(doc=>{if(p.servicios)pdfDeptoServicios(doc,p);else pdfDepto(doc,p,mesSig);pdfPies(doc,'Estado de cuenta · '+tituloDepto(p.d)+' · '+(config.nombreEdificio||'Recibos Jardín'))},
+    nombreArchivo('Estado de cuenta '+(p.servicios?'luz y agua ':'')+tituloDepto(p.d)+(p.d.encargado?' '+p.d.encargado:'')+' - '+periodoTexto(M0,M1))));
 }
 // PDF general: resumen del edificio en la primera hoja y una hoja por depto.
 function descargarPdfGeneral(){
@@ -2017,6 +2067,8 @@ function renderEstadoCuenta(el){
   const E=estadoCuenta();
   if(!E.por.length){el.innerHTML=segCobros('estado')+'<div class="panel empty muted">Todavía no hay cobros desde '+mesLargo(MES_INICIO_CALCULO)+'.</div>';conectarSegCobros(el);return}
   const sel=E.por.find(p=>p.d.id===renderCobros.ecDepto)||E.por.find(p=>p.debe>0)||E.por[0];
+  if(renderCobros.ecServ==null){try{renderCobros.ecServ=sessionStorage.getItem('recibos_ec_serv')==='1'}catch(e){renderCobros.ecServ=false}}
+  const serv=renderCobros.ecServ,ver=serv?soloServicios(sel):sel;
   const conDeuda=E.por.filter(p=>p.debe>0),conFavor=E.por.filter(p=>p.favor>0),M=E.meses;
   const pendMes=m=>r2(sum(E.por,p=>{const x=p.filas.find(y=>y.mes===m);return x&&x.estado.cls!=='ok'?x.falta:0}));
   const cuadre=cuadreEstadoCuenta(E);
@@ -2029,8 +2081,9 @@ function renderEstadoCuenta(el){
     </div></div>
   <div class="panel"><h2 style="margin:0">Por departamento</h2>
     <div class="ec-chips" role="group" aria-label="Departamento">${E.por.map(p=>`<button type="button" data-ec-depto="${p.d.id}" aria-pressed="${p===sel}">${tituloDepto(p.d)}${p.d.encargado?' <span class="muted">· '+esc(p.d.encargado)+'</span>':''}</button>`).join('')}</div>
-    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">«A pagar» ya descuenta el saldo a favor del mes anterior. Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(sel,E.mesSig)}</div>
-    ${tablaEstadoCuenta(sel)}
+    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">${serv?'Solo luz y agua: sin administración, con la mora incluida en el monto del mes.':'«A pagar» ya descuenta el saldo a favor del mes anterior.'} Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(ver,E.mesSig)}</div>
+    <div class="seg ec-serv" role="group" aria-label="Qué incluir" style="margin:0 0 12px"><button type="button" data-ecs="0" aria-pressed="${!serv}" class="${serv?'':'on'}">Completo</button><button type="button" data-ecs="1" aria-pressed="${serv}" class="${serv?'on':''}">Solo servicios</button></div>
+    ${serv?tablaSoloServicios(ver):tablaEstadoCuenta(sel)}
     <div class="ec-acciones">${sel.debe>0?`<button class="btn primary" data-pago-depto="${sel.d.id}">${ico('pago')} Registrar pago</button>`:''}<button class="btn" id="ec-wa">${ico('enviar')} Enviar por WhatsApp</button><button class="btn" id="ec-print">${ico('descargar')} Descargar PDF</button></div>
   </div>
   <div class="panel"><h2 style="margin:0">Pendiente por mes</h2><p class="small muted" style="margin:4px 0 10px">Lo que falta cobrar a cada depto en cada mes; a la derecha, lo que debe hoy.</p>
@@ -2047,8 +2100,9 @@ function renderEstadoCuenta(el){
   el.querySelectorAll('[data-ec-depto]').forEach(b=>b.onclick=()=>{renderCobros.ecDepto=b.dataset.ecDepto;renderEstadoCuenta(el);if(b.tagName==='TR'){const t=el.querySelector('.ec-chips');if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}});
   el.querySelectorAll('[data-ec-mes]').forEach(t=>t.onclick=()=>abrirCobroMes(sel.d.id,t.dataset.ecMes));
   el.querySelectorAll('[data-pago-depto]').forEach(b=>b.onclick=()=>abrirPagoDepto(b.dataset.pagoDepto));
-  $('#ec-wa').onclick=()=>abrirEnlace(waUrl(sel.d.telefono,mensajeEstadoCuenta(sel,E.mesSig)));
-  $('#ec-print').onclick=()=>descargarPdfDepto(sel,E.mesSig);
+  $('#ec-wa').onclick=()=>abrirEnlace(waUrl(sel.d.telefono,serv?mensajeSoloServicios(ver):mensajeEstadoCuenta(sel,E.mesSig)));
+  $('#ec-print').onclick=()=>descargarPdfDepto(ver,E.mesSig);
+  el.querySelectorAll('[data-ecs]').forEach(b=>b.onclick=()=>{renderCobros.ecServ=b.dataset.ecs==='1';try{sessionStorage.setItem('recibos_ec_serv',b.dataset.ecs)}catch(e){}renderEstadoCuenta(el)});
   $('#ec-pdf-general').onclick=()=>descargarPdfGeneral();
 }
 function renderCobros(){
