@@ -1931,10 +1931,9 @@ function mensajeSoloServicios(p){
 }
 function pdfDeptoServicios(doc,p){
   const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes,tc=totalConsumo(p),est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok';
-  let y=pdfTitulo(doc,'Estado de cuenta (luz y agua) — '+tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1)+' · emitido el '+fechaCorta(hoyLocal()));
-  doc.setFont('helvetica','bold');doc.setFontSize(12);
-  if(p.debe>0){doc.setTextColor(...PDF_ROJO);doc.text('Debe en total: '+fmtS(p.debe),14,y+2)}else{doc.setTextColor(...PDF_VERDE);doc.text('Al día',14,y+2)}
-  doc.autoTable({...pdfEstilo,startY:y+7,
+  let y=pdfTitulo(doc,tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1),'Estado de cuenta · luz y agua');
+  y=pdfCajas(doc,y,[{l:'Total del periodo',v:fmtS(r2(sum(p.filas,x=>x.serv)))},{l:'Pagado',v:fmtS(p.pagado)},p.debe>0?{l:'Debe en total',v:fmtS(p.debe),tono:'rojo'}:{l:'Saldo',v:'Al día',tono:'verde'}]);
+  doc.autoTable({...pdfEstilo,startY:y,
     head:[['Mes','Consumo','A pagar','Pagó','Falta','Estado']],
     body:p.filas.map(x=>[mesLargo(x.mes),consumoTexto(p.d.id,x.mes),n2(x.serv),x.cubre?n2(x.cubre):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]),
     foot:[['Total',[tc.kwh!=null?fmtKwh(tc.kwh)+' kWh':'',tc.m3!=null?fmtN(tc.m3,2)+' m³'+(tc.est?' est.':''):''].filter(Boolean).join(' · ')||'—',n2(r2(sum(p.filas,x=>x.serv))),n2(p.pagado),n2(p.debe),'']],
@@ -1944,8 +1943,7 @@ function pdfDeptoServicios(doc,p){
       if(c.section==='body'&&c.column.index===4&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
       if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
       if(c.section==='foot'&&c.column.index===4&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
-  y=doc.lastAutoTable.finalY+7;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-  doc.text(doc.splitTextToSize('Montos en soles (S/). '+notaServicios(tc.est),doc.internal.pageSize.getWidth()-28),14,y);
+  pdfNota(doc,'Montos en soles (S/). '+notaServicios(tc.est),doc.lastAutoTable.finalY+6);
 }
 // Cuadre por mes: luz + agua + mora repartidas vs. recibos del edificio (la administración va aparte).
 function cuadreEstadoCuenta(E){
@@ -1965,49 +1963,74 @@ function cargarJsPDF(){
     .then(()=>window.jspdf.jsPDF).catch(e=>{cargarJsPDF.p=null;throw e}));
 }
 const PDF_AZUL=[36,86,199],PDF_ROJO=[184,58,38],PDF_VERDE=[46,125,79],PDF_GRIS=[90,102,118];
+// Colores de la app: tinta del encabezado, líneas, fondos suaves; luz = ámbar, agua = azul.
+const PDF_TINTA=[29,39,51],PDF_LINEA=[213,219,226],PDF_SUAVE=[244,246,249],PDF_AMBAR=[217,154,6],PDF_AMBAR_T=[150,104,0],PDF_AGUA=[43,95,180],PDF_ROJO_S=[250,228,223],PDF_VERDE_S=[221,241,229],PDF_CLARO=[184,193,204];
+let pdfLogo=null; // ícono de la app como dataURL; '' si no se pudo cargar (p. ej. servido desde Apps Script)
+async function cargarLogoPdf(){if(pdfLogo!==null)return pdfLogo;try{const r=await fetch('icons/icon-96.png');if(!r.ok)throw 0;const b=await r.blob();pdfLogo=await new Promise((ok,er)=>{const f=new FileReader();f.onload=()=>ok(f.result);f.onerror=er;f.readAsDataURL(b)})}catch(e){pdfLogo=''}return pdfLogo}
 // Monto sin "S/" (para columnas que ya dicen soles).
 const n2=v=>v==null?'—':fmtS(v).replace('S/ ','');
 const periodoTexto=(m0,m1)=>{const a=mesLargo(m0).split(' '),b=mesLargo(m1).split(' ');return a[1]===b[1]?a[0].toLowerCase()+' a '+b[0].toLowerCase()+' '+b[1]:mesLargo(m0).toLowerCase()+' a '+mesLargo(m1).toLowerCase()};
 const nombreArchivo=t=>t.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,' ').trim()+'.pdf';
-function pdfTitulo(doc,titulo,sub){
+// Encabezado: franja oscura con el ícono, el edificio, el título y el periodo; debajo, una línea ámbar (luz) y azul (agua).
+function pdfTitulo(doc,titulo,sub,kicker){
   const W=doc.internal.pageSize.getWidth();
-  doc.setFillColor(...PDF_AZUL);doc.rect(0,0,W,4,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(20,28,40);doc.text(titulo,14,17);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...PDF_GRIS);doc.text(sub,14,23);
-  return 30;
+  doc.setFillColor(...PDF_TINTA);doc.rect(0,0,W,31,'F');
+  doc.setFillColor(...PDF_AMBAR);doc.rect(0,31,W/2,1.3,'F');doc.setFillColor(...PDF_AGUA);doc.rect(W/2,31,W/2,1.3,'F');
+  let x=14;if(pdfLogo){try{doc.addImage(pdfLogo,'PNG',14,7.5,16,16);x=35}catch(e){}}
+  doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...PDF_CLARO);doc.text((kicker||'Estado de cuenta').toUpperCase(),x,11.5,{charSpace:.4});
+  doc.setFontSize(15);doc.setTextColor(255,255,255);doc.text(titulo,x,19);
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...PDF_CLARO);doc.text(sub,x,24.8);
+  doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text('Emitido el '+fechaCorta(hoyLocal()),W-14,11.5,{align:'right'});
+  return 41;
 }
-const pdfEstilo={theme:'plain',styles:{fontSize:8,cellPadding:{top:1.8,bottom:1.8,left:1.6,right:1.6},textColor:[20,28,40],lineColor:[220,226,233],lineWidth:{bottom:.2}},
-  headStyles:{fillColor:PDF_AZUL,textColor:255,fontStyle:'bold',halign:'right'},footStyles:{fillColor:[238,242,248],textColor:[20,28,40],fontStyle:'bold',halign:'right'},
+// Recuadros de resumen (total, pagado, saldo). tono: 'rojo' | 'verde' | neutro.
+function pdfCajas(doc,y,cajas){
+  const W=doc.internal.pageSize.getWidth(),g=4,w=(W-28-g*(cajas.length-1))/cajas.length,h=17,T={rojo:[PDF_ROJO_S,PDF_ROJO],verde:[PDF_VERDE_S,PDF_VERDE]};
+  cajas.forEach((c,i)=>{const [bg,fg]=T[c.tono]||[PDF_SUAVE,PDF_TINTA],x=14+i*(w+g);
+    doc.setFillColor(...bg);doc.roundedRect(x,y,w,h,2,2,'F');
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...(T[c.tono]?fg:PDF_GRIS));doc.text(c.l,x+4,y+6);
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...fg);doc.text(c.v,x+4,y+13.2)});
+  return y+h+8;
+}
+function pdfSeccion(doc,t,y){doc.setFillColor(...PDF_TINTA);doc.rect(14,y-3.4,1.2,4.4,'F');doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(...PDF_TINTA);doc.text(t,17.5,y);return y+3}
+// Nota en un recuadro gris; pasa a otra hoja si no entra.
+function pdfNota(doc,texto,y){
+  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();doc.setFont('helvetica','normal');doc.setFontSize(7.8);
+  const L=doc.splitTextToSize(texto,W-36),h=L.length*3.4+5.5;if(y+h>H-16){doc.addPage();y=18}
+  doc.setFillColor(...PDF_SUAVE);doc.roundedRect(14,y,W-28,h,1.8,1.8,'F');doc.setTextColor(...PDF_GRIS);doc.text(L,18,y+4.6);return y+h;
+}
+// Títulos de columna: luz en ámbar, agua en azul.
+const pdfColorServicio=(c,luz,agua)=>{if(c.section!=='head')return;if(luz.includes(c.column.index))c.cell.styles.textColor=PDF_AMBAR_T;if(agua.includes(c.column.index))c.cell.styles.textColor=PDF_AGUA};
+const pdfEstilo={theme:'plain',styles:{fontSize:8,cellPadding:{top:2.1,bottom:2.1,left:1.8,right:1.8},textColor:PDF_TINTA,lineColor:PDF_LINEA,lineWidth:{bottom:.15}},
+  headStyles:{fillColor:[236,240,244],textColor:PDF_GRIS,fontStyle:'bold',halign:'right',fontSize:7.4,lineWidth:{bottom:.35},lineColor:[178,188,200]},
+  alternateRowStyles:{fillColor:[250,251,253]},
+  footStyles:{fillColor:[236,240,244],textColor:PDF_TINTA,fontStyle:'bold',halign:'right',lineWidth:{top:.35},lineColor:[178,188,200]},
   margin:{left:14,right:14}};
 // Una página por depto: saldo, tabla mes a mes y nota.
 function pdfDepto(doc,p,mesSig,y){
   const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes;
-  y=pdfTitulo(doc,'Estado de cuenta — '+tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1)+' · emitido el '+fechaCorta(hoyLocal()));
-  doc.setFont('helvetica','bold');doc.setFontSize(12);
-  if(p.debe>0){doc.setTextColor(...PDF_ROJO);doc.text('Debe en total: '+fmtS(p.debe),14,y+2)}
-  else{doc.setTextColor(...PDF_VERDE);doc.text('Al día'+(p.favor>0?' · a favor para '+mesLargo(mesSig).toLowerCase()+': '+fmtS(p.favor):''),14,y+2)}
+  y=pdfTitulo(doc,tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1),'Estado de cuenta');
+  y=pdfCajas(doc,y,[{l:'Total del periodo',v:fmtS(r2(sum(p.filas,x=>x.total)))},{l:'Pagado',v:fmtS(p.pagado)},p.debe>0?{l:'Debe en total',v:fmtS(p.debe),tono:'rojo'}:p.favor>0?{l:'Al día · a favor para '+mesLargo(mesSig).toLowerCase(),v:fmtS(p.favor),tono:'verde'}:{l:'Saldo',v:'Al día',tono:'verde'}]);
   const est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok',tc=totalConsumo(p);
-  doc.autoTable({...pdfEstilo,startY:y+7,styles:{...pdfEstilo.styles,fontSize:7.5,overflow:'linebreak'},
+  doc.autoTable({...pdfEstilo,startY:y,styles:{...pdfEstilo.styles,fontSize:7.5,overflow:'linebreak'},
     head:[['Mes','kWh','Luz','m³','Agua','Adm.','Mora','Total','A favor','A pagar','Pagó','Falta','Estado']],
     body:p.filas.map(x=>{const k=consumoMes(p.d.id,x.mes);return[mesLargo(x.mes),fmtKwh(k.kwh),x.partes.luz==null?'—':n2(x.partes.luz),fmtM3(k.m3,k.est),x.partes.agua==null?'—':n2(x.partes.agua),n2(r2(x.partes.admLuz+x.partes.admAgua+x.partes.mant)),x.partes.atraso?n2(x.partes.atraso):'—',n2(x.total),x.aFavor?'- '+n2(x.aFavor):'—',n2(x.neto),x.pagado?n2(x.pagado):'—',!ok(x)&&x.falta?n2(x.falta):'—',x.estado.txt+(x.faltan.length?' (falta '+x.faltan.join(' y ')+')':'')]}),
     foot:[['Total',fmtKwh(tc.kwh),p.filas.some(x=>x.partes.luz!=null)?n2(r2(sum(p.filas,x=>x.partes.luz))):'—',fmtM3(tc.m3,tc.est),n2(r2(sum(p.filas,x=>x.partes.agua))),n2(r2(sum(p.filas,x=>x.partes.admLuz+x.partes.admAgua+x.partes.mant))),n2(r2(sum(p.filas,x=>x.partes.atraso))),n2(r2(sum(p.filas,x=>x.total))),'','',n2(p.pagado),n2(p.debe),'']],
     columnStyles:{0:{cellWidth:22},9:{fontStyle:'bold'},11:{fontStyle:'bold'}},
-    didParseCell:c=>{c.cell.styles.halign=c.column.index===0||c.column.index===12?'left':'right';
+    didParseCell:c=>{c.cell.styles.halign=c.column.index===0||c.column.index===12?'left':'right';pdfColorServicio(c,[1,2],[3,4]);
       if((c.column.index===1||c.column.index===3)&&c.section!=='head')c.cell.styles.textColor=PDF_GRIS;
       if(c.section==='body'&&c.column.index===11&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
       if(c.section==='body'&&c.column.index===12)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
       if(c.section==='foot'&&c.column.index===11&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
-  y=doc.lastAutoTable.finalY+7;
-  doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-  doc.text(doc.splitTextToSize('Montos en soles (S/). '+(tc.kwh!=null||tc.m3!=null?notaConsumo(tc.est)+' ':'')+'«A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no pagaron a tiempo el mes anterior.',doc.internal.pageSize.getWidth()-28),14,y);
+  pdfNota(doc,'Montos en soles (S/). '+(tc.kwh!=null||tc.m3!=null?notaConsumo(tc.est)+' ':'')+'«A pagar» es el total del mes menos el saldo a favor que venía del mes anterior. «Adm.» es la administración de luz y agua. «Mora» son los intereses de Luz del Sur y la mora de Sedapal por atraso, repartidos entre quienes no pagaron a tiempo el mes anterior.',doc.lastAutoTable.finalY+6);
 }
 function pdfPies(doc,texto){
   const n=doc.getNumberOfPages(),W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight();
-  for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...PDF_GRIS);doc.text(texto,14,H-8);doc.text('Página '+i+' de '+n,W-14,H-8,{align:'right'})}
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setDrawColor(...PDF_LINEA);doc.setLineWidth(.2);doc.line(14,H-12.5,W-14,H-12.5);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...PDF_GRIS);doc.text(texto,14,H-8);doc.text('Página '+i+' de '+n,W-14,H-8,{align:'right'})}
 }
 async function guardarPdf(crear,archivo){
   toast('Preparando el PDF…',{sinDeshacer:true});
-  try{const jsPDF=await cargarJsPDF();const doc=new jsPDF({unit:'mm',format:'a4'});crear(doc);doc.save(archivo);toast('PDF descargado: '+archivo,{sinDeshacer:true})}
+  try{const jsPDF=await cargarJsPDF();await cargarLogoPdf();const doc=new jsPDF({unit:'mm',format:'a4'});crear(doc);doc.save(archivo);toast('PDF descargado: '+archivo,{sinDeshacer:true})}
   catch(e){toast('No se pudo crear el PDF: '+mensajeError(e),{sinDeshacer:true})}
 }
 function descargarPdfDepto(p,mesSig){
@@ -2020,18 +2043,15 @@ function descargarPdfGeneral(){
   const E=estadoCuenta();if(!E.por.length)return;
   const M=E.meses,per=periodoTexto(M[0],M[M.length-1]),Q=cuadreEstadoCuenta(E);
   return unaVez('pdf-general',()=>guardarPdf(doc=>{
-    let y=pdfTitulo(doc,'Estado de cuenta del edificio',(config.nombreEdificio||'Recibos Jardín')+' · '+per+' · emitido el '+fechaCorta(hoyLocal()));
-    doc.setFont('helvetica','bold');doc.setFontSize(11);
-    doc.setTextColor(...PDF_ROJO);doc.text('Falta cobrar: '+fmtS(E.debe),14,y+2);
-    doc.setTextColor(20,28,40);doc.text('Pagado: '+fmtS(E.pagado),80,y+2);
-    doc.setTextColor(...PDF_VERDE);doc.text('A favor para '+mesLargo(E.mesSig).toLowerCase()+': '+fmtS(E.favor),136,y+2);
-    const sec=(t,yy,alto=58)=>{if(yy+alto>doc.internal.pageSize.getHeight()-16){doc.addPage();yy=18}doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.setTextColor(20,28,40);doc.text(t,14,yy);return yy+2};
-    y=sec('Resumen por departamento',y+12);
+    let y=pdfTitulo(doc,'Resumen del edificio',(config.nombreEdificio||'Recibos Jardín')+' · '+per,'Estado de cuenta');
+    y=pdfCajas(doc,y,[{l:'Falta cobrar',v:fmtS(E.debe),tono:E.debe>0?'rojo':'verde'},{l:'Pagado',v:fmtS(E.pagado)},{l:'A favor para '+mesLargo(E.mesSig).toLowerCase(),v:fmtS(E.favor),tono:E.favor>0?'verde':''}]);
+    const sec=(t,yy,alto=58)=>{if(yy+alto>doc.internal.pageSize.getHeight()-16){doc.addPage();yy=18}return pdfSeccion(doc,t,yy)};
+    y=sec('Resumen por departamento',y);
     doc.autoTable({...pdfEstilo,startY:y,
       head:[['Depto','Encargado','kWh','m³','Total del periodo','Pagó','Falta','A favor','Estado']],
       body:E.por.map(p=>{const tc=totalConsumo(p);return[tituloDepto(p.d),p.d.encargado||'',fmtKwh(tc.kwh),fmtM3(tc.m3,tc.est),fmtS(r2(sum(p.filas,x=>x.total))),fmtS(p.pagado),p.debe?fmtS(p.debe):'—',p.favor?fmtS(p.favor):'—',p.debe>0?(p.late?'Con meses vencidos':'Pendiente'):'Al día']}),
       foot:[['Total','',fmtKwh(sum(E.por,p=>totalConsumo(p).kwh||0)),fmtN(sum(E.por,p=>totalConsumo(p).m3||0),2),fmtS(r2(sum(E.por,p=>sum(p.filas,x=>x.total)))),fmtS(E.pagado),fmtS(E.debe),fmtS(E.favor),'']],
-      didParseCell:c=>{if(c.column.index<2||c.column.index===8)c.cell.styles.halign='left';else c.cell.styles.halign='right';
+      didParseCell:c=>{pdfColorServicio(c,[2],[3]);if(c.column.index<2||c.column.index===8)c.cell.styles.halign='left';else c.cell.styles.halign='right';
         if((c.column.index===2||c.column.index===3)&&c.section==='body')c.cell.styles.textColor=PDF_GRIS;
         if(c.section==='body'&&c.column.index===6&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
         if(c.section==='body'&&c.column.index===8)c.cell.styles.textColor=c.cell.raw==='Al día'?PDF_VERDE:c.cell.raw==='Pendiente'?[138,95,0]:PDF_ROJO}});
@@ -2047,16 +2067,14 @@ function descargarPdfGeneral(){
     doc.autoTable({...pdfEstilo,startY:y,
       head:[['Mes','kWh recibo','kWh deptos','m³ medidor general','m³ medidos deptos','m³ sin medir',...(hayEst?['de eso, sin medidor (est.)']:[])]],
       body:CE.map(q=>[mesLargo(q.m),fmtKwh(q.kwhRec),fmtKwh(q.kwhSub),q.m3Gen==null?'—':fmtN(q.m3Gen,2),q.m3Med==null?'—':fmtN(q.m3Med,2),q.m3Sin==null?'—':fmtN(q.m3Sin,2),...(hayEst?[q.m3Est==null?'—':fmtN(q.m3Est,2)]:[])]),
-      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right'}});
-    y=doc.lastAutoTable.finalY+5;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-    doc.text(doc.splitTextToSize('La luz se reparte según los kWh de cada medidor interno sobre la suma de todos. El agua sin medir (medidor general menos los medidores de los deptos) incluye áreas comunes y diferencias de lectura'+(hayEst?' y el consumo estimado de los deptos sin medidor':'')+'.',doc.internal.pageSize.getWidth()-28),14,y);
+      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';pdfColorServicio(c,[1,2],[3,4,5,6])}});
+    y=pdfNota(doc,'La luz se reparte según los kWh de cada medidor interno sobre la suma de todos. El agua sin medir (medidor general menos los medidores de los deptos) incluye áreas comunes y diferencias de lectura'+(hayEst?' y el consumo estimado de los deptos sin medidor':'')+'.',doc.lastAutoTable.finalY+4);
     y=sec('Cuadre con los recibos',y+10);
     doc.autoTable({...pdfEstilo,startY:y,
       head:[['Mes','Recibo luz','Recibo agua','Total recibos','Repartido','Diferencia','Administración']],
       body:Q.map(q=>[mesLargo(q.m),q.rl?fmtS(q.rl.totalMes):'—',q.ra?fmtS(q.ra.total):'—',fmtS(q.recibo),fmtS(q.rep),q.incompleto?'incompleto':Math.abs(q.dif)<0.005?'OK '+fmtS(0):fmtS(q.dif),fmtS(q.adm)]),
-      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=String(c.cell.raw).startsWith('OK')?PDF_VERDE:PDF_ROJO}});
-    y=doc.lastAutoTable.finalY+6;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...PDF_GRIS);
-    doc.text(doc.splitTextToSize('Luz, agua y mora repartidas entre los deptos suman lo mismo que los recibos del edificio; la administración va aparte. En las hojas siguientes, el detalle de cada departamento.',doc.internal.pageSize.getWidth()-28),14,y);
+      didParseCell:c=>{c.cell.styles.halign=c.column.index===0?'left':'right';pdfColorServicio(c,[1],[2]);if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=String(c.cell.raw).startsWith('OK')?PDF_VERDE:PDF_ROJO}});
+    pdfNota(doc,'Luz, agua y mora repartidas entre los deptos suman lo mismo que los recibos del edificio; la administración va aparte. En las hojas siguientes, el detalle de cada departamento.',doc.lastAutoTable.finalY+4);
     E.por.forEach(p=>{doc.addPage();pdfDepto(doc,p,E.mesSig)});
     pdfPies(doc,'Estado de cuenta del edificio · '+(config.nombreEdificio||'Recibos Jardín'));
   },nombreArchivo('Estado de cuenta general - '+per)));
