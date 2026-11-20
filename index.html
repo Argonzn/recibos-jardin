@@ -1907,7 +1907,7 @@ function soloServicios(p){
   return{...p,filas,servicios:true,debe:r2(sum(pend,x=>x.falta)),pagado:r2(sum(filas,x=>x.cubre)),late:pend.some(x=>x.estado.cls==='late'),favor:0};
 }
 const consumoTexto=(dep,mes)=>{const k=consumoMes(dep,mes);return[k.kwh!=null?fmtKwh(k.kwh)+' kWh':'',k.m3!=null?fmtN(k.m3,2)+' m³'+(k.est?' est.':''):''].filter(Boolean).join(' · ')||'—'};
-const notaServicios=est=>'«A pagar» es la luz y el agua del mes, con la mora incluida cuando la hubo. No incluye administración ni mantenimiento. «Pagó» es la parte de los pagos que cubrió estos servicios.'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
+const notaServicios=est=>'«A pagar» es la luz y el agua del mes. No incluye administración ni mantenimiento. «Pagó» es la parte de los pagos que cubrió estos servicios.'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
 function tablaSoloServicios(p,{clic=true}={}){
   const S=v=>fmtS(v).replace('S/ ',''),tc=totalConsumo(p),ok=x=>x.estado.cls==='ok',m='<span class="muted">—</span>';
   const fila=x=>`<tr${clic?` class="clic" data-ec-mes="${x.mes}" title="Ver o registrar el pago de ${mesLargo(x.mes)}"`:''}><td>${mesLargo(x.mes)}</td><td class="ec-cons">${consumoTexto(p.d.id,x.mes)}</td><td><strong>${S(x.serv)}</strong></td><td>${x.cubre?S(x.cubre):m}</td><td class="${!ok(x)&&x.falta?'ec-falta':''}">${!ok(x)&&x.falta?S(x.falta):m}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${x.faltan.length?'<div class="small muted">falta '+x.faltan.join(' y ')+'</div>':''}</td></tr>`;
@@ -1926,7 +1926,7 @@ function mensajeSoloServicios(p){
   p.filas.forEach(x=>{const ok=x.estado.cls==='ok';L.push(mesLargo(x.mes)+': a pagar '+fmtS(x.serv)+(x.cubre?' · pagó '+fmtS(x.cubre):'')+(!ok&&x.falta?' · *falta '+fmtS(x.falta)+'*':' ✅'))});
   L.push('');
   L.push(p.debe>0?'*Total pendiente: '+fmtS(p.debe)+'*':'Estás al día. ¡Gracias!');
-  L.push('','_No incluye administración. La mora, si hubo, va incluida en el monto del mes._');
+  L.push('','_No incluye administración._');
   return L.join('\n');
 }
 function pdfDeptoServicios(doc,p){
@@ -2081,7 +2081,7 @@ function renderEstadoCuenta(el){
     </div></div>
   <div class="panel"><h2 style="margin:0">Por departamento</h2>
     <div class="ec-chips" role="group" aria-label="Departamento">${E.por.map(p=>`<button type="button" data-ec-depto="${p.d.id}" aria-pressed="${p===sel}">${tituloDepto(p.d)}${p.d.encargado?' <span class="muted">· '+esc(p.d.encargado)+'</span>':''}</button>`).join('')}</div>
-    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">${serv?'Solo luz y agua: sin administración, con la mora incluida en el monto del mes.':'«A pagar» ya descuenta el saldo a favor del mes anterior.'} Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(ver,E.mesSig)}</div>
+    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">${serv?'Solo luz y agua, sin administración.':'«A pagar» ya descuenta el saldo a favor del mes anterior.'} Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(ver,E.mesSig)}</div>
     <div class="seg ec-serv" role="group" aria-label="Qué incluir" style="margin:0 0 12px"><button type="button" data-ecs="0" aria-pressed="${!serv}" class="${serv?'':'on'}">Completo</button><button type="button" data-ecs="1" aria-pressed="${serv}" class="${serv?'on':''}">Solo servicios</button></div>
     ${serv?tablaSoloServicios(ver):tablaEstadoCuenta(sel)}
     <div class="ec-acciones">${sel.debe>0?`<button class="btn primary" data-pago-depto="${sel.d.id}">${ico('pago')} Registrar pago</button>`:''}<button class="btn" id="ec-wa">${ico('enviar')} Enviar por WhatsApp</button><button class="btn" id="ec-print">${ico('descargar')} Descargar PDF</button></div>
