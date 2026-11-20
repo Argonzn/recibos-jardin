@@ -1903,11 +1903,12 @@ function soloServicios(p){
   const filas=p.filas.map(x=>{const serv=r2((x.partes.luz||0)+(x.partes.agua||0)+(x.partes.atraso||0));
     const cubre=r2(Math.min(serv,(x.pagado||0)+(x.aFavor||0))),falta=r2(Math.max(0,serv-cubre)),listo=falta<0.005&&!x.faltan.length;
     return{...x,serv,cubre,falta,estado:listo?{cls:'ok',txt:x.estado.cls==='ok'?x.estado.txt:'Servicios pagados'}:x.estado}});
-  const pend=filas.filter(x=>x.estado.cls!=='ok');
-  return{...p,filas,servicios:true,debe:r2(sum(pend,x=>x.falta)),pagado:r2(sum(filas,x=>x.cubre)),late:pend.some(x=>x.estado.cls==='late'),favor:0};
+  const pend=filas.filter(x=>x.estado.cls!=='ok'),hayLuz=filas.some(x=>x.partes.luz!=null),hayAgua=filas.some(x=>x.partes.agua!=null);
+  const que=hayLuz&&!hayAgua?'luz':hayAgua&&!hayLuz?'agua':'luz y agua';
+  return{...p,filas,servicios:true,que,debe:r2(sum(pend,x=>x.falta)),pagado:r2(sum(filas,x=>x.cubre)),late:pend.some(x=>x.estado.cls==='late'),favor:0};
 }
 const consumoTexto=(dep,mes)=>{const k=consumoMes(dep,mes);return[k.kwh!=null?fmtKwh(k.kwh)+' kWh':'',k.m3!=null?fmtN(k.m3,2)+' m³'+(k.est?' est.':''):''].filter(Boolean).join(' · ')||'—'};
-const notaServicios=est=>'«A pagar» es la luz y el agua del mes. No incluye administración ni mantenimiento. «Pagó» es la parte de los pagos que cubrió estos servicios.'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
+const notaServicios=(est,que='luz y agua')=>'«A pagar» es '+({luz:'la luz',agua:'el agua'}[que]||'la luz y el agua')+' del mes. No incluye administración ni mantenimiento. «Pagó» es la parte de los pagos que cubrió '+(que==='luz y agua'?'estos servicios':'este servicio')+'.'+(est?' «est.»: consumo estimado, el depto no tiene medidor de agua.':'');
 function tablaSoloServicios(p,{clic=true}={}){
   const S=v=>fmtS(v).replace('S/ ',''),tc=totalConsumo(p),ok=x=>x.estado.cls==='ok',m='<span class="muted">—</span>';
   const fila=x=>`<tr${clic?` class="clic" data-ec-mes="${x.mes}" title="Ver o registrar el pago de ${mesLargo(x.mes)}"`:''}><td>${mesLargo(x.mes)}</td><td class="ec-cons">${consumoTexto(p.d.id,x.mes)}</td><td><strong>${S(x.serv)}</strong></td><td>${x.cubre?S(x.cubre):m}</td><td class="${!ok(x)&&x.falta?'ec-falta':''}">${!ok(x)&&x.falta?S(x.falta):m}</td><td><span class="chip sm ${x.estado.cls}">${x.estado.txt}</span>${x.faltan.length?'<div class="small muted">falta '+x.faltan.join(' y ')+'</div>':''}</td></tr>`;
@@ -1919,10 +1920,10 @@ function tablaSoloServicios(p,{clic=true}={}){
     <div class="scroll ec-tabla"><table class="ec"><thead><tr><th>Mes</th><th>Consumo</th><th>A pagar</th><th>Pagó</th><th>Falta</th><th>Estado</th></tr></thead>
     <tbody>${p.filas.map(fila).join('')}</tbody>
     <tfoot><tr><td>Total</td><td class="ec-cons">${tcT}</td><td>${S(r2(sum(p.filas,x=>x.serv)))}</td><td>${S(p.pagado)}</td><td class="${p.debe?'ec-falta':''}">${S(p.debe)}</td><td></td></tr></tfoot></table></div>
-    <p class="small muted ec-nota" style="margin:8px 0 0">Montos en soles (S/). ${notaServicios(tc.est)}</p>`;
+    <p class="small muted ec-nota" style="margin:8px 0 0">Montos en soles (S/). ${notaServicios(tc.est,p.que)}</p>`;
 }
 function mensajeSoloServicios(p){
-  const d=p.d,L=['*Estado de cuenta (luz y agua) — '+tituloDepto(d)+(d.encargado?' ('+d.encargado+')':'')+'*',''];
+  const d=p.d,L=['*Estado de cuenta ('+p.que+') — '+tituloDepto(d)+(d.encargado?' ('+d.encargado+')':'')+'*',''];
   p.filas.forEach(x=>{const ok=x.estado.cls==='ok';L.push(mesLargo(x.mes)+': a pagar '+fmtS(x.serv)+(x.cubre?' · pagó '+fmtS(x.cubre):'')+(!ok&&x.falta?' · *falta '+fmtS(x.falta)+'*':' ✅'))});
   L.push('');
   L.push(p.debe>0?'*Total pendiente: '+fmtS(p.debe)+'*':'Estás al día. ¡Gracias!');
@@ -1931,7 +1932,7 @@ function mensajeSoloServicios(p){
 }
 function pdfDeptoServicios(doc,p){
   const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes,tc=totalConsumo(p),est=p.filas.map(x=>x.estado.cls),ok=x=>x.estado.cls==='ok';
-  let y=pdfTitulo(doc,tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1),'Estado de cuenta · luz y agua');
+  let y=pdfTitulo(doc,tituloDepto(p.d)+(p.d.encargado?' · '+p.d.encargado:''),(config.nombreEdificio||'Recibos Jardín')+' · '+periodoTexto(M0,M1),'Estado de cuenta · '+p.que);
   y=pdfCajas(doc,y,[{l:'Total del periodo',v:fmtS(r2(sum(p.filas,x=>x.serv)))},{l:'Pagado',v:fmtS(p.pagado)},p.debe>0?{l:'Debe en total',v:fmtS(p.debe),tono:'rojo'}:{l:'Saldo',v:'Al día',tono:'verde'}]);
   doc.autoTable({...pdfEstilo,startY:y,
     head:[['Mes','Consumo','A pagar','Pagó','Falta','Estado']],
@@ -1943,7 +1944,7 @@ function pdfDeptoServicios(doc,p){
       if(c.section==='body'&&c.column.index===4&&c.cell.raw!=='—')c.cell.styles.textColor=PDF_ROJO;
       if(c.section==='body'&&c.column.index===5)c.cell.styles.textColor=est[c.row.index]==='ok'?PDF_VERDE:est[c.row.index]==='late'?PDF_ROJO:[138,95,0];
       if(c.section==='foot'&&c.column.index===4&&p.debe>0)c.cell.styles.textColor=PDF_ROJO}});
-  pdfNota(doc,'Montos en soles (S/). '+notaServicios(tc.est),doc.lastAutoTable.finalY+6);
+  pdfNota(doc,'Montos en soles (S/). '+notaServicios(tc.est,p.que),doc.lastAutoTable.finalY+6);
 }
 // Cuadre por mes: luz + agua + mora repartidas vs. recibos del edificio (la administración va aparte).
 function cuadreEstadoCuenta(E){
@@ -2036,7 +2037,7 @@ async function guardarPdf(crear,archivo){
 function descargarPdfDepto(p,mesSig){
   const M0=p.filas[0].mes,M1=p.filas[p.filas.length-1].mes;
   return unaVez('pdf-'+p.d.id+(p.servicios?'-s':''),()=>guardarPdf(doc=>{if(p.servicios)pdfDeptoServicios(doc,p);else pdfDepto(doc,p,mesSig);pdfPies(doc,'Estado de cuenta · '+tituloDepto(p.d)+' · '+(config.nombreEdificio||'Recibos Jardín'))},
-    nombreArchivo('Estado de cuenta '+(p.servicios?'luz y agua ':'')+tituloDepto(p.d)+(p.d.encargado?' '+p.d.encargado:'')+' - '+periodoTexto(M0,M1))));
+    nombreArchivo('Estado de cuenta '+(p.servicios?p.que+' ':'')+tituloDepto(p.d)+(p.d.encargado?' '+p.d.encargado:'')+' - '+periodoTexto(M0,M1))));
 }
 // PDF general: resumen del edificio en la primera hoja y una hoja por depto.
 function descargarPdfGeneral(){
@@ -2099,7 +2100,7 @@ function renderEstadoCuenta(el){
     </div></div>
   <div class="panel"><h2 style="margin:0">Por departamento</h2>
     <div class="ec-chips" role="group" aria-label="Departamento">${E.por.map(p=>`<button type="button" data-ec-depto="${p.d.id}" aria-pressed="${p===sel}">${tituloDepto(p.d)}${p.d.encargado?' <span class="muted">· '+esc(p.d.encargado)+'</span>':''}</button>`).join('')}</div>
-    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">${serv?'Solo luz y agua, sin administración.':'«A pagar» ya descuenta el saldo a favor del mes anterior.'} Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(ver,E.mesSig)}</div>
+    <div class="ec-top"><div><strong style="font-size:1.15rem">${tituloDepto(sel.d)}${sel.d.encargado?' · '+esc(sel.d.encargado):''}</strong><div class="small muted">${serv?'Solo '+ver.que+', sin administración.':'«A pagar» ya descuenta el saldo a favor del mes anterior.'} Toca un mes para ver su detalle.</div></div>${saldoEstadoCuenta(ver,E.mesSig)}</div>
     <div class="seg ec-serv" role="group" aria-label="Qué incluir" style="margin:0 0 12px"><button type="button" data-ecs="0" aria-pressed="${!serv}" class="${serv?'':'on'}">Completo</button><button type="button" data-ecs="1" aria-pressed="${serv}" class="${serv?'on':''}">Solo servicios</button></div>
     ${serv?tablaSoloServicios(ver):tablaEstadoCuenta(sel)}
     <div class="ec-acciones">${sel.debe>0?`<button class="btn primary" data-pago-depto="${sel.d.id}">${ico('pago')} Registrar pago</button>`:''}<button class="btn" id="ec-wa">${ico('enviar')} Enviar por WhatsApp</button><button class="btn" id="ec-print">${ico('descargar')} Descargar PDF</button></div>
